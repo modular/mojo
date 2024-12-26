@@ -142,13 +142,13 @@ struct UnsafePointer[
         )
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy an existing pointer.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.address = other.address
+        return UnsafePointer(self.address)
 
     # ===-------------------------------------------------------------------===#
     # Factory methods
@@ -973,12 +973,6 @@ struct UnsafePointer[
     @always_inline("nodebug")
     fn bitcast[
         T: AnyType = Self.type,
-        /,
-        address_space: AddressSpace = Self.address_space,
-        alignment: Int = Self.alignment,
-        *,
-        mut: Bool = Self.mut,
-        origin: Origin[mut] = Origin[mut].cast_from[Self.origin].result,
     ](self) -> UnsafePointer[
         T,
         address_space=address_space,
@@ -990,10 +984,6 @@ struct UnsafePointer[
 
         Parameters:
             T: The target type.
-            address_space: The address space of the result.
-            alignment: Alignment of the destination pointer.
-            mut: Whether the origin is mutable.
-            origin: Origin of the destination pointer.
 
         Returns:
             A new UnsafePointer object with the specified type and the same address,
@@ -1002,6 +992,93 @@ struct UnsafePointer[
         return __mlir_op.`pop.pointer.bitcast`[
             _type = UnsafePointer[
                 T, address_space=address_space, alignment=alignment
+            ]._mlir_type,
+        ](self.address)
+
+    @always_inline("nodebug")
+    fn static_alignment_cast[
+        alignment: Int = Self.alignment
+    ](self) -> UnsafePointer[
+        type,
+        address_space=address_space,
+        alignment=alignment,
+        mut=mut,
+        origin=origin,
+    ]:
+        """Changes the `alignment` of an `UnsafePointer`.
+
+        The static alignment of an UnsafePointer must be greater
+        or equal to the actual alignment of the runtime pointer
+        value. Casting an UnsafePointer to a static alignment greater
+        than its runtime alignment may cause undefined behavior".
+
+        This only changes the compile-time alignment encoded in the type of
+        this pointer. This does not change the alignment of the pointer address
+        at runtime.
+
+
+        Parameters:
+            alignment: Alignment of the destination pointer.
+
+        Returns:
+            A new UnsafePointer object with the same type, address_space, and address,
+            as the original UnsafePointer, and the new specified alignment.
+        """
+        return __mlir_op.`pop.pointer.bitcast`[
+            _type = UnsafePointer[
+                type, address_space=address_space, alignment=alignment
+            ]._mlir_type,
+        ](self.address)
+
+    @always_inline("nodebug")
+    fn origin_cast[
+        mut: Bool = Self.mut,
+        origin: Origin[mut] = Origin[mut].cast_from[Self.origin].result,
+    ](self) -> UnsafePointer[
+        type,
+        address_space=address_space,
+        alignment=alignment,
+        mut=mut,
+        origin=origin,
+    ]:
+        """Changes the origin or mutability of a pointer.
+
+        Parameters:
+            mut: Whether the origin is mutable.
+            origin: Origin of the destination pointer.
+
+        Returns:
+            A new UnsafePointer object with the same type and the same address,
+            as the original UnsafePointer and the new specified mutability and origin.
+        """
+        return __mlir_op.`pop.pointer.bitcast`[
+            _type = UnsafePointer[
+                type, address_space=address_space, alignment=alignment
+            ]._mlir_type,
+        ](self.address)
+
+    @always_inline("nodebug")
+    fn address_space_cast[
+        address_space: AddressSpace = Self.address_space,
+    ](self) -> UnsafePointer[
+        type,
+        address_space=address_space,
+        alignment=alignment,
+        mut=mut,
+        origin=origin,
+    ]:
+        """Casts an UnsafePointer to a different address space.
+
+        Parameters:
+            address_space: The address space of the result.
+
+        Returns:
+            A new UnsafePointer object with the same type and the same address,
+            as the original UnsafePointer and the new address space.
+        """
+        return __mlir_op.`pop.pointer.bitcast`[
+            _type = UnsafePointer[
+                type, address_space=address_space, alignment=alignment
             ]._mlir_type,
         ](self.address)
 
@@ -1121,7 +1198,7 @@ struct UnsafePointer[
             value: The value to emplace.
         """
         constrained[mut, _must_be_mut_err]()
-        __get_address_as_uninit_lvalue(self.address) = T(other=value)
+        __get_address_as_uninit_lvalue(self.address) = value.copy()
 
     @always_inline
     fn move_pointee_into[
@@ -1141,13 +1218,14 @@ struct UnsafePointer[
         This transfers the value out of `self` and into `dest` using at most one
         `__moveinit__()` call.
 
-        Safety:
-            * `self` must be non-null
-            * `self` must contain a valid, initialized instance of `T`
-            * `dst` must not be null
-            * The contents of `dst` should be uninitialized. If `dst` was
-                previously written with a valid value, that value will be be
-                overwritten and its destructor will NOT be run.
+        **Safety:**
+
+        * `self` must be non-null
+        * `self` must contain a valid, initialized instance of `T`
+        * `dst` must not be null
+        * The contents of `dst` should be uninitialized. If `dst` was
+            previously written with a valid value, that value will be be
+            overwritten and its destructor will NOT be run.
 
         Parameters:
             T: The type the pointer points to, which must be `Movable`.

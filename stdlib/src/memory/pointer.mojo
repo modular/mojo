@@ -298,9 +298,9 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
 @value
 @register_passable("trivial")
 struct Pointer[
-    is_mutable: Bool, //,
+    mut: Bool, //,
     type: AnyType,
-    origin: Origin[is_mutable],
+    origin: Origin[mut],
     address_space: AddressSpace = AddressSpace.GENERIC,
 ](CollectionElementNew, Stringable):
     """Defines a non-nullable safe pointer.
@@ -309,7 +309,7 @@ struct Pointer[
     pointers](/mojo/manual/pointers/) in the Mojo Manual.
 
     Parameters:
-        is_mutable: Whether the pointee data may be mutated through this.
+        mut: Whether the pointee data may be mutated through this.
         type: Type of the underlying data.
         origin: The origin of the pointer.
         address_space: The address space of the pointee data.
@@ -355,15 +355,15 @@ struct Pointer[
         """
         return Pointer(_mlir_value=__get_mvalue_as_litref(value))
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Constructs a copy from another Pointer.
 
         Note that this does **not** copy the underlying data.
 
-        Args:
-            other: The `Pointer` to copy.
+        Returns:
+            A copy of the value.
         """
-        self._value = other._value
+        return Self(_mlir_value=self._value)
 
     # ===------------------------------------------------------------------===#
     # Operator dunders

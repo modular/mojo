@@ -799,7 +799,8 @@ Special thanks to our community contributors:
 [@rd4com](https://github.com/rd4com),
 [@fknfilewalker](https://github.com/fknfilewalker),
 [@gabrieldemarmiesse](https://github.com/gabrieldemarmiesse),
-[@avitkauskas](https://github.com/avitkauskas)
+[@avitkauskas](https://github.com/avitkauskas), and
+[@martinvuyk](https://github.com/martinvuyk).
 
 ## v24.5 (2024-09-13)
 
@@ -2313,7 +2314,7 @@ Big themes for this release:
     ([PR 2587#](https://github.com/modularml/mojo/pull/2587))
       ([PR #2703](https://github.com/modularml/mojo/pull/2703))
 
-  - Added a new [`Span`](/mojo/stdlib/utils/span/Span) type for taking slices of
+  - Added a new [`Span`](/mojo/stdlib/memory/span/Span) type for taking slices of
     contiguous collections.
     ([PR #2595](https://github.com/modularml/mojo/pull/2595))
 
