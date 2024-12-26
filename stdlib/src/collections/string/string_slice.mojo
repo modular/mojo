@@ -172,6 +172,7 @@ struct _SplitlinesIter[
     forward: Bool = True,
 ]:
     """Iterator for `StringSlice` over unicode linebreaks.
+
     Parameters:
         is_mutable: Whether the slice is mutable.
         origin: The origin of the underlying string data.
