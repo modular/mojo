@@ -89,6 +89,9 @@ fn _shift_unicode_to_utf8[
 ](ptr: UnsafePointer[UInt8], c: Int, num_bytes: Int):
     """Shift unicode to utf8 representation.
 
+    Parameters:
+        optimize_ascii: Optimize for languages with mostly ASCII characters.
+
     ### Unicode (represented as UInt32 BE) to UTF-8 conversion:
     - 1: 00000000 00000000 00000000 0aaaaaaa -> 0aaaaaaa
         - a
