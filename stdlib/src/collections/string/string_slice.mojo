@@ -12,27 +12,26 @@
 # ===----------------------------------------------------------------------=== #
 """Implements the StringSlice type.
 
-You can import these APIs from the `utils.string_slice` module.
+You can import these APIs from the `collections.string.string_slice` module.
 
 Examples:
 
 ```mojo
-from utils import StringSlice
+from collections.string import StringSlice
 ```
 """
 
-from collections import List, Optional
-from collections.string import _atof, _atol, _isspace
-from sys import bitwidthof, simdwidthof
-from sys.intrinsics import unlikely, likely
-
 from bit import count_leading_zeros
+from collections import List, Optional
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string._utf8_validation import _is_valid_utf8
+from collections.string.string import _atof, _atol, _isspace
 from memory import UnsafePointer, memcmp, memcpy, Span
 from memory.memory import _memcmp_impl_unconstrained
-
-from utils.format import _CurlyEntryFormattable, _FormatCurlyEntry
-from os import abort
-from ._utf8_validation import _is_valid_utf8
+from sys import bitwidthof, simdwidthof
+from sys.intrinsics import unlikely, likely
+from utils.stringref import StringRef, _memmem
+from os import PathLike
 
 alias StaticString = StringSlice[StaticConstantOrigin]
 """An immutable static string slice."""
@@ -167,79 +166,6 @@ fn _memrmem[
 
 
 @value
-struct _SplitlinesIter[
-    is_mutable: Bool, //,
-    origin: Origin[is_mutable],
-    forward: Bool = True,
-]:
-    """Iterator for `StringSlice` over unicode linebreaks.
-
-    Parameters:
-        is_mutable: Whether the slice is mutable.
-        origin: The origin of the underlying string data.
-        forward: The iteration direction. `False` is backwards.
-    """
-
-    alias `\r` = UInt8(ord("\r"))
-    alias `\n` = UInt8(ord("\n"))
-
-    var index: Int
-    var ptr: UnsafePointer[Byte]
-    var length: Int
-    var keepends: Bool
-
-    fn __iter__(self) -> Self:
-        return self
-
-    fn __next__(mut self) -> StringSlice[origin]:
-        # highly performance sensitive code, benchmark before touching
-        @parameter
-        if forward:
-            var eol_start = self.index
-            var eol_length = 0
-
-            while eol_start < self.length:
-                var b0 = self.ptr[eol_start]
-                var char_len = _utf8_first_byte_sequence_length(b0)
-                debug_assert(
-                    eol_start + char_len <= self.length,
-                    "corrupted sequence causing unsafe memory access",
-                )
-                var isnewline = unlikely(
-                    _is_newline_char(self.ptr, eol_start, b0, char_len)
-                )
-                var char_end = int(isnewline) * (eol_start + char_len)
-                var next_idx = char_end * int(char_end < self.length)
-                var is_r_n = b0 == Self.`\r` and next_idx != 0 and self.ptr[
-                    next_idx
-                ] == Self.`\n`
-                eol_length = int(isnewline) * char_len + int(is_r_n)
-                if isnewline:
-                    break
-                eol_start += char_len
-
-            var str_len = eol_start - self.index + int(
-                self.keepends
-            ) * eol_length
-            var s = StringSlice[origin](
-                ptr=self.ptr + self.index, length=str_len
-            )
-            self.index = eol_start + eol_length
-            return s
-        else:
-            constrained[False, "reversed splitlines not yet implemented"]()
-            return abort[StringSlice[origin]]()
-
-    @always_inline
-    fn __has_next__(self) -> Bool:
-        @parameter
-        if forward:
-            return self.index < self.length
-        else:
-            return self.index > 0
-
-
-@value
 struct _StringSliceIter[
     mut: Bool, //,
     origin: Origin[mut],
@@ -289,24 +215,6 @@ struct _StringSliceIter[
         else:
             return self.index > 0
 
-    fn splitlines(
-        owned self: _StringSliceIter[forward=True], *, keepends: Bool = False
-    ) -> _SplitlinesIter[origin, forward=True]:
-        """Split the string at line boundaries. This corresponds to Python's
-        [universal newlines:](
-        https://docs.python.org/3/library/stdtypes.html#str.splitlines)
-        `"\\r\\n"` and `"\\t\\n\\v\\f\\r\\x1c\\x1d\\x1e\\x85\\u2028\\u2029"`.
-
-        Args:
-            keepends: If True, line breaks are kept in the resulting strings.
-
-        Returns:
-            An iterator of StringSlices over the input split by line boundaries.
-        """
-        return _SplitlinesIter[origin, True](
-            self.index, self.ptr, self.length, keepends
-        )
-
     fn __len__(self) -> Int:
         @parameter
         if forward:
@@ -332,8 +240,12 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
     CollectionElement,
     CollectionElementNew,
     Hashable,
+    PathLike,
 ):
     """A non-owning view to encoded string data.
+
+    This type is guaranteed to have the same ABI (size, alignment, and field
+    layout) as the `llvm::StringRef` type.
 
     Parameters:
         mut: Whether the slice is mutable.
@@ -425,13 +337,13 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         self._slice = Span[Byte, origin](ptr=ptr, length=length)
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly construct a deep copy of the provided `StringSlice`.
 
-        Args:
-            other: The `StringSlice` to copy.
+        Returns:
+            A copy of the value.
         """
-        self._slice = other._slice
+        return Self(unsafe_from_utf8=self._slice)
 
     @implicit
     fn __init__[
@@ -450,6 +362,33 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
         )
         self = StringSlice[O](unsafe_from_utf8=value.as_bytes())
+
+    # ===-------------------------------------------------------------------===#
+    # Factory methods
+    # ===-------------------------------------------------------------------===#
+
+    # TODO: Change to `__init__(out self, *, from_utf8: Span[..])` once ambiguity
+    #   with existing `unsafe_from_utf8` overload is fixed. Would require
+    #   signature comparision to take into account required named arguments.
+    @staticmethod
+    fn from_utf8(from_utf8: Span[Byte, origin]) raises -> StringSlice[origin]:
+        """Construct a new `StringSlice` from a buffer containing UTF-8 encoded
+        data.
+
+        Args:
+            from_utf8: A span of bytes containing UTF-8 encoded data.
+
+        Returns:
+            A new validated `StringSlice` pointing to the provided buffer.
+
+        Raises:
+            An exception is raised if the provided buffer byte values do not
+            form valid UTF-8 encoded codepoints.
+        """
+        if not _is_valid_utf8(from_utf8):
+            raise Error("StringSlice: buffer is not valid UTF-8")
+
+        return StringSlice[origin](unsafe_from_utf8=from_utf8)
 
     # ===------------------------------------------------------------------===#
     # Trait implementations
@@ -503,6 +442,18 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             builtin documentation for more details.
         """
         return hash(self._slice._data, self._slice._len)
+
+    fn __fspath__(self) -> String:
+        """Return the file system path representation of this string.
+
+        Returns:
+          The file system path representation as a string.
+        """
+        return String(self)
+
+    # ===------------------------------------------------------------------===#
+    # Operator dunders
+    # ===------------------------------------------------------------------===#
 
     # This decorator informs the compiler that indirect address spaces are not
     # dereferenced by the method.
@@ -1017,7 +968,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         # is positive, and offset from the end if `start` is negative.
         var haystack_str = self._from_start(start)
 
-        var loc = stringref._memmem(
+        var loc = _memmem(
             haystack_str.unsafe_ptr(),
             haystack_str.byte_length(),
             substr.unsafe_ptr(),
@@ -1138,11 +1089,16 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
                 offset += b_len
             return length != 0
 
-    fn splitlines(self, keepends: Bool = False) -> List[StringSlice[origin]]:
+    fn splitlines[
+        O: ImmutableOrigin, //
+    ](self: StringSlice[O], keepends: Bool = False) -> List[StringSlice[O]]:
         """Split the string at line boundaries. This corresponds to Python's
         [universal newlines:](
         https://docs.python.org/3/library/stdtypes.html#str.splitlines)
         `"\\r\\n"` and `"\\t\\n\\v\\f\\r\\x1c\\x1d\\x1e\\x85\\u2028\\u2029"`.
+
+        Parameters:
+            O: The immutable origin.
 
         Args:
             keepends: If True, line breaks are kept in the resulting strings.
@@ -1151,10 +1107,74 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             A List of Strings containing the input split by line boundaries.
         """
 
-        var output = List[StringSlice[origin]](capacity=128)  # guessing
-        for s in self.__iter__().splitlines(keepends=keepends):
+        # highly performance sensitive code, benchmark before touching
+        alias `\r` = UInt8(ord("\r"))
+        alias `\n` = UInt8(ord("\n"))
+
+        output = List[StringSlice[O]](capacity=128)  # guessing
+        var ptr = self.unsafe_ptr()
+        var length = self.byte_length()
+        var offset = 0
+
+        while offset < length:
+            var eol_start = offset
+            var eol_length = 0
+
+            while eol_start < length:
+                var b0 = ptr[eol_start]
+                var char_len = _utf8_first_byte_sequence_length(b0)
+                debug_assert(
+                    eol_start + char_len <= length,
+                    "corrupted sequence causing unsafe memory access",
+                )
+                var isnewline = unlikely(
+                    _is_newline_char(ptr, eol_start, b0, char_len)
+                )
+                var char_end = int(isnewline) * (eol_start + char_len)
+                var next_idx = char_end * int(char_end < length)
+                var is_r_n = b0 == `\r` and next_idx != 0 and ptr[
+                    next_idx
+                ] == `\n`
+                eol_length = int(isnewline) * char_len + int(is_r_n)
+                if isnewline:
+                    break
+                eol_start += char_len
+
+            var str_len = eol_start - offset + int(keepends) * eol_length
+            var s = StringSlice[O](ptr=ptr + offset, length=str_len)
             output.append(s)
+            offset = eol_start + eol_length
+
         return output^
+
+    fn count(self, substr: StringSlice) -> Int:
+        """Return the number of non-overlapping occurrences of substring
+        `substr` in the string.
+
+        If sub is empty, returns the number of empty strings between characters
+        which is the length of the string plus one.
+
+        Args:
+            substr: The substring to count.
+
+        Returns:
+            The number of occurrences of `substr`.
+        """
+        if not substr:
+            return len(self) + 1
+
+        var res = 0
+        var offset = 0
+
+        while True:
+            var pos = self.find(substr, offset)
+            if pos == -1:
+                break
+            res += 1
+
+            offset = pos + substr.byte_length()
+
+        return res
 
 
 # ===-----------------------------------------------------------------------===#
