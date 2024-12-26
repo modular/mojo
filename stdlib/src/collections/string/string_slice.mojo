@@ -30,7 +30,7 @@ from memory import UnsafePointer, memcmp, memcpy, Span
 from memory.memory import _memcmp_impl_unconstrained
 from sys import bitwidthof, simdwidthof
 from sys.intrinsics import unlikely, likely
-from utils.stringref import StringRef, _memmem
+from utils.stringref import StringRef
 from os import PathLike
 
 alias StaticString = StringSlice[StaticConstantOrigin]

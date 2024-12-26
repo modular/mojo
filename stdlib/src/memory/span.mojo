@@ -22,7 +22,7 @@ from memory import Span
 
 from bit import count_trailing_zeros, count_leading_zeros
 from builtin.dtype import _uint_type_of_width
-from collections import InlineArray, normalize_index
+from collections import InlineArray
 from memory import Pointer, UnsafePointer, memcmp, pack_bits
 from sys import simdwidthof
 
@@ -579,9 +579,11 @@ fn _align_down(value: Int, alignment: Int) -> Int:
 @always_inline
 fn _memchr[
     O: ImmutableOrigin, D: DType, //
-](span: Span[Scalar[D], O], char: Scalar[D]) -> UnsafePointer[
-    Scalar[D]
-] as output:
+](
+    span: Span[Scalar[D], O],
+    char: Scalar[D],
+    out output: UnsafePointer[Scalar[D]],
+):
     var haystack = span.unsafe_ptr()
     var length = len(span)
     alias bool_mask_width = simdwidthof[DType.bool]()
@@ -607,8 +609,10 @@ fn _memchr[
 fn _memmem[
     O1: ImmutableOrigin, O2: ImmutableOrigin, D: DType, //
 ](
-    haystack_span: Span[Scalar[D], O1], needle_span: Span[Scalar[D], O2]
-) -> UnsafePointer[Scalar[D]] as output:
+    haystack_span: Span[Scalar[D], O1],
+    needle_span: Span[Scalar[D], O2],
+    out output: UnsafePointer[Scalar[D]],
+):
     var haystack = haystack_span.unsafe_ptr()
     var haystack_len = len(haystack_span)
     var needle = needle_span.unsafe_ptr()
@@ -660,9 +664,11 @@ fn _memmem[
 @always_inline
 fn _memrchr[
     O: ImmutableOrigin, D: DType, //
-](span: Span[Scalar[D], O], char: Scalar[D]) -> UnsafePointer[
-    Scalar[D]
-] as output:
+](
+    span: Span[Scalar[D], O],
+    char: Scalar[D],
+    out output: UnsafePointer[Scalar[D]],
+):
     var haystack = span.unsafe_ptr()
     var length = len(span)
     alias bool_mask_width = simdwidthof[DType.bool]()
@@ -689,8 +695,10 @@ fn _memrchr[
 fn _memrmem[
     O1: ImmutableOrigin, O2: ImmutableOrigin, D: DType, //
 ](
-    haystack_span: Span[Scalar[D], O1], needle_span: Span[Scalar[D], O2]
-) -> UnsafePointer[Scalar[D]] as output:
+    haystack_span: Span[Scalar[D], O1],
+    needle_span: Span[Scalar[D], O2],
+    out output: UnsafePointer[Scalar[D]],
+):
     var haystack = haystack_span.unsafe_ptr()
     var haystack_len = len(haystack_span)
     var needle = needle_span.unsafe_ptr()
