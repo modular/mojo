@@ -13,7 +13,8 @@
 """Implements the StringRef class.
 """
 
-from collections.string import _atol, _isspace
+from collections.string import StringSlice
+from collections.string.string import _atol, _isspace
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from sys import simdwidthof
 from sys.ffi import c_char
@@ -23,7 +24,6 @@ from builtin.dtype import _uint_type_of_width
 from memory import UnsafePointer, memcmp, pack_bits, Span
 from memory.memory import _memcmp_impl_unconstrained
 
-from utils import StringSlice
 
 # ===----------------------------------------------------------------------=== #
 # Utilities
@@ -77,14 +77,13 @@ struct StringRef(
         self = StringRef(UnsafePointer[UInt8](), 0)
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.data = other.data
-        self.length = other.length
+        return StringRef(self.data, self.length)
 
     @always_inline
     @implicit
