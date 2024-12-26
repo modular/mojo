@@ -1889,7 +1889,7 @@ struct String(
             return self._interleave(new)
 
         var occurrences = self.count(old)
-        if occurrences == -1:
+        if occurrences == len(self) + 1:
             return self
 
         var self_start = self.unsafe_ptr()

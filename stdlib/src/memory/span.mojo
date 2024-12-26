@@ -456,7 +456,8 @@ struct Span[
             debug_assert(0 <= start < _len + int(_len == 0), "out of bounds")
             n_s = start
         else:
-            n_s = normalize_index["Span", ignore_zero_length=True](start, self)
+            var v = start + _len * int(start < 0)
+            n_s = v * int(v < _len and v > 0) + _len * int(v >= _len)
         var s_ptr = self.unsafe_ptr()
         var haystack = __type_of(self)(ptr=s_ptr + n_s, length=_len - n_s)
         var loc: UnsafePointer[Scalar[D]]
