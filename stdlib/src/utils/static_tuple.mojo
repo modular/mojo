@@ -78,13 +78,8 @@ fn _create_array[
 
     debug_assert(size == len(lst), "mismatch in the number of elements")
 
-    var array = __mlir_op.`kgen.param.constant`[
-        _type = __mlir_type[`!pop.array<`, size.value, `, `, type, `>`],
-        value = __mlir_attr[
-            `#kgen.unknown : `,
-            __mlir_type[`!pop.array<`, size.value, `, `, type, `>`],
-        ],
-    ]()
+    var array: __mlir_type[`!pop.array<`, size.value, `, `, type, `>`]
+    __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(array))
 
     @parameter
     for idx in range(size):
@@ -129,10 +124,7 @@ struct StaticTuple[element_type: AnyTrivialRegType, size: Int](Sized):
     fn __init__(out self):
         """Constructs an empty (undefined) tuple."""
         _static_tuple_construction_checks[size]()
-        self.array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
     @always_inline
     @implicit
