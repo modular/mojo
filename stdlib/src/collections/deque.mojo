@@ -23,7 +23,7 @@ from collections import Deque
 
 from collections import Optional
 
-from bit import bit_ceil
+from bit import next_power_of_two
 from memory import UnsafePointer
 
 # ===-----------------------------------------------------------------------===#
@@ -105,18 +105,18 @@ struct Deque[ElementType: CollectionElement](
         if capacity <= 0:
             deque_capacity = self.default_capacity
         else:
-            deque_capacity = bit_ceil(capacity)
+            deque_capacity = next_power_of_two(capacity)
 
         if min_capacity <= 0:
             min_deque_capacity = self.default_capacity
         else:
-            min_deque_capacity = bit_ceil(min_capacity)
+            min_deque_capacity = next_power_of_two(min_capacity)
 
         if maxlen <= 0:
             max_deque_len = -1
         else:
             max_deque_len = maxlen
-            max_deque_capacity = bit_ceil(maxlen)
+            max_deque_capacity = next_power_of_two(maxlen)
             if max_deque_capacity == maxlen:
                 max_deque_capacity <<= 1
             deque_capacity = min(deque_capacity, max_deque_capacity)
@@ -168,24 +168,25 @@ struct Deque[ElementType: CollectionElement](
 
         self._tail = args_length
 
-    @implicit
-    fn __init__(out self, other: Self):
+    fn copy(self) -> Self:
         """Creates a deepcopy of the given deque.
 
-        Args:
-            other: The deque to copy.
+        Returns:
+            A copy of the value.
         """
-        self = Self(
-            capacity=other._capacity,
-            min_capacity=other._min_capacity,
-            maxlen=other._maxlen,
-            shrink=other._shrink,
+        var copy = Self(
+            capacity=self._capacity,
+            min_capacity=self._min_capacity,
+            maxlen=self._maxlen,
+            shrink=self._shrink,
         )
-        for i in range(len(other)):
-            offset = other._physical_index(other._head + i)
-            (self._data + i).init_pointee_copy((other._data + offset)[])
+        for i in range(len(self)):
+            offset = self._physical_index(self._head + i)
+            (copy._data + i).init_pointee_copy((self._data + offset)[])
 
-        self._tail = len(other)
+        copy._tail = len(self)
+
+        return copy^
 
     fn __moveinit__(out self, owned existing: Self):
         """Moves data of an existing deque into a new one.
@@ -221,7 +222,7 @@ struct Deque[ElementType: CollectionElement](
         Returns:
             The newly created deque with the properties of `self`.
         """
-        new = Self(other=self)
+        new = self.copy()
         for element in other:
             new.append(element[])
         return new^
@@ -251,7 +252,7 @@ struct Deque[ElementType: CollectionElement](
                 maxlen=self._maxlen,
                 shrink=self._shrink,
             )
-        new = Self(other=self)
+        new = self.copy()
         for _ in range(n - 1):
             for element in self:
                 new.append(element[])
@@ -267,7 +268,7 @@ struct Deque[ElementType: CollectionElement](
             self.clear()
             return
 
-        orig = Self(other=self)
+        orig = self.copy()
         for _ in range(n - 1):
             for element in orig:
                 self.append(element[])
@@ -937,7 +938,7 @@ struct Deque[ElementType: CollectionElement](
             n_total: The total number of elements the new buffer should support.
             n_retain: The number of existing elements to keep in the deque.
         """
-        new_capacity = bit_ceil(n_total)
+        new_capacity = next_power_of_two(n_total)
         if new_capacity == n_total:
             new_capacity <<= 1
 
