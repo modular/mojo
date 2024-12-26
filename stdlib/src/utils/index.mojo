@@ -20,7 +20,7 @@ from utils import IndexList
 ```
 """
 
-from collections.string import _calc_initial_buffer_size
+from collections.string.string import _calc_initial_buffer_size
 from sys import bitwidthof
 
 from builtin.dtype import _int_type_of_width, _uint_type_of_width
@@ -28,6 +28,7 @@ from builtin.io import _get_dtype_printf_format, _snprintf
 
 from . import unroll
 from .static_tuple import StaticTuple
+from hashlib._hasher import _Hasher
 
 # ===-----------------------------------------------------------------------===#
 # Utilities
@@ -513,7 +514,9 @@ struct IndexList[
             The resulting index tuple.
         """
 
-        @always_inline
+        # FIXME(#53331) - nodebug is required otherwise we crash in debug
+        # information generation.
+        @always_inline("nodebug")
         fn apply_fn[
             type: DType
         ](a: Scalar[type], b: Scalar[type]) -> Scalar[type]:
@@ -827,6 +830,20 @@ struct IndexList[
         return rebind[__type_of(result)](
             self.cast[_type_of_width[element_bitwidth, unsigned]()]()
         )
+
+    fn __hash__[H: _Hasher](self, mut hasher: H):
+        """Updates hasher with the underlying bytes.
+
+        Parameters:
+            H: The hasher type.
+
+        Args:
+            hasher: The hasher instance.
+        """
+
+        @parameter
+        for i in range(size):
+            hasher.update(self.data[i])
 
 
 # ===-----------------------------------------------------------------------===#
