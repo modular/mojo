@@ -10,10 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""Implements basic object methods for working with strings.
-
-These are Mojo built-ins, so you don't need to import them.
-"""
+"""Implements basic object methods for working with strings."""
 
 from collections import KeyElement, List, Optional
 from collections._index_normalization import normalize_index
@@ -30,20 +27,20 @@ from utils import (
     IndexList,
     StaticString,
     StringRef,
-    StringSlice,
     Variant,
     Writable,
     Writer,
     write_args,
 )
-from utils._unicode import (
+from collections.string._unicode import (
     is_lowercase,
     is_uppercase,
     to_lowercase,
     to_uppercase,
 )
-from utils.format import _CurlyEntryFormattable, _FormatCurlyEntry
-from utils.string_slice import (
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string.string_slice import (
+    StringSlice,
     _shift_unicode_to_utf8,
     _StringSliceIter,
     _to_string_list,
@@ -861,13 +858,13 @@ struct String(
         """
         self._buffer = Self._buffer_type(capacity=capacity)
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly copy the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other  # Just use the implicit copyinit.
+        return self  # Just use the implicit copyinit.
 
     @implicit
     fn __init__(out self, str: StringRef):
@@ -887,24 +884,19 @@ struct String(
     fn __init__(out self, str_slice: StringSlice):
         """Construct a string from a string slice.
 
-        This will allocate a new string that copies the string contents from
-        the provided string slice `str_slice`.
-
         Args:
             str_slice: The string slice from which to construct this string.
+
+        Notes:
+            This will allocate a new string that copies the string contents from
+            the provided string slice.
         """
 
-        # Calculate length in bytes
-        var length: Int = len(str_slice.as_bytes())
-        var buffer = Self._buffer_type()
-        # +1 for null terminator, initialized to 0
-        buffer.resize(length + 1, 0)
-        memcpy(
-            dest=buffer.data,
-            src=str_slice.as_bytes().unsafe_ptr(),
-            count=length,
-        )
-        self = Self(buffer^)
+        var length = str_slice.byte_length()
+        var ptr = UnsafePointer[Byte].alloc(length + 1)  # null terminator
+        memcpy(ptr, str_slice.unsafe_ptr(), length)
+        ptr[length] = 0
+        self = String(ptr=ptr, length=length + 1)
 
     @always_inline
     @implicit
@@ -1672,7 +1664,7 @@ struct String(
         self._buffer.capacity = 0
         return ptr
 
-    fn count(self, substr: String) -> Int:
+    fn count(self, substr: StringSlice) -> Int:
         """Return the number of non-overlapping occurrences of substring
         `substr` in the string.
 
@@ -1685,23 +1677,7 @@ struct String(
         Returns:
           The number of occurrences of `substr`.
         """
-
-        var s_len = len(self)
-        if not substr:
-            return s_len + 1
-
-        var res = 0
-        var offset = 0
-
-        while offset < s_len:
-            var pos = self.find(substr, offset)
-            if pos == -1:
-                break
-            res += 1
-
-            offset = pos + substr.byte_length()
-
-        return res
+        return self.as_string_slice().count(substr)
 
     fn __contains__(self, substr: String) -> Bool:
         """Returns True if the substring is contained within the current string.
@@ -1725,6 +1701,7 @@ struct String(
         Returns:
           The offset of `substr` relative to the beginning of the string.
         """
+
         return self.as_string_slice().find(substr.as_string_slice(), start)
 
     fn rfind(self, substr: String, start: Int = 0) -> Int:
@@ -1738,7 +1715,10 @@ struct String(
         Returns:
           The offset of `substr` relative to the beginning of the string.
         """
-        return self.as_string_slice().rfind(substr.as_string_slice(), start)
+
+        return self.as_string_slice().rfind(
+            substr.as_string_slice(), start=start
+        )
 
     fn isspace(self) -> Bool:
         """Determines whether every character in the given String is a
@@ -1909,7 +1889,7 @@ struct String(
             return self._interleave(new)
 
         var occurrences = self.count(old)
-        if occurrences == len(self) + 1:
+        if occurrences == -1:
             return self
 
         var self_start = self.unsafe_ptr()

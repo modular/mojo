@@ -17,7 +17,8 @@ These are Mojo built-ins, so you don't need to import them.
 
 import math
 from collections import InlineArray
-from collections.string import (
+from collections.string import StringSlice
+from collections.string.string import (
     _calc_format_buffer_size,
     _calc_initial_buffer_size,
 )
@@ -238,6 +239,7 @@ struct SIMD[type: DType, size: Int](
     CollectionElement,
     # FIXME(MOCO-1291): Can't implement this due to ambiguity.
     # CollectionElementNew,
+    ExplicitlyCopyable,
     Floatable,
     Floorable,
     Writable,
@@ -305,6 +307,15 @@ struct SIMD[type: DType, size: Int](
     #        other: The value to copy.
     #    """
     #    self = other
+
+    @always_inline
+    fn copy(self) -> Self:
+        """Explicitly construct a deep copy of the provided value.
+
+        Returns:
+            A copy of the value.
+        """
+        return self
 
     @always_inline("nodebug")
     @implicit
@@ -450,15 +461,7 @@ struct SIMD[type: DType, size: Int](
             ),
         )
 
-        self = __mlir_op.`kgen.param.constant`[
-            _type = __mlir_type[
-                `!pop.simd<`, size.value, `, `, type.value, `>`
-            ],
-            value = __mlir_attr[
-                `#kgen.unknown : `,
-                __mlir_type[`!pop.simd<`, size.value, `, `, type.value, `>`],
-            ],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
         @parameter
         for i in range(size):
@@ -2011,17 +2014,12 @@ struct SIMD[type: DType, size: Int](
         fn _convert_variadic_to_pop_array[
             *mask: Int
         ]() -> __mlir_type[`!pop.array<`, output_size.value, `, `, Int, `>`]:
-            var array = __mlir_op.`kgen.param.constant`[
-                _type = __mlir_type[
-                    `!pop.array<`, output_size.value, `, `, Int, `>`
-                ],
-                value = __mlir_attr[
-                    `#kgen.unknown : `,
-                    __mlir_type[
-                        `!pop.array<`, output_size.value, `, `, Int, `>`
-                    ],
-                ],
-            ]()
+            var array: __mlir_type[
+                `!pop.array<`, output_size.value, `, `, Int, `>`
+            ]
+            __mlir_op.`lit.ownership.mark_initialized`(
+                __get_mvalue_as_litref(array)
+            )
 
             var array_ptr = UnsafePointer.address_of(array)
 

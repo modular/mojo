@@ -12,14 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from collections.string import (
-    _calc_initial_buffer_size_int32,
-    _calc_initial_buffer_size_int64,
-    _isspace,
-)
-
-from memory import UnsafePointer
-from python import Python
 from testing import (
     assert_equal,
     assert_false,
@@ -28,7 +20,15 @@ from testing import (
     assert_true,
 )
 
-from utils import StringRef, StringSlice
+from collections.string import StringSlice
+from collections.string.string import (
+    _calc_initial_buffer_size_int32,
+    _calc_initial_buffer_size_int64,
+    _isspace,
+)
+from memory import UnsafePointer
+from python import Python
+from utils import StringRef
 
 
 @value
@@ -662,20 +662,6 @@ def test_find():
     assert_equal(len(p) - len(file_name), p.find("test_split.mojo"))
 
 
-def test_count():
-    var str = String("Hello world")
-
-    assert_equal(12, str.count(""))
-    assert_equal(1, str.count("Hell"))
-    assert_equal(3, str.count("l"))
-    assert_equal(1, str.count("ll"))
-    assert_equal(1, str.count("ld"))
-    assert_equal(0, str.count("universe"))
-
-    assert_equal(String("aaaaa").count("a"), 5)
-    assert_equal(String("aaaaaa").count("aa"), 3)
-
-
 def test_replace():
     # Replace empty
     var s1 = String("abc")
@@ -1300,7 +1286,7 @@ def test_string_iter():
     assert_equal(321, atol(concat))
 
     for v in vs:
-        v.unsafe_ptr().bitcast[mut=True]()[] = ord("1")
+        v.unsafe_ptr().origin_cast[mut=True]()[] = ord("1")
 
     # Borrow immutably
     for v in vs:
@@ -1654,7 +1640,6 @@ def main():
     test_calc_initial_buffer_size_int64()
     test_contains()
     test_find()
-    test_count()
     test_replace()
     test_rfind()
     test_split()

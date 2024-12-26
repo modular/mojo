@@ -12,27 +12,26 @@
 # ===----------------------------------------------------------------------=== #
 """Implements the StringSlice type.
 
-You can import these APIs from the `utils.string_slice` module.
+You can import these APIs from the `collections.string.string_slice` module.
 
 Examples:
 
 ```mojo
-from utils import StringSlice
+from collections.string import StringSlice
 ```
 """
 
-from collections import List, Optional
-from collections.string import _atof, _atol, _isspace
-from sys import bitwidthof, simdwidthof
-from sys.intrinsics import unlikely, likely
-
 from bit import count_leading_zeros
+from collections import List, Optional
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string._utf8_validation import _is_valid_utf8
+from collections.string.string import _atof, _atol, _isspace
 from memory import UnsafePointer, memcmp, memcpy, Span
 from memory.memory import _memcmp_impl_unconstrained
-
-from utils.format import _CurlyEntryFormattable, _FormatCurlyEntry
-
-from ._utf8_validation import _is_valid_utf8
+from sys import bitwidthof, simdwidthof
+from sys.intrinsics import unlikely, likely
+from utils.stringref import StringRef, _memmem
+from os import PathLike
 
 alias StaticString = StringSlice[StaticConstantOrigin]
 """An immutable static string slice."""
@@ -129,6 +128,43 @@ fn _utf8_byte_type(b: SIMD[DType.uint8, _], /) -> __type_of(b):
     return count_leading_zeros(~(b & UInt8(0b1111_0000)))
 
 
+@always_inline
+fn _memrchr[
+    type: DType
+](
+    source: UnsafePointer[Scalar[type]], char: Scalar[type], len: Int
+) -> UnsafePointer[Scalar[type]]:
+    if not len:
+        return UnsafePointer[Scalar[type]]()
+    for i in reversed(range(len)):
+        if source[i] == char:
+            return source + i
+    return UnsafePointer[Scalar[type]]()
+
+
+@always_inline
+fn _memrmem[
+    type: DType
+](
+    haystack: UnsafePointer[Scalar[type]],
+    haystack_len: Int,
+    needle: UnsafePointer[Scalar[type]],
+    needle_len: Int,
+) -> UnsafePointer[Scalar[type]]:
+    if not needle_len:
+        return haystack
+    if needle_len > haystack_len:
+        return UnsafePointer[Scalar[type]]()
+    if needle_len == 1:
+        return _memrchr[type](haystack, needle[0], haystack_len)
+    for i in reversed(range(haystack_len - needle_len + 1)):
+        if haystack[i] != needle[0]:
+            continue
+        if memcmp(haystack + i + 1, needle + 1, needle_len - 1) == 0:
+            return haystack + i
+    return UnsafePointer[Scalar[type]]()
+
+
 @value
 struct _StringSliceIter[
     mut: Bool, //,
@@ -204,8 +240,12 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
     CollectionElement,
     CollectionElementNew,
     Hashable,
+    PathLike,
 ):
     """A non-owning view to encoded string data.
+
+    This type is guaranteed to have the same ABI (size, alignment, and field
+    layout) as the `llvm::StringRef` type.
 
     Parameters:
         mut: Whether the slice is mutable.
@@ -297,13 +337,13 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         self._slice = Span[Byte, origin](ptr=ptr, length=length)
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly construct a deep copy of the provided `StringSlice`.
 
-        Args:
-            other: The `StringSlice` to copy.
+        Returns:
+            A copy of the value.
         """
-        self._slice = other._slice
+        return Self(unsafe_from_utf8=self._slice)
 
     @implicit
     fn __init__[
@@ -322,6 +362,33 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
         )
         self = StringSlice[O](unsafe_from_utf8=value.as_bytes())
+
+    # ===-------------------------------------------------------------------===#
+    # Factory methods
+    # ===-------------------------------------------------------------------===#
+
+    # TODO: Change to `__init__(out self, *, from_utf8: Span[..])` once ambiguity
+    #   with existing `unsafe_from_utf8` overload is fixed. Would require
+    #   signature comparision to take into account required named arguments.
+    @staticmethod
+    fn from_utf8(from_utf8: Span[Byte, origin]) raises -> StringSlice[origin]:
+        """Construct a new `StringSlice` from a buffer containing UTF-8 encoded
+        data.
+
+        Args:
+            from_utf8: A span of bytes containing UTF-8 encoded data.
+
+        Returns:
+            A new validated `StringSlice` pointing to the provided buffer.
+
+        Raises:
+            An exception is raised if the provided buffer byte values do not
+            form valid UTF-8 encoded codepoints.
+        """
+        if not _is_valid_utf8(from_utf8):
+            raise Error("StringSlice: buffer is not valid UTF-8")
+
+        return StringSlice[origin](unsafe_from_utf8=from_utf8)
 
     # ===------------------------------------------------------------------===#
     # Trait implementations
@@ -375,6 +442,18 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             builtin documentation for more details.
         """
         return hash(self._slice._data, self._slice._len)
+
+    fn __fspath__(self) -> String:
+        """Return the file system path representation of this string.
+
+        Returns:
+          The file system path representation as a string.
+        """
+        return String(self)
+
+    # ===------------------------------------------------------------------===#
+    # Operator dunders
+    # ===------------------------------------------------------------------===#
 
     # This decorator informs the compiler that indirect address spaces are not
     # dereferenced by the method.
@@ -879,12 +958,27 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Returns:
             The offset of `substr` relative to the beginning of the string.
         """
-        # FIXME(#3526): this should return unicode codepoint offsets
-        return (
-            self.as_bytes()
-            .get_immutable()
-            .find(substr.as_bytes().get_immutable(), start)
+        if not substr:
+            return 0
+
+        if self.byte_length() < substr.byte_length() + start:
+            return -1
+
+        # The substring to search within, offset from the beginning if `start`
+        # is positive, and offset from the end if `start` is negative.
+        var haystack_str = self._from_start(start)
+
+        var loc = _memmem(
+            haystack_str.unsafe_ptr(),
+            haystack_str.byte_length(),
+            substr.unsafe_ptr(),
+            substr.byte_length(),
         )
+
+        if not loc:
+            return -1
+
+        return int(loc) - int(self.unsafe_ptr())
 
     fn rfind(self, substr: StringSlice, start: Int = 0) -> Int:
         """Finds the offset of the last occurrence of `substr` starting at
@@ -897,12 +991,27 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Returns:
             The offset of `substr` relative to the beginning of the string.
         """
-        # FIXME(#3526): this should return unicode codepoint offsets
-        return (
-            self.as_bytes()
-            .get_immutable()
-            .rfind(substr.as_bytes().get_immutable(), start)
+        if not substr:
+            return len(self)
+
+        if len(self) < len(substr) + start:
+            return -1
+
+        # The substring to search within, offset from the beginning if `start`
+        # is positive, and offset from the end if `start` is negative.
+        var haystack_str = self._from_start(start)
+
+        var loc = _memrmem(
+            haystack_str.unsafe_ptr(),
+            len(haystack_str),
+            substr.unsafe_ptr(),
+            len(substr),
         )
+
+        if not loc:
+            return -1
+
+        return int(loc) - int(self.unsafe_ptr())
 
     fn isspace(self) -> Bool:
         """Determines whether every character in the given StringSlice is a
@@ -1037,6 +1146,35 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             offset = eol_start + eol_length
 
         return output^
+
+    fn count(self, substr: StringSlice) -> Int:
+        """Return the number of non-overlapping occurrences of substring
+        `substr` in the string.
+
+        If sub is empty, returns the number of empty strings between characters
+        which is the length of the string plus one.
+
+        Args:
+            substr: The substring to count.
+
+        Returns:
+            The number of occurrences of `substr`.
+        """
+        if not substr:
+            return len(self) + 1
+
+        var res = 0
+        var offset = 0
+
+        while True:
+            var pos = self.find(substr, offset)
+            if pos == -1:
+                break
+            res += 1
+
+            offset = pos + substr.byte_length()
+
+        return res
 
 
 # ===-----------------------------------------------------------------------===#
