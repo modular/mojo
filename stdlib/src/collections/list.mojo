@@ -22,7 +22,6 @@ from collections import List
 
 from os import abort
 from sys import sizeof
-from sys.intrinsics import _type_is_eq
 
 from memory import Pointer, UnsafePointer, memcpy, Span
 
@@ -115,15 +114,16 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         self._len = 0
         self.capacity = 0
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Creates a deep copy of the given list.
 
-        Args:
-            other: The list to copy.
+        Returns:
+            A copy of the value.
         """
-        self.__init__(capacity=other.capacity)
-        for e in other:
-            self.append(e[])
+        var copy = Self(capacity=self.capacity)
+        for e in self:
+            copy.append(e[])
+        return copy^
 
     fn __init__(out self, *, capacity: Int):
         """Constructs a list with the given capacity.
@@ -212,8 +212,11 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
 
     fn __del__(owned self):
         """Destroy all elements in the list and free its memory."""
-        for i in range(len(self)):
-            (self.data + i).destroy_pointee()
+
+        @parameter
+        if not hint_trivial_type:
+            for i in range(len(self)):
+                (self.data + i).destroy_pointee()
         self.data.free()
 
     # ===-------------------------------------------------------------------===#
@@ -314,7 +317,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         # avoid the copy since it would be cleared immediately anyways
         if x == 0:
             return Self()
-        var result = List(other=self)
+        var result = self.copy()
         result.__mul(x)
         return result^
 
@@ -335,7 +338,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         Returns:
             The newly created list.
         """
-        var result = List(other=self)
+        var result = self.copy()
         result.extend(other^)
         return result^
 
@@ -497,61 +500,15 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
 
         Args:
             value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to twice the current capacity.
+            Except for 0 capacity where it sets 1.
         """
-        if len(self) >= self.capacity:
-            self._realloc(self.capacity * 2 + int(self.capacity == 0))
-        (self.data + len(self)).init_pointee_move(value^)
+        if self._len >= self.capacity:
+            self._realloc(self.capacity * 2 | int(self.capacity == 0))
+        (self.data + self._len).init_pointee_move(value^)
         self._len += 1
-
-    fn append[
-        D: DType, //
-    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _]):
-        """Appends a vector to this list. If there is no capacity left, resizes
-        to `len(self) + value.size`.
-
-        Parameters:
-            D: The DType.
-
-        Args:
-            value: The value to append.
-        """
-        self.reserve(len(self) + value.size)
-        (self.data + len(self)).store(value)
-        self._len += value.size
-
-    fn append[
-        D: DType, //
-    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _], count: Int):
-        """Appends a vector to this list. If there is no capacity left, resizes
-        to `len(self) + count`.
-
-        Parameters:
-            D: The DType.
-
-        Args:
-            value: The value to append.
-            count: The ammount of items to append.
-        """
-        self.reserve(len(self) + count)
-        var v_ptr = UnsafePointer.address_of(value).bitcast[Scalar[D]]()
-        memcpy(self.data + len(self), v_ptr, count)
-        self._len += count
-
-    fn append[
-        D: DType, //
-    ](mut self: List[Scalar[D], *_, **_], value: Span[Scalar[D]]):
-        """Appends a Span to this list. If there is no capacity left, resizes
-        to `len(self) + len(value)`.
-
-        Parameters:
-            D: The DType.
-
-        Args:
-            value: The value to append.
-        """
-        self.reserve(len(self) + len(value))
-        memcpy(self.data + len(self), value.unsafe_ptr(), len(value))
-        self._len += len(value)
 
     fn insert(mut self, i: Int, owned value: T):
         """Inserts a value to the list at the given index.
@@ -596,7 +553,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         if x == 0:
             self.clear()
             return
-        var orig = List(other=self)
+        var orig = self.copy()
         self.reserve(len(self) * x)
         for i in range(x - 1):
             self.extend(orig)
@@ -640,6 +597,122 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         # Update the size now that all new elements have been moved into this
         # list.
         self._len = final_size
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _]):
+        """Extends this list with the elements of a vector.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + value.size`.
+        """
+        self.reserve(self.size + value.size)
+        (self.data + self.size).store(value)
+        self.size += value.size
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _], *, count: Int):
+        """Extends this list with `count` number of elements from a vector.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+            count: The ammount of items to append. Must be less than or equal to
+                   `value.size`.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + count`.
+        """
+        debug_assert(count <= value.size, "count must be <= value.size")
+        self.reserve(self.size + count)
+        var v_ptr = UnsafePointer.address_of(value).bitcast[Scalar[D]]()
+        memcpy(self.data + self.size, v_ptr, count)
+        self.size += count
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: Span[Scalar[D]]):
+        """Extends this list with the elements of a `Span`.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + len(value)`.
+        """
+        self.reserve(self.size + len(value))
+        memcpy(self.data + self.size, value.unsafe_ptr(), len(value))
+        self.size += len(value)
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _]):
+        """Extends this list with the elements of a vector.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + value.size`.
+        """
+        self.reserve(self.size + value.size)
+        (self.data + self.size).store(value)
+        self.size += value.size
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _], *, count: Int):
+        """Extends this list with `count` number of elements from a vector.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+            count: The ammount of items to append. Must be less than or equal to
+                   `value.size`.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + count`.
+        """
+        debug_assert(count <= value.size, "count must be <= value.size")
+        self.reserve(self.size + count)
+        var v_ptr = UnsafePointer.address_of(value).bitcast[Scalar[D]]()
+        memcpy(self.data + self.size, v_ptr, count)
+        self.size += count
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: Span[Scalar[D]]):
+        """Extends this list with the elements of a `Span`.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + len(value)`.
+        """
+        self.reserve(self.size + len(value))
+        memcpy(self.data + self.size, value.unsafe_ptr(), len(value))
+        self.size += len(value)
 
     fn pop(mut self, i: Int = -1) -> T:
         """Pops a value from the list at the given index.
@@ -974,12 +1047,17 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         if elt_idx_1 != elt_idx_2:
             swap((self.data + elt_idx_1)[], (self.data + elt_idx_2)[])
 
-    @always_inline
-    fn unsafe_ptr(self) -> UnsafePointer[T]:
+    fn unsafe_ptr(
+        ref self,
+    ) -> UnsafePointer[
+        T,
+        mut = Origin(__origin_of(self)).is_mutable,
+        origin = __origin_of(self),
+    ]:
         """Retrieves a pointer to the underlying memory.
 
         Returns:
-            The UnsafePointer to the underlying memory.
+            The pointer to the underlying memory.
         """
         return self.data
 

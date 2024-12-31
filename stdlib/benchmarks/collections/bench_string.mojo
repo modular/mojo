@@ -22,7 +22,7 @@ from random import random_si64, seed
 
 from benchmark import Bench, BenchConfig, Bencher, BenchId, Unit, keep, run
 
-from utils._utf8_validation import _is_valid_utf8
+from collections.string._utf8_validation import _is_valid_utf8
 
 
 # ===-----------------------------------------------------------------------===#
@@ -227,7 +227,7 @@ fn bench_string_is_valid_utf8[
 # ===-----------------------------------------------------------------------===#
 def main():
     seed()
-    var m = Bench(BenchConfig(num_repetitions=5))
+    var m = Bench(BenchConfig(num_repetitions=1))
     alias filenames = (
         "UN_charter_EN",
         "UN_charter_ES",

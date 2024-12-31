@@ -10,10 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""Implements basic object methods for working with strings.
-
-These are Mojo built-ins, so you don't need to import them.
-"""
+"""Implements basic object methods for working with strings."""
 
 from collections import KeyElement, List, Optional
 from collections._index_normalization import normalize_index
@@ -30,20 +27,20 @@ from utils import (
     IndexList,
     StaticString,
     StringRef,
-    StringSlice,
     Variant,
     Writable,
     Writer,
     write_args,
 )
-from utils._unicode import (
+from collections.string._unicode import (
     is_lowercase,
     is_uppercase,
     to_lowercase,
     to_uppercase,
 )
-from utils.format import _CurlyEntryFormattable, _FormatCurlyEntry
-from utils.string_slice import (
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string.string_slice import (
+    StringSlice,
     _shift_unicode_to_utf8,
     _StringSliceIter,
     _to_string_list,
@@ -396,7 +393,7 @@ fn _str_to_base_error(base: Int, str_slice: StringSlice) -> String:
     )
 
 
-fn _identify_base(str_slice: StringSlice[_], start: Int) -> Tuple[Int, Int]:
+fn _identify_base(str_slice: StringSlice, start: Int) -> Tuple[Int, Int]:
     var length = str_slice.byte_length()
     # just 1 digit, assume base 10
     if start == (length - 1):
@@ -468,11 +465,11 @@ fn atol(str: String, base: Int = 10) raises -> Int:
     return _atol(str.as_string_slice(), base)
 
 
-fn _atof_error(str_ref: StringSlice[_]) -> Error:
+fn _atof_error(str_ref: StringSlice) -> Error:
     return Error("String is not convertible to float: '" + str(str_ref) + "'")
 
 
-fn _atof(str_ref: StringSlice[_]) raises -> Float64:
+fn _atof(str_ref: StringSlice) raises -> Float64:
     """Implementation of `atof` for StringRef inputs.
 
     Please see its docstring for details.
@@ -784,25 +781,68 @@ struct String(
 
     @always_inline
     @implicit
-    fn __init__(out self, impl: List[Byte, *_]):
-        """Construct a string from a buffer of null-terminated bytes, copying
-        the allocated data. Use the transfer operator `^` to avoid the copy.
+    fn __init__(out self, owned impl: List[UInt8, *_]):
+        """Construct a string from a buffer of bytes without copying the
+        allocated data.
 
-        Args:
-            impl: The null-terminated buffer.
-
-        Examples:
+        The buffer must be terminated with a null byte:
 
         ```mojo
-        print(String(List[Byte](ord('h'), ord('i'), 0))) # hi
+        var buf = List[UInt8]()
+        buf.append(ord('H'))
+        buf.append(ord('i'))
+        buf.append(0)
+        var hi = String(buf)
         ```
-        .
+
+        Args:
+            impl: The buffer.
         """
         debug_assert(
             len(impl) > 0 and impl[-1] == 0,
             "expected last element of String buffer to be null terminator",
         )
-        self._buffer = rebind[Self._buffer_type](impl)
+        # We make a backup because steal_data() will clear size and capacity.
+        var size = impl.size
+        debug_assert(
+            impl[size - 1] == 0,
+            "expected last element of String buffer to be null terminator",
+        )
+        var capacity = impl.capacity
+        self._buffer = Self._buffer_type(
+            ptr=impl.steal_data(), length=size, capacity=capacity
+        )
+
+    @always_inline
+    @implicit
+    fn __init__(out self, impl: Self._buffer_type):
+        """Construct a string from a buffer of bytes, copying the allocated
+        data. Use the transfer operator ^ to avoid the copy.
+
+        The buffer must be terminated with a null byte:
+
+        ```mojo
+        var buf = List[UInt8]()
+        buf.append(ord('H'))
+        buf.append(ord('i'))
+        buf.append(0)
+        var hi = String(buf)
+        ```
+
+        Args:
+            impl: The buffer.
+        """
+        debug_assert(
+            len(impl) > 0 and impl[-1] == 0,
+            "expected last element of String buffer to be null terminator",
+        )
+        # We make a backup because steal_data() will clear size and capacity.
+        var size = impl.size
+        debug_assert(
+            impl[size - 1] == 0,
+            "expected last element of String buffer to be null terminator",
+        )
+        self._buffer = impl
 
     @always_inline
     fn __init__(out self):
@@ -818,13 +858,13 @@ struct String(
         """
         self._buffer = Self._buffer_type(capacity=capacity)
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly copy the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.__copyinit__(other)
+        return self  # Just use the implicit copyinit.
 
     @implicit
     fn __init__(out self, str: StringRef):
@@ -844,24 +884,19 @@ struct String(
     fn __init__(out self, str_slice: StringSlice):
         """Construct a string from a string slice.
 
-        This will allocate a new string that copies the string contents from
-        the provided string slice `str_slice`.
-
         Args:
             str_slice: The string slice from which to construct this string.
+
+        Notes:
+            This will allocate a new string that copies the string contents from
+            the provided string slice.
         """
 
-        # Calculate length in bytes
-        var length: Int = len(str_slice.as_bytes())
-        var buffer = Self._buffer_type()
-        # +1 for null terminator, initialized to 0
-        buffer.resize(length + 1, 0)
-        memcpy(
-            dest=buffer.data,
-            src=str_slice.as_bytes().unsafe_ptr(),
-            count=length,
-        )
-        self = Self(buffer^)
+        var length = str_slice.byte_length()
+        var ptr = UnsafePointer[Byte].alloc(length + 1)  # null terminator
+        memcpy(ptr, str_slice.unsafe_ptr(), length)
+        ptr[length] = 0
+        self = String(ptr=ptr, length=length + 1)
 
     @always_inline
     @implicit
@@ -899,7 +934,7 @@ struct String(
             bytes: The byte span to write to this String. Must NOT be
                 null terminated.
         """
-        self._iadd(bytes)
+        self._iadd[False](bytes)
 
     fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.
@@ -1161,7 +1196,7 @@ struct String(
         return not (self < rhs)
 
     @staticmethod
-    fn _add(lhs: Span[Byte], rhs: Span[Byte]) -> String:
+    fn _add[rhs_has_null: Bool](lhs: Span[Byte], rhs: Span[Byte]) -> String:
         var lhs_len = len(lhs)
         var rhs_len = len(rhs)
         var lhs_ptr = lhs.unsafe_ptr()
@@ -1173,9 +1208,14 @@ struct String(
             return String(S(ptr=lhs_ptr, length=lhs_len))
         var sum_len = lhs_len + rhs_len
         var buffer = Self._buffer_type(capacity=sum_len + 1)
-        buffer.append(lhs)
-        buffer.append(rhs)
-        buffer.append(0)
+        var ptr = buffer.unsafe_ptr()
+        memcpy(ptr, lhs_ptr, lhs_len)
+        memcpy(ptr + lhs_len, rhs_ptr, rhs_len + int(rhs_has_null))
+        buffer.size = sum_len + 1
+
+        @parameter
+        if not rhs_has_null:
+            ptr[sum_len] = 0
         return Self(buffer^)
 
     @always_inline
@@ -1188,7 +1228,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add(self.as_bytes(), other.as_bytes())
+        return Self._add[True](self.as_bytes(), other.as_bytes())
 
     @always_inline
     fn __add__(self, other: StringLiteral) -> String:
@@ -1200,7 +1240,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add(self.as_bytes(), other.as_bytes())
+        return Self._add[False](self.as_bytes(), other.as_bytes())
 
     @always_inline
     fn __add__(self, other: StringSlice) -> String:
@@ -1212,7 +1252,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add(self.as_bytes(), other.as_bytes())
+        return Self._add[False](self.as_bytes(), other.as_bytes())
 
     @always_inline
     fn __radd__(self, other: String) -> String:
@@ -1224,7 +1264,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add(other.as_bytes(), self.as_bytes())
+        return Self._add[True](other.as_bytes(), self.as_bytes())
 
     @always_inline
     fn __radd__(self, other: StringLiteral) -> String:
@@ -1236,7 +1276,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add(other.as_bytes(), self.as_bytes())
+        return Self._add[True](other.as_bytes(), self.as_bytes())
 
     @always_inline
     fn __radd__(self, other: StringSlice) -> String:
@@ -1248,9 +1288,9 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add(other.as_bytes(), self.as_bytes())
+        return Self._add[True](other.as_bytes(), self.as_bytes())
 
-    fn _iadd(mut self, other: Span[Byte]):
+    fn _iadd[has_null: Bool](mut self, other: Span[Byte]):
         var s_len = self.byte_length()
         var o_len = len(other)
         var o_ptr = other.unsafe_ptr()
@@ -1260,9 +1300,15 @@ struct String(
             return
         elif o_len == 0:
             return
-        _ = self._buffer.pop()
-        self._buffer.append(other)
-        self._buffer.append(0)
+        var sum_len = s_len + o_len
+        self._buffer.reserve(sum_len + 1)
+        var s_ptr = self.unsafe_ptr()
+        memcpy(s_ptr + s_len, o_ptr, o_len + int(has_null))
+        self._buffer.size = sum_len + 1
+
+        @parameter
+        if not has_null:
+            s_ptr[sum_len] = 0
 
     @always_inline
     fn __iadd__(mut self, other: String):
@@ -1271,7 +1317,7 @@ struct String(
         Args:
             other: The string to append.
         """
-        self._iadd(other.as_bytes())
+        self._iadd[True](other.as_bytes())
 
     @always_inline
     fn __iadd__(mut self, other: StringLiteral):
@@ -1280,7 +1326,7 @@ struct String(
         Args:
             other: The string to append.
         """
-        self._iadd(other.as_bytes())
+        self._iadd[False](other.as_bytes())
 
     @always_inline
     fn __iadd__(mut self, other: StringSlice):
@@ -1289,7 +1335,7 @@ struct String(
         Args:
             other: The string to append.
         """
-        self._iadd(other.as_bytes())
+        self._iadd[False](other.as_bytes())
 
     fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
         """Iterate over the string, returning immutable references.
@@ -1518,9 +1564,10 @@ struct String(
         # This can hugely improve the performance on large lists
         for e_ref in elems:
             len_elems += len(e_ref[].as_bytes())
-        var capacity = len_self * (n_elems - 1) + len_elems + 1
+        var capacity = len_self * (n_elems - 1) + len_elems
+        var buf = Self._buffer_type(capacity=capacity)
         var self_ptr = self.unsafe_ptr()
-        var ptr = UnsafePointer[Byte].alloc(capacity)
+        var ptr = buf.unsafe_ptr()
         var offset = 0
         var i = 0
         var is_first = True
@@ -1535,16 +1582,23 @@ struct String(
             memcpy(dest=ptr + offset, src=e.unsafe_ptr(), count=e_len)
             offset += e_len
             i += 1
-        ptr[capacity - 1] = 0
-        return String(List(ptr=ptr, length=capacity, capacity=capacity))
+        buf.size = capacity
+        buf.append(0)
+        return String(buf^)
 
-    fn unsafe_ptr(self) -> UnsafePointer[UInt8]:
+    fn unsafe_ptr(
+        ref self,
+    ) -> UnsafePointer[
+        Byte,
+        mut = Origin(__origin_of(self)).is_mutable,
+        origin = __origin_of(self),
+    ]:
         """Retrieves a pointer to the underlying memory.
 
         Returns:
             The pointer to the underlying memory.
         """
-        return self._buffer.data
+        return self._buffer.unsafe_ptr()
 
     fn unsafe_cstr_ptr(self) -> UnsafePointer[c_char]:
         """Retrieves a C-string-compatible pointer to the underlying memory.
@@ -1597,7 +1651,20 @@ struct String(
         var length = len(self._buffer)
         return length - int(length > 0)
 
-    fn count(self, substr: String) -> Int:
+    fn _steal_ptr(mut self) -> UnsafePointer[UInt8]:
+        """Transfer ownership of pointer to the underlying memory.
+        The caller is responsible for freeing up the memory.
+
+        Returns:
+            The pointer to the underlying memory.
+        """
+        var ptr = self.unsafe_ptr()
+        self._buffer.data = UnsafePointer[UInt8]()
+        self._buffer.size = 0
+        self._buffer.capacity = 0
+        return ptr
+
+    fn count(self, substr: StringSlice) -> Int:
         """Return the number of non-overlapping occurrences of substring
         `substr` in the string.
 
@@ -1610,21 +1677,7 @@ struct String(
         Returns:
           The number of occurrences of `substr`.
         """
-        if not substr:
-            return len(self) + 1
-
-        var res = 0
-        var offset = 0
-
-        while True:
-            var pos = self.find(substr, offset)
-            if pos == -1:
-                break
-            res += 1
-
-            offset = pos + substr.byte_length()
-
-        return res
+        return self.as_string_slice().count(substr)
 
     fn __contains__(self, substr: String) -> Bool:
         """Returns True if the substring is contained within the current string.
@@ -1893,7 +1946,8 @@ struct String(
 
     fn strip(self) -> StringSlice[__origin_of(self)]:
         """Return a copy of the string with leading and trailing whitespaces
-        removed.
+        removed. This only takes ASCII whitespace into account:
+        `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e"`.
 
         Returns:
             A copy of the string with no leading or trailing whitespaces.
@@ -1913,7 +1967,9 @@ struct String(
         return self.as_string_slice().rstrip(chars)
 
     fn rstrip(self) -> StringSlice[__origin_of(self)]:
-        """Return a copy of the string with trailing whitespaces removed.
+        """Return a copy of the string with trailing whitespaces removed. This
+        only takes ASCII whitespace into account:
+        `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e"`.
 
         Returns:
             A copy of the string with no trailing whitespaces.
@@ -1933,7 +1989,9 @@ struct String(
         return self.as_string_slice().lstrip(chars)
 
     fn lstrip(self) -> StringSlice[__origin_of(self)]:
-        """Return a copy of the string with leading whitespaces removed.
+        """Return a copy of the string with leading whitespaces removed. This
+        only takes ASCII whitespace into account:
+        `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e"`.
 
         Returns:
             A copy of the string with no leading whitespaces.

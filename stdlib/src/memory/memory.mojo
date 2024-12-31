@@ -153,7 +153,9 @@ fn memcmp[
 
 @always_inline
 fn _memcpy_impl(
-    dest_data: UnsafePointer[Byte, **_], src_data: __type_of(dest_data), n: Int
+    dest_data: UnsafePointer[Byte, mut=True, **_],
+    src_data: __type_of(dest_data),
+    n: Int,
 ):
     """Copies a memory area.
 
@@ -252,8 +254,8 @@ fn memcpy[
         count: The number of elements to copy.
     """
     _memcpy_impl(
-        dest.bitcast[Byte, origin=MutableAnyOrigin](),
-        src.bitcast[Byte, origin=MutableAnyOrigin](),
+        dest.bitcast[Byte]().origin_cast[origin=MutableAnyOrigin](),
+        src.bitcast[Byte]().origin_cast[origin=MutableAnyOrigin](),
         count * sizeof[T](),
     )
 
@@ -411,9 +413,12 @@ fn stack_allocation[
 
     @parameter
     if is_gpu():
-        # On NVGPU, SHARED and PARAM address spaces lower to global memory.
+        # On NVGPU, SHARED and CONSTANT address spaces lower to global memory.
         @parameter
-        if address_space in (_GPUAddressSpace.SHARED, _GPUAddressSpace.PARAM):
+        if address_space in (
+            _GPUAddressSpace.SHARED,
+            _GPUAddressSpace.CONSTANT,
+        ):
             alias global_name = name.value() if name else "_global_alloc"
             return __mlir_op.`pop.global_alloc`[
                 name = global_name.value,

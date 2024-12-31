@@ -16,12 +16,12 @@
 """
 
 from collections import InlineArray, Optional
+from collections.string import StringSlice
+from memory import UnsafePointer, memcpy, Span
 from os import abort
 from sys import sizeof
+from utils import Variant, StringRef
 
-from memory import UnsafePointer, memcpy, Span
-
-from utils import StringSlice, Variant
 
 # ===-----------------------------------------------------------------------===#
 # InlineString
@@ -91,13 +91,13 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
         """
         self._storage = Self.Layout(heap_string^)
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other
+        return self
 
     # ===------------------------------------------------------------------=== #
     # Operator dunders
@@ -119,7 +119,7 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
         """
         self.__iadd__(string.as_string_slice())
 
-    fn __iadd__(mut self, str_slice: StringSlice[_]):
+    fn __iadd__(mut self, str_slice: StringSlice):
         """Appends another string to this string.
 
         Args:
@@ -152,11 +152,10 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
                 ptr=self._storage[_FixedString[Self.SMALL_CAP]].unsafe_ptr(),
                 length=len(self),
             )
-            buffer.append(span_self)
+            buffer.extend(span_self)
             # Copy the bytes from the additional string.
-            buffer.append(str_slice.as_bytes())
-            # Add the NUL byte
-            buffer.append(0)
+            buffer.extend(str_slice.as_bytes())
+            buffer.append(0)  # Add the NUL byte
             self._storage = Self.Layout(String(buffer^))
 
     fn __add__(self, other: StringLiteral) -> Self:
@@ -321,13 +320,9 @@ struct _FixedString[CAP: Int](
         self.buffer = InlineArray[UInt8, CAP](unsafe_uninitialized=True)
         self.size = 0
 
-    fn __init__(out self, *, other: Self):
-        """Copy the object.
-
-        Args:
-            other: The value to copy.
-        """
-        self = other
+    fn copy(self) -> Self:
+        """Copy the object."""
+        return self
 
     fn __init__(out self, literal: StringLiteral) raises:
         """Constructs a FixedString value given a string literal.
@@ -400,7 +395,7 @@ struct _FixedString[CAP: Int](
         self.__iadd__(string.as_string_slice())
 
     @always_inline
-    fn __iadd__(mut self, str_slice: StringSlice[_]) raises:
+    fn __iadd__(mut self, str_slice: StringSlice) raises:
         """Appends another string to this string.
 
         Args:
