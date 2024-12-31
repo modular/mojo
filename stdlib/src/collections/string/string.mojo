@@ -803,7 +803,7 @@ struct String(
             "expected last element of String buffer to be null terminator",
         )
         # We make a backup because steal_data() will clear size and capacity.
-        var size = impl.size
+        var size = len(impl)
         debug_assert(
             impl[size - 1] == 0,
             "expected last element of String buffer to be null terminator",
@@ -837,7 +837,7 @@ struct String(
             "expected last element of String buffer to be null terminator",
         )
         # We make a backup because steal_data() will clear size and capacity.
-        var size = impl.size
+        var size = len(impl)
         debug_assert(
             impl[size - 1] == 0,
             "expected last element of String buffer to be null terminator",
@@ -934,7 +934,7 @@ struct String(
             bytes: The byte span to write to this String. Must NOT be
                 null terminated.
         """
-        self._iadd[False](bytes)
+        self._iadd(bytes)
 
     fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.
@@ -1196,7 +1196,7 @@ struct String(
         return not (self < rhs)
 
     @staticmethod
-    fn _add[rhs_has_null: Bool](lhs: Span[Byte], rhs: Span[Byte]) -> String:
+    fn _add(lhs: Span[Byte], rhs: Span[Byte]) -> String:
         var lhs_len = len(lhs)
         var rhs_len = len(rhs)
         var lhs_ptr = lhs.unsafe_ptr()
@@ -1206,16 +1206,10 @@ struct String(
             return String(S(ptr=rhs_ptr, length=rhs_len))
         elif rhs_len == 0:
             return String(S(ptr=lhs_ptr, length=lhs_len))
-        var sum_len = lhs_len + rhs_len
-        var buffer = Self._buffer_type(capacity=sum_len + 1)
-        var ptr = buffer.unsafe_ptr()
-        memcpy(ptr, lhs_ptr, lhs_len)
-        memcpy(ptr + lhs_len, rhs_ptr, rhs_len + int(rhs_has_null))
-        buffer.size = sum_len + 1
-
-        @parameter
-        if not rhs_has_null:
-            ptr[sum_len] = 0
+        var buffer = Self._buffer_type(capacity=lhs_len + rhs_len + 1)
+        buffer.extend(lhs)
+        buffer.extend(rhs)
+        buffer.append(0)
         return Self(buffer^)
 
     @always_inline
@@ -1228,7 +1222,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add[True](self.as_bytes(), other.as_bytes())
+        return Self._add(self.as_bytes(), other.as_bytes())
 
     @always_inline
     fn __add__(self, other: StringLiteral) -> String:
@@ -1240,7 +1234,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add[False](self.as_bytes(), other.as_bytes())
+        return Self._add(self.as_bytes(), other.as_bytes())
 
     @always_inline
     fn __add__(self, other: StringSlice) -> String:
@@ -1252,7 +1246,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add[False](self.as_bytes(), other.as_bytes())
+        return Self._add(self.as_bytes(), other.as_bytes())
 
     @always_inline
     fn __radd__(self, other: String) -> String:
@@ -1264,7 +1258,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add[True](other.as_bytes(), self.as_bytes())
+        return Self._add(other.as_bytes(), self.as_bytes())
 
     @always_inline
     fn __radd__(self, other: StringLiteral) -> String:
@@ -1276,7 +1270,7 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add[True](other.as_bytes(), self.as_bytes())
+        return Self._add(other.as_bytes(), self.as_bytes())
 
     @always_inline
     fn __radd__(self, other: StringSlice) -> String:
@@ -1288,9 +1282,9 @@ struct String(
         Returns:
             The new constructed string.
         """
-        return Self._add[True](other.as_bytes(), self.as_bytes())
+        return Self._add(other.as_bytes(), self.as_bytes())
 
-    fn _iadd[has_null: Bool](mut self, other: Span[Byte]):
+    fn _iadd(mut self, other: Span[Byte]):
         var s_len = self.byte_length()
         var o_len = len(other)
         var o_ptr = other.unsafe_ptr()
@@ -1300,15 +1294,10 @@ struct String(
             return
         elif o_len == 0:
             return
-        var sum_len = s_len + o_len
-        self._buffer.reserve(sum_len + 1)
-        var s_ptr = self.unsafe_ptr()
-        memcpy(s_ptr + s_len, o_ptr, o_len + int(has_null))
-        self._buffer.size = sum_len + 1
 
-        @parameter
-        if not has_null:
-            s_ptr[sum_len] = 0
+        _ = self._buffer.pop()
+        self._buffer.extend(other)
+        self._buffer.append(0)
 
     @always_inline
     fn __iadd__(mut self, other: String):
@@ -1317,7 +1306,7 @@ struct String(
         Args:
             other: The string to append.
         """
-        self._iadd[True](other.as_bytes())
+        self._iadd(other.as_bytes())
 
     @always_inline
     fn __iadd__(mut self, other: StringLiteral):
@@ -1326,7 +1315,7 @@ struct String(
         Args:
             other: The string to append.
         """
-        self._iadd[False](other.as_bytes())
+        self._iadd(other.as_bytes())
 
     @always_inline
     fn __iadd__(mut self, other: StringSlice):
@@ -1335,7 +1324,7 @@ struct String(
         Args:
             other: The string to append.
         """
-        self._iadd[False](other.as_bytes())
+        self._iadd(other.as_bytes())
 
     fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
         """Iterate over the string, returning immutable references.
@@ -1564,10 +1553,9 @@ struct String(
         # This can hugely improve the performance on large lists
         for e_ref in elems:
             len_elems += len(e_ref[].as_bytes())
-        var capacity = len_self * (n_elems - 1) + len_elems
-        var buf = Self._buffer_type(capacity=capacity)
+        var capacity = len_self * (n_elems - 1) + len_elems + 1
         var self_ptr = self.unsafe_ptr()
-        var ptr = buf.unsafe_ptr()
+        var ptr = UnsafePointer[Byte].alloc(capacity)
         var offset = 0
         var i = 0
         var is_first = True
@@ -1582,9 +1570,8 @@ struct String(
             memcpy(dest=ptr + offset, src=e.unsafe_ptr(), count=e_len)
             offset += e_len
             i += 1
-        buf.size = capacity
-        buf.append(0)
-        return String(buf^)
+        ptr[capacity - 1] = 0
+        return String(List(ptr=ptr, length=capacity, capacity=capacity))
 
     fn unsafe_ptr(
         ref self,
@@ -1658,11 +1645,7 @@ struct String(
         Returns:
             The pointer to the underlying memory.
         """
-        var ptr = self.unsafe_ptr()
-        self._buffer.data = UnsafePointer[UInt8]()
-        self._buffer.size = 0
-        self._buffer.capacity = 0
-        return ptr
+        return self._buffer.steal_data()
 
     fn count(self, substr: StringSlice) -> Int:
         """Return the number of non-overlapping occurrences of substring

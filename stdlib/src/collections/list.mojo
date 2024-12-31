@@ -471,11 +471,11 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
     # Methods
     # ===-------------------------------------------------------------------===#
 
-    fn byte_length(self) -> Int:
-        """Gets the byte length of the List.
+    fn bytecount(self) -> Int:
+        """Gets the bytecount of the List.
 
         Returns:
-            The byte length of the List.
+            The bytecount of the List.
         """
         return len(self) * sizeof[T]()
 
@@ -495,8 +495,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         self.capacity = new_capacity
 
     fn append(mut self, owned value: T):
-        """Appends a value to this list. If there is no capacity left, resizes
-        to twice the current capacity. Except for 0 capacity where it sets 1.
+        """Appends a value to this list.
 
         Args:
             value: The value to append.
@@ -612,9 +611,9 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         Notes:
             If there is no capacity left, resizes to `len(self) + value.size`.
         """
-        self.reserve(self.size + value.size)
-        (self.data + self.size).store(value)
-        self.size += value.size
+        self.reserve(self._len + value.size)
+        (self.data + self._len).store(value)
+        self._len += value.size
 
     fn extend[
         D: DType, //
@@ -633,10 +632,10 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
             If there is no capacity left, resizes to `len(self) + count`.
         """
         debug_assert(count <= value.size, "count must be <= value.size")
-        self.reserve(self.size + count)
+        self.reserve(self._len + count)
         var v_ptr = UnsafePointer.address_of(value).bitcast[Scalar[D]]()
-        memcpy(self.data + self.size, v_ptr, count)
-        self.size += count
+        memcpy(self.data + self._len, v_ptr, count)
+        self._len += count
 
     fn extend[
         D: DType, //
@@ -652,67 +651,9 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         Notes:
             If there is no capacity left, resizes to `len(self) + len(value)`.
         """
-        self.reserve(self.size + len(value))
-        memcpy(self.data + self.size, value.unsafe_ptr(), len(value))
-        self.size += len(value)
-
-    fn extend[
-        D: DType, //
-    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _]):
-        """Extends this list with the elements of a vector.
-
-        Parameters:
-            D: The DType.
-
-        Args:
-            value: The value to append.
-
-        Notes:
-            If there is no capacity left, resizes to `len(self) + value.size`.
-        """
-        self.reserve(self.size + value.size)
-        (self.data + self.size).store(value)
-        self.size += value.size
-
-    fn extend[
-        D: DType, //
-    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _], *, count: Int):
-        """Extends this list with `count` number of elements from a vector.
-
-        Parameters:
-            D: The DType.
-
-        Args:
-            value: The value to append.
-            count: The ammount of items to append. Must be less than or equal to
-                   `value.size`.
-
-        Notes:
-            If there is no capacity left, resizes to `len(self) + count`.
-        """
-        debug_assert(count <= value.size, "count must be <= value.size")
-        self.reserve(self.size + count)
-        var v_ptr = UnsafePointer.address_of(value).bitcast[Scalar[D]]()
-        memcpy(self.data + self.size, v_ptr, count)
-        self.size += count
-
-    fn extend[
-        D: DType, //
-    ](mut self: List[Scalar[D], *_, **_], value: Span[Scalar[D]]):
-        """Extends this list with the elements of a `Span`.
-
-        Parameters:
-            D: The DType.
-
-        Args:
-            value: The value to append.
-
-        Notes:
-            If there is no capacity left, resizes to `len(self) + len(value)`.
-        """
-        self.reserve(self.size + len(value))
-        memcpy(self.data + self.size, value.unsafe_ptr(), len(value))
-        self.size += len(value)
+        self.reserve(self._len + len(value))
+        memcpy(self.data + self._len, value.unsafe_ptr(), len(value))
+        self._len += len(value)
 
     fn pop(mut self, i: Int = -1) -> T:
         """Pops a value from the list at the given index.

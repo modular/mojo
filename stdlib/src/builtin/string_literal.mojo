@@ -383,7 +383,7 @@ struct StringLiteral(
         # return self.as_string_slice()
         var length = self.byte_length()
         var buffer = String._buffer_type(capacity=length + 1)
-        buffer.append(self.as_bytes())
+        buffer.extend(self.as_bytes())
         buffer.append(0)
         return String(buffer^)
 
