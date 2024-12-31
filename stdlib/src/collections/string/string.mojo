@@ -1199,13 +1199,11 @@ struct String(
     fn _add(lhs: Span[Byte], rhs: Span[Byte]) -> String:
         var lhs_len = len(lhs)
         var rhs_len = len(rhs)
-        var lhs_ptr = lhs.unsafe_ptr()
-        var rhs_ptr = rhs.unsafe_ptr()
         alias S = StringSlice[ImmutableAnyOrigin]
         if lhs_len == 0:
-            return String(S(ptr=rhs_ptr, length=rhs_len))
+            return String(S(ptr=rhs.unsafe_ptr(), length=rhs_len))
         elif rhs_len == 0:
-            return String(S(ptr=lhs_ptr, length=lhs_len))
+            return String(S(ptr=lhs.unsafe_ptr(), length=lhs_len))
         var buffer = Self._buffer_type(capacity=lhs_len + rhs_len + 1)
         buffer.extend(lhs)
         buffer.extend(rhs)
@@ -1285,17 +1283,13 @@ struct String(
         return Self._add(other.as_bytes(), self.as_bytes())
 
     fn _iadd(mut self, other: Span[Byte]):
-        var s_len = self.byte_length()
         var o_len = len(other)
-        var o_ptr = other.unsafe_ptr()
-        if s_len == 0:
-            alias S = StringSlice[ImmutableAnyOrigin]
-            self = String(S(ptr=o_ptr, length=o_len))
-            return
-        elif o_len == 0:
+        if o_len == 0:
             return
 
-        _ = self._buffer.pop()
+        self._buffer.reserve(len(self._buffer) + o_len)
+        if len(self._buffer) > 0:
+            _ = self._buffer.pop()
         self._buffer.extend(other)
         self._buffer.append(0)
 
