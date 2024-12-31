@@ -415,7 +415,9 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         Returns:
             A string representation of the list.
         """
-        var output = String(capacity=len(self) + 1)  # at least
+        # at least 1 byte per item e.g.: [a, b, c, d] = 4 + 2 * 3 + [] + null
+        var l = len(self)
+        var output = String(capacity=l + 2 * (l - 1) * int(l > 1) + 3)
         self.write_to(output)
         return output^
 
