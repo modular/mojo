@@ -666,17 +666,17 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         Returns:
             The popped value.
         """
-        debug_assert(-len(self) <= i < len(self), "pop index out of range")
+        debug_assert(-self._len <= i < self._len, "pop index out of range")
 
         var normalized_idx = i
         if i < 0:
-            normalized_idx += len(self)
+            normalized_idx += self._len
 
         var ret_val = (self.data + normalized_idx).take_pointee()
-        for j in range(normalized_idx + 1, len(self)):
+        for j in range(normalized_idx + 1, self._len):
             (self.data + j).move_pointee_into(self.data + j - 1)
         self._len -= 1
-        if len(self) * 4 < self.capacity:
+        if self._len * 4 < self.capacity:
             if self.capacity > 1:
                 self._realloc(self.capacity // 2)
         return ret_val^
@@ -705,11 +705,11 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
             new_size: The new size.
             value: The value to use to populate new elements.
         """
-        if new_size <= len(self):
+        if new_size <= self._len:
             self.resize(new_size)
         else:
             self.reserve(new_size)
-            for i in range(len(self), new_size):
+            for i in range(self._len, new_size):
                 (self.data + i).init_pointee_copy(value)
             self._len = new_size
 
@@ -813,7 +813,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
 
     fn clear(mut self):
         """Clears the elements in the list."""
-        for i in range(len(self)):
+        for i in range(self._len):
             (self.data + i).destroy_pointee()
         self._len = 0
 

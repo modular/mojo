@@ -1287,9 +1287,9 @@ struct String(
         if o_len == 0:
             return
 
-        self._buffer.reserve(len(self._buffer) + o_len)
         if len(self._buffer) > 0:
             _ = self._buffer.pop()
+        self._buffer.reserve(len(self._buffer) + o_len + 1)
         self._buffer.extend(other)
         self._buffer.append(0)
 
