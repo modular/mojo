@@ -14,7 +14,7 @@
 to data elements in arrays."""
 
 
-@no_inline
+@always_inline
 fn normalize_index[
     ContainerType: Sized, //,
     container_name: StringLiteral,

@@ -17,6 +17,7 @@ from collections._index_normalization import normalize_index
 from testing import assert_equal
 
 
+@no_inline
 def _test[branchless: Bool]():
     alias t = "TestContainer"
     container = List[Int](1, 1, 1, 1)
