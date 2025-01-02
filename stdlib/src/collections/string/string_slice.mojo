@@ -855,7 +855,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         """
         if end == -1:
             return self.find(prefix, start) == start
-        return StringSlice[origin](
+        return Self(
             ptr=self.unsafe_ptr() + start, length=end - start
         ).startswith(prefix)
 
@@ -873,13 +873,17 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Returns:
             True if the `self[start:end]` is suffixed by the input suffix.
         """
-        if len(suffix) > len(self):
+        var o_len = suffix.byte_length()
+        if o_len > self.byte_length():
             return False
         if end == -1:
-            return self.rfind(suffix, start) + len(suffix) == len(self)
-        return StringSlice[origin](
-            ptr=self.unsafe_ptr() + start, length=end - start
-        ).endswith(suffix)
+            return (
+                self.rfind(suffix, start) + o_len
+                == self.byte_length()
+            )
+        return Self(ptr=self.unsafe_ptr() + start, length=end - start).endswith(
+            suffix
+        )
 
     fn _from_start(self, start: Int) -> Self:
         """Gets the `StringSlice` pointing to the substring after the specified
