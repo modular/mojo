@@ -919,6 +919,7 @@ struct String(
             ptr: The pointer to the buffer.
             length: The length of the buffer, including the null terminator.
         """
+        debug_assert(length > -1, "pointer length must be positive")
         # we don't know the capacity of ptr, but we'll assume it's the same or
         # larger than len
         self = Self(Self._buffer_type(ptr=ptr, length=length, capacity=length))
@@ -1344,7 +1345,7 @@ struct String(
             An iterator of references to the string elements.
         """
         return _StringSliceIter[__origin_of(self)](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
@@ -1354,7 +1355,7 @@ struct String(
             A reversed iterator of references to the string elements.
         """
         return _StringSliceIter[__origin_of(self), forward=False](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     # ===------------------------------------------------------------------=== #

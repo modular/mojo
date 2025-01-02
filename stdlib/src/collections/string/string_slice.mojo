@@ -183,9 +183,10 @@ struct _StringSliceIter[
     var ptr: UnsafePointer[Byte]
     var length: Int
 
-    fn __init__(mut self, *, unsafe_pointer: UnsafePointer[Byte], length: Int):
+    fn __init__(mut self, *, ptr: UnsafePointer[Byte], length: Int):
+        debug_assert(length > -1, "pointer length must be positive")
         self.index = 0 if forward else length
-        self.ptr = unsafe_pointer
+        self.ptr = ptr
         self.length = length
 
     fn __iter__(self) -> Self:
@@ -334,6 +335,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             - `ptr` must point to data that is live for the duration of
                 `origin`.
         """
+        debug_assert(length > -1, "pointer length must be positive")
         self._slice = Span[Byte, origin](ptr=ptr, length=length)
 
     @always_inline
@@ -570,7 +572,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             An iterator of references to the string elements.
         """
         return _StringSliceIter[origin](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __reversed__(self) -> _StringSliceIter[origin, False]:
@@ -580,7 +582,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             A reversed iterator of references to the string elements.
         """
         return _StringSliceIter[origin, forward=False](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __getitem__[IndexerType: Indexer](self, idx: IndexerType) -> String:

@@ -123,6 +123,7 @@ struct Span[
             ptr: The underlying pointer of the span.
             length: The length of the view.
         """
+        debug_assert(length > -1, "pointer length must be positive")
         self._data = ptr
         self._len = length
 
