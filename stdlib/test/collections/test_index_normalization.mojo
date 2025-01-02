@@ -64,10 +64,6 @@ def _test[branchless: Bool]():
     assert_equal(clamp(7, container), 3)
     # test container with zero length
     container = List[Int]()
-    """
-    # CHECK: Indexing into a TestContainer that has 0 elements
-    _ = clamp(-8, container)
-    """
     alias ign_zero_clamp = normalize_index[
         t,
         ignore_zero_length=True,
