@@ -45,25 +45,6 @@ def _test[branchless: Bool]():
     assert_equal(clamp(1, container), 1)
     assert_equal(clamp(2, container), 2)
     assert_equal(clamp(3, container), 3)
-    # test clamp to container length overflow
-    # CHECK: TestContainer has length: 4. Index out of bounds: -8 should be between -4 and 3
-    assert_equal(clamp(-8, container), 0)
-    # CHECK: TestContainer has length: 4. Index out of bounds: -7 should be between -4 and 3
-    assert_equal(clamp(-7, container), 0)
-    # CHECK: TestContainer has length: 4. Index out of bounds: -6 should be between -4 and 3
-    assert_equal(clamp(-6, container), 0)
-    # CHECK: TestContainer has length: 4. Index out of bounds: -5 should be between -4 and 3
-    assert_equal(clamp(-5, container), 0)
-    # CHECK: TestContainer has length: 4. Index out of bounds: 4 should be between -4 and 3
-    assert_equal(clamp(4, container), 3)
-    # CHECK: TestContainer has length: 4. Index out of bounds: 5 should be between -4 and 3
-    assert_equal(clamp(5, container), 3)
-    # CHECK: TestContainer has length: 4. Index out of bounds: 6 should be between -4 and 3
-    assert_equal(clamp(6, container), 3)
-    # CHECK: TestContainer has length: 4. Index out of bounds: 7 should be between -4 and 3
-    assert_equal(clamp(7, container), 3)
-    # test container with zero length
-    container = List[Int]()
     alias ign_zero_clamp = normalize_index[
         t,
         ignore_zero_length=True,
@@ -105,10 +86,61 @@ def _test[branchless: Bool]():
 
 def test_normalize_index_branchless():
     _test[True]()
+    alias t = "TestContainer"
+    container = List[Int](1, 1, 1, 1)
+    # test clamp to container length overflow
+    # CHECK: TestContainer has length: 4. Index out of bounds: -8 should be between -4 and 3
+    assert_equal(clamp(-8, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: -7 should be between -4 and 3
+    assert_equal(clamp(-7, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: -6 should be between -4 and 3
+    assert_equal(clamp(-6, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: -5 should be between -4 and 3
+    assert_equal(clamp(-5, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 4 should be between -4 and 3
+    assert_equal(clamp(4, container), 3)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 5 should be between -4 and 3
+    assert_equal(clamp(5, container), 3)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 6 should be between -4 and 3
+    assert_equal(clamp(6, container), 3)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 7 should be between -4 and 3
+    assert_equal(clamp(7, container), 3)
+    # test container with zero length
+    container = List[Int]()
+    # CHECK: Indexing into a TestContainer that has 0 elements
+    _ = clamp(-8, container)
+    # CHECK: Indexing into a TestContainer that has 0 elements
+    _ = no_clamp(-8, container)
+
 
 
 def test_normalize_index_branchy():
     _test[False]()
+    alias t = "TestContainer"
+    container = List[Int](1, 1, 1, 1)
+    # test clamp to container length overflow
+    # CHECK: TestContainer has length: 4. Index out of bounds: -8 should be between -4 and 3
+    assert_equal(clamp(-8, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: -7 should be between -4 and 3
+    assert_equal(clamp(-7, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: -6 should be between -4 and 3
+    assert_equal(clamp(-6, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: -5 should be between -4 and 3
+    assert_equal(clamp(-5, container), 0)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 4 should be between -4 and 3
+    assert_equal(clamp(4, container), 3)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 5 should be between -4 and 3
+    assert_equal(clamp(5, container), 3)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 6 should be between -4 and 3
+    assert_equal(clamp(6, container), 3)
+    # CHECK: TestContainer has length: 4. Index out of bounds: 7 should be between -4 and 3
+    assert_equal(clamp(7, container), 3)
+    # test container with zero length
+    container = List[Int]()
+    # CHECK: Indexing into a TestContainer that has 0 elements
+    _ = clamp(-8, container)
+    # CHECK: Indexing into a TestContainer that has 0 elements
+    _ = no_clamp(-8, container)
 
 
 def main():
