@@ -88,6 +88,12 @@ def test_normalize_index_branchless():
     _test[True]()
     alias t = "TestContainer"
     container = List[Int](1, 1, 1, 1)
+    alias no_clamp = normalize_index[
+        t, clamp_to_container_length=False, branchless=branchless
+    ]
+    alias clamp = normalize_index[
+        t, clamp_to_container_length=True, branchless=branchless
+    ]
     # test clamp to container length overflow
     # CHECK: TestContainer has length: 4. Index out of bounds: -8 should be between -4 and 3
     assert_equal(clamp(-8, container), 0)
@@ -118,6 +124,12 @@ def test_normalize_index_branchy():
     _test[False]()
     alias t = "TestContainer"
     container = List[Int](1, 1, 1, 1)
+    alias no_clamp = normalize_index[
+        t, clamp_to_container_length=False, branchless=branchless
+    ]
+    alias clamp = normalize_index[
+        t, clamp_to_container_length=True, branchless=branchless
+    ]
     # test clamp to container length overflow
     # CHECK: TestContainer has length: 4. Index out of bounds: -8 should be between -4 and 3
     assert_equal(clamp(-8, container), 0)
