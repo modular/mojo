@@ -90,6 +90,7 @@ fn normalize_index[
             else:
                 return idx + normalize_len
     else:
+
         @parameter
         if ignore_zero_length:
             if c_len == 0:
