@@ -14,7 +14,7 @@
 to data elements in arrays."""
 
 
-@always_inline
+@no_inline
 fn normalize_index[
     ContainerType: Sized, //,
     container_name: StringLiteral,
@@ -90,7 +90,6 @@ fn normalize_index[
             else:
                 return idx + normalize_len
     else:
-        var normalize_len = c_len & -int(idx < 0)
 
         @parameter
         if clamp_to_container_length:
