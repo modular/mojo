@@ -86,7 +86,7 @@ fn normalize_index[
 
             @parameter
             if ignore_zero_length:
-                return idx & -int(c_len != 0) + normalize_len
+                return (idx & -int(c_len != 0)) + normalize_len
             else:
                 return idx + normalize_len
     else:
