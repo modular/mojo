@@ -183,7 +183,7 @@ struct _StringSliceIter[
     var ptr: UnsafePointer[Byte]
     var length: Int
 
-    fn __init__(mut self, *, ptr: UnsafePointer[Byte], length: UInt):
+    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: UInt):
         self.index = 0 if forward else length
         self.ptr = ptr
         self.length = length
