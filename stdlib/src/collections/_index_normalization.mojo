@@ -90,14 +90,13 @@ fn normalize_index[
             else:
                 return idx + normalize_len
     else:
+        @parameter
+        if ignore_zero_length:
+            if c_len == 0:
+                return 0
 
         @parameter
         if clamp_to_container_length:
             return min(c_len - 1, idx) if idx > -1 else max(0, idx + c_len)
         else:
-
-            @parameter
-            if ignore_zero_length:
-                if c_len == 0:
-                    return 0
             return idx if idx > -1 else idx + c_len
