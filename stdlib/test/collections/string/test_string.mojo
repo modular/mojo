@@ -24,7 +24,7 @@ from collections.string import StringSlice
 from collections.string.string import (
     _calc_initial_buffer_size_int32,
     _calc_initial_buffer_size_int64,
-    _isspace,
+    _is_ascii_space,
 )
 from memory import UnsafePointer
 from python import Python
@@ -951,26 +951,26 @@ def test_upper():
     assert_equal(String("é").upper(), "É")
 
 
-def test_isspace():
+def test_is_ascii_space():
     # checking true cases
-    assert_true(_isspace(ord(" ")))
-    assert_true(_isspace(ord("\n")))
-    assert_true(_isspace("\n"))
-    assert_true(_isspace(ord("\t")))
-    assert_true(_isspace(ord("\r")))
-    assert_true(_isspace(ord("\v")))
-    assert_true(_isspace(ord("\f")))
+    assert_true(_is_ascii_space(ord(" ")))
+    assert_true(_is_ascii_space(ord("\n")))
+    assert_true(_is_ascii_space("\n"))
+    assert_true(_is_ascii_space(ord("\t")))
+    assert_true(_is_ascii_space(ord("\r")))
+    assert_true(_is_ascii_space(ord("\v")))
+    assert_true(_is_ascii_space(ord("\f")))
 
     # Checking false cases
-    assert_false(_isspace(ord("a")))
-    assert_false(_isspace("a"))
-    assert_false(_isspace(ord("u")))
-    assert_false(_isspace(ord("s")))
-    assert_false(_isspace(ord("t")))
-    assert_false(_isspace(ord("i")))
-    assert_false(_isspace(ord("n")))
-    assert_false(_isspace(ord("z")))
-    assert_false(_isspace(ord(".")))
+    assert_false(_is_ascii_space(ord("a")))
+    assert_false(_is_ascii_space("a"))
+    assert_false(_is_ascii_space(ord("u")))
+    assert_false(_is_ascii_space(ord("s")))
+    assert_false(_is_ascii_space(ord("t")))
+    assert_false(_is_ascii_space(ord("i")))
+    assert_false(_is_ascii_space(ord("n")))
+    assert_false(_is_ascii_space(ord("z")))
+    assert_false(_is_ascii_space(ord(".")))
 
     # test all utf8 and unicode separators
     # 0 is to build a String with null terminator
@@ -1611,7 +1611,7 @@ def main():
     test_islower()
     test_lower()
     test_upper()
-    test_isspace()
+    test_is_ascii_space()
     test_ascii_aliases()
     test_rstrip()
     test_lstrip()

@@ -25,7 +25,7 @@ from bit import count_leading_zeros
 from collections import List, Optional
 from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
 from collections.string._utf8_validation import _is_valid_utf8
-from collections.string.string import _atof, _atol, _isspace
+from collections.string.string import _atof, _atol, _is_ascii_space
 from memory import UnsafePointer, memcmp, memcpy, Span
 from memory.memory import _memcmp_impl_unconstrained
 from sys import bitwidthof, simdwidthof
@@ -741,7 +741,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #     if not s.isspace():
         #         break
         #     r_idx -= 1
-        while r_idx > 0 and _isspace(self.as_bytes()[r_idx - 1]):
+        while r_idx > 0 and _is_ascii_space(self.as_bytes()[r_idx - 1]):
             r_idx -= 1
         return Self(unsafe_from_utf8=self.as_bytes()[:r_idx])
 
@@ -791,7 +791,9 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #     if not s.isspace():
         #         break
         #     l_idx += 1
-        while l_idx < self.byte_length() and _isspace(self.as_bytes()[l_idx]):
+        while l_idx < self.byte_length() and _is_ascii_space(
+            self.as_bytes()[l_idx]
+        ):
             l_idx += 1
         return Self(unsafe_from_utf8=self.as_bytes()[l_idx:])
 
@@ -1040,7 +1042,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         for s in self:
             var no_null_len = s.byte_length()
             var ptr = s.unsafe_ptr()
-            if no_null_len == 1 and _isspace(ptr[0]):
+            if no_null_len == 1 and _is_ascii_space(ptr[0]):
                 continue
             elif (
                 no_null_len == 2 and memcmp(ptr, next_line.unsafe_ptr(), 2) == 0
