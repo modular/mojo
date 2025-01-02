@@ -15,10 +15,11 @@
 These are Mojo built-ins, so you don't need to import them.
 """
 
-from collections import Set, List
+from collections import List, Set
 
-from utils._visualizers import lldb_formatter_wrapping_type
 from utils._select import _select_register_value
+from utils._visualizers import lldb_formatter_wrapping_type
+from hashlib._hasher import _Hasher
 
 # ===----------------------------------------------------------------------=== #
 #  Boolable
@@ -121,13 +122,13 @@ struct Bool(
         self = False
 
     @always_inline("nodebug")
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly construct a deep copy of the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.value = other.value
+        return self
 
     @doc_private
     @always_inline("nodebug")
@@ -155,7 +156,7 @@ struct Bool(
 
     @always_inline("nodebug")
     @implicit
-    fn __init__[T: ImplicitlyBoolable, //](inout self, value: T):
+    fn __init__[T: ImplicitlyBoolable, //](mut self, value: T):
         """Convert an ImplicitlyBoolable value to a Bool.
 
         Parameters:
@@ -226,7 +227,7 @@ struct Bool(
         return String.write(self)
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats this boolean to the provided Writer.
 
@@ -404,7 +405,7 @@ struct Bool(
         return __mlir_op.`pop.and`(self.value, rhs.value)
 
     @always_inline("nodebug")
-    fn __iand__(inout self, rhs: Bool):
+    fn __iand__(mut self, rhs: Bool):
         """Computes `self & rhs` and store the result in `self`.
 
         Args:
@@ -440,7 +441,7 @@ struct Bool(
         return __mlir_op.`pop.or`(self.value, rhs.value)
 
     @always_inline("nodebug")
-    fn __ior__(inout self, rhs: Bool):
+    fn __ior__(mut self, rhs: Bool):
         """Computes `self | rhs` and store the result in `self`.
 
         Args:
@@ -476,7 +477,7 @@ struct Bool(
         return __mlir_op.`pop.xor`(self.value, rhs.value)
 
     @always_inline("nodebug")
-    fn __ixor__(inout self, rhs: Bool):
+    fn __ixor__(mut self, rhs: Bool):
         """Computes `self ^ rhs` and stores the result in `self`.
 
         Args:
@@ -504,6 +505,17 @@ struct Bool(
             0 for -False and -1 for -True.
         """
         return __mlir_op.`index.casts`[_type = __mlir_type.index](self.value)
+
+    fn __hash__[H: _Hasher](self, mut hasher: H):
+        """Updates hasher with the underlying bytes.
+
+        Parameters:
+            H: The hasher type.
+
+        Args:
+            hasher: The hasher instance.
+        """
+        hasher._update_with_simd(Scalar[DType.bool](self))
 
 
 # ===----------------------------------------------------------------------=== #

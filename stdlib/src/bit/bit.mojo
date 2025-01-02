@@ -22,9 +22,9 @@ from bit import count_leading_zeros
 from sys import llvm_intrinsic, sizeof
 from sys.info import bitwidthof
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # count_leading_zeros
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -66,9 +66,9 @@ fn count_leading_zeros[
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # count_trailing_zeros
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -110,9 +110,9 @@ fn count_trailing_zeros[
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # bit_reverse
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -154,9 +154,9 @@ fn bit_reverse[
     ](val)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # byte_swap
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -212,9 +212,9 @@ fn byte_swap[
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # pop_count
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -256,9 +256,9 @@ fn pop_count[
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # bit_not
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -286,9 +286,9 @@ fn bit_not[
     return __mlir_op.`pop.simd.xor`(val.value, neg_one.value)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # bit_width
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -343,10 +343,30 @@ fn bit_width[
         return bitwidth - leading_zero
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
+# log2_floor
+# ===-----------------------------------------------------------------------===#
+
+
+@always_inline
+fn log2_floor(val: Int) -> Int:
+    """Returns the floor of the base-2 logarithm of an integer value.
+
+    Args:
+        val: The input value.
+
+    Returns:
+        The floor of the base-2 logarithm of the input value, which is equal to
+        the position of the highest set bit. Returns -1 if val is 0.
+    """
+    if val <= 1:
+        return 0
+    return bitwidthof[Int]() - count_leading_zeros(val) - 1
+
+
+# ===-----------------------------------------------------------------------===#
 # is_power_of_two
-# ===----------------------------------------------------------------------===#
-# reference: https://en.cppreference.com/w/cpp/numeric/has_single_bit
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -391,16 +411,19 @@ fn is_power_of_two[
         return (val > 0) & (val & (val - 1) == 0)
 
 
-# ===----------------------------------------------------------------------===#
-# bit_ceil
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
+# next_power_of_two
+# ===-----------------------------------------------------------------------===#
 # reference: https://en.cppreference.com/w/cpp/numeric/bit_ceil
+# reference: https://doc.rust-lang.org/std/primitive.usize.html#method.next_power_of_two
 
 
 @always_inline
-fn bit_ceil(val: Int) -> Int:
+fn next_power_of_two(val: Int) -> Int:
     """Computes the smallest power of 2 that is greater than or equal to the
     input value. Any integral value less than or equal to 1 will be ceiled to 1.
+
+    This operation is called `bit_ceil()` in C++.
 
     Args:
         val: The input value.
@@ -418,12 +441,14 @@ fn bit_ceil(val: Int) -> Int:
 
 
 @always_inline
-fn bit_ceil[
+fn next_power_of_two[
     type: DType, width: Int, //
 ](val: SIMD[type, width]) -> SIMD[type, width]:
     """Computes the smallest power of 2 that is greater than or equal to the
     input value for each element of a SIMD vector. Any integral value less than
     or equal to 1 will be ceiled to 1.
+
+    This operation is called `bit_ceil()` in C++.
 
     Parameters:
         type: `dtype` used for the computation.
@@ -447,16 +472,18 @@ fn bit_ceil[
     return (val > 1).select(1 << bit_width(val - ones), ones)
 
 
-# ===----------------------------------------------------------------------===#
-# bit_floor
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
+# prev_power_of_two
+# ===-----------------------------------------------------------------------===#
 # reference: https://en.cppreference.com/w/cpp/numeric/bit_floor
 
 
 @always_inline
-fn bit_floor(val: Int) -> Int:
+fn prev_power_of_two(val: Int) -> Int:
     """Computes the largest power of 2 that is less than or equal to the input
     value. Any integral value less than or equal to 0 will be floored to 0.
+
+    This operation is called `bit_floor()` in C++.
 
     Args:
         val: The input value.
@@ -471,12 +498,14 @@ fn bit_floor(val: Int) -> Int:
 
 
 @always_inline
-fn bit_floor[
+fn prev_power_of_two[
     type: DType, width: Int, //
 ](val: SIMD[type, width]) -> SIMD[type, width]:
     """Computes the largest power of 2 that is less than or equal to the input
     value for each element of a SIMD vector. Any integral value less than or
     equal to 0 will be floored to 0.
+
+    This operation is called `bit_floor()` in C++.
 
     Parameters:
         type: `dtype` used for the computation.
@@ -500,9 +529,9 @@ fn bit_floor[
     return (val > 0).select(1 << (bit_width(val) - 1), zeros)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # rotate_bits_left
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -578,9 +607,9 @@ fn rotate_bits_left[
         )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # rotate_bits_right
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline

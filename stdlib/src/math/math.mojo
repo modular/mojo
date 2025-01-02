@@ -20,30 +20,29 @@ from math import floor
 """
 
 from collections import List
-from sys._assembly import inlined_assembly
-from sys.ffi import _external_call_const
 from sys import (
-    llvm_intrinsic,
     bitwidthof,
     has_avx512f,
-    simdwidthof,
-    is_nvidia_gpu,
     is_amd_gpu,
+    is_nvidia_gpu,
+    llvm_intrinsic,
+    simdwidthof,
     sizeof,
 )
-
-from memory import UnsafePointer
+from sys._assembly import inlined_assembly
+from sys.ffi import _external_call_const
+from sys.info import _current_arch
 
 from bit import count_trailing_zeros
 from builtin.dtype import _integral_type_of
-from builtin.simd import _simd_apply, _modf
-from sys.info import _current_arch
+from builtin.simd import _modf, _simd_apply
+from memory import UnsafePointer, Span
 
-from utils import Span
 from utils.index import IndexList
 from utils.numerics import FPUtils, isnan, nan
 from utils.static_tuple import StaticTuple
 
+from .constants import log2e
 from .polynomial import polynomial_evaluate
 
 # ===----------------------------------------------------------------------=== #
@@ -574,14 +573,13 @@ fn exp[
     """
     constrained[type.is_floating_point(), "must be a floating point value"]()
     alias neg_ln2 = -0.69314718055966295651160180568695068359375
-    alias inv_lg2 = 1.442695040888963407359924681001892137426646
 
     @parameter
     if is_nvidia_gpu():
 
         @parameter
         if type in (DType.float16, DType.float32):
-            return exp2(x * inv_lg2)
+            return exp2(x * log2e)
 
     @parameter
     if type not in (DType.float32, DType.float64):
@@ -599,7 +597,7 @@ fn exp[
         max_val = 88.3762626647950
 
     var xc = x.clamp(min_val, max_val)
-    var k = floor(xc.fma(inv_lg2, 0.5))
+    var k = floor(xc.fma(log2e, 0.5))
     var r = k.fma(neg_ln2, xc)
     return max(_ldexp_impl(_exp_taylor(r), k), xc)
 
@@ -646,6 +644,8 @@ fn frexp[
     type: DType, simd_width: Int, //
 ](x: SIMD[type, simd_width]) -> StaticTuple[SIMD[type, simd_width], 2]:
     """Breaks floating point values into a fractional part and an exponent part.
+    This follows C and Python in increasing the exponent by 1 and normalizing the
+    fraction from 0.5 to 1.0 instead of 1.0 to 2.0.
 
     Constraints:
         The input must be a floating-point type.
@@ -665,14 +665,15 @@ fn frexp[
     constrained[type.is_floating_point(), "must be a floating point value"]()
     alias T = SIMD[type, simd_width]
     alias zero = T(0)
-    alias max_exponent = FPUtils[type].max_exponent() - 1
+    # Add one to the resulting exponent up by subtracting 1 from the bias
+    alias exponent_bias = FPUtils[type].exponent_bias() - 1
     alias mantissa_width = FPUtils[type].mantissa_width()
     var mask1 = _frexp_mask1[simd_width, type]()
     var mask2 = _frexp_mask2[simd_width, type]()
     var x_int = x.to_bits()
     var selector = x != zero
     var exp = selector.select(
-        (((mask1 & x_int) >> mantissa_width) - max_exponent).cast[type](),
+        (((mask1 & x_int) >> mantissa_width) - exponent_bias).cast[type](),
         zero,
     )
     var frac = selector.select(T(from_bits=x_int & ~mask1 | mask2), zero)
@@ -739,7 +740,6 @@ fn _log_base[
         alias ln2 = 0.69314718055994530942
         y = exp.fma(ln2, y)
     else:
-        alias log2e = 1.4426950408889634073599
         y = y.fma(log2e, exp)
     return (x == 0).select(Scalar[type].MIN, (x > 0).select(y, nan[type]()))
 
@@ -1109,7 +1109,7 @@ fn iota[
         buff.store(i, i + offset)
 
 
-fn iota[type: DType, //](inout v: List[Scalar[type], *_], offset: Int = 0):
+fn iota[type: DType, //](mut v: List[Scalar[type], *_], offset: Int = 0):
     """Fill a list with consecutive numbers starting from the specified offset.
 
     Parameters:
@@ -1122,7 +1122,7 @@ fn iota[type: DType, //](inout v: List[Scalar[type], *_], offset: Int = 0):
     iota(v.data, len(v), offset)
 
 
-fn iota(inout v: List[Int, *_], offset: Int = 0):
+fn iota(mut v: List[Int, *_], offset: Int = 0):
     """Fill a list with consecutive numbers starting from the specified offset.
 
     Args:
@@ -1140,6 +1140,23 @@ fn iota(inout v: List[Int, *_], offset: Int = 0):
 
 @always_inline
 fn fma(a: Int, b: Int, c: Int) -> Int:
+    """Performs `fma` (fused multiply-add) on the inputs.
+
+    The result is `(a * b) + c`.
+
+    Args:
+        a: The first input.
+        b: The second input.
+        c: The third input.
+
+    Returns:
+        `(a * b) + c`.
+    """
+    return a * b + c
+
+
+@always_inline
+fn fma(a: UInt, b: UInt, c: UInt) -> UInt:
     """Performs `fma` (fused multiply-add) on the inputs.
 
     The result is `(a * b) + c`.
@@ -1401,7 +1418,9 @@ fn cos[
             instruction="cos.approx.ftz.f32", constraints="=f,f"
         ](x)
     elif is_amd_gpu():
-        return llvm_intrinsic["llvm.cos", __type_of(x)](x)
+        return llvm_intrinsic["llvm.cos", __type_of(x), has_side_effect=False](
+            x
+        )
     else:
         return _call_libm["cos"](x)
 
@@ -1436,7 +1455,9 @@ fn sin[
             instruction="sin.approx.ftz.f32", constraints="=f,f"
         ](x)
     elif is_amd_gpu():
-        return llvm_intrinsic["llvm.sin", __type_of(x)](x)
+        return llvm_intrinsic["llvm.sin", __type_of(x), has_side_effect=False](
+            x
+        )
     else:
         return _call_libm["sin"](x)
 
@@ -1615,7 +1636,9 @@ fn log10(x: SIMD) -> __type_of(x):
                 * log10_2
             )
     elif is_amd_gpu():
-        return llvm_intrinsic["llvm.log10", __type_of(x)](x)
+        return llvm_intrinsic[
+            "llvm.log10", __type_of(x), has_side_effect=False
+        ](x)
 
     return _call_libm["log10"](x)
 

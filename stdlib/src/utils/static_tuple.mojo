@@ -21,9 +21,9 @@ from utils import StaticTuple
 
 from memory import UnsafePointer
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Utilities
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -78,13 +78,8 @@ fn _create_array[
 
     debug_assert(size == len(lst), "mismatch in the number of elements")
 
-    var array = __mlir_op.`kgen.param.constant`[
-        _type = __mlir_type[`!pop.array<`, size.value, `, `, type, `>`],
-        value = __mlir_attr[
-            `#kgen.unknown : `,
-            __mlir_type[`!pop.array<`, size.value, `, `, type, `>`],
-        ],
-    ]()
+    var array: __mlir_type[`!pop.array<`, size.value, `, `, type, `>`]
+    __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(array))
 
     @parameter
     for idx in range(size):
@@ -93,9 +88,9 @@ fn _create_array[
     return array
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # StaticTuple
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn _static_tuple_construction_checks[size: Int]():
@@ -129,10 +124,7 @@ struct StaticTuple[element_type: AnyTrivialRegType, size: Int](Sized):
     fn __init__(out self):
         """Constructs an empty (undefined) tuple."""
         _static_tuple_construction_checks[size]()
-        self.array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
     @always_inline
     @implicit
@@ -218,20 +210,15 @@ struct StaticTuple[element_type: AnyTrivialRegType, size: Int](Sized):
         debug_assert(
             int(idx.__mlir_index__()) < size, "index must be within bounds"
         )
-        # Copy the array so we can get its address, because we can't take the
-        # address of 'self' in a non-mutating method.
-        var arrayCopy = self.array
         var ptr = __mlir_op.`pop.array.gep`(
-            UnsafePointer.address_of(arrayCopy).address, idx.__mlir_index__()
+            UnsafePointer.address_of(self.array).address, idx.__mlir_index__()
         )
-        var result = UnsafePointer(ptr)[]
-        _ = arrayCopy
-        return result
+        return UnsafePointer(ptr)[]
 
     @always_inline("nodebug")
     fn __setitem__[
         IntLike: IntLike, //
-    ](inout self, idx: IntLike, val: Self.element_type):
+    ](mut self, idx: IntLike, val: Self.element_type):
         """Stores a single value into the tuple at the specified dynamic index.
 
         Parameters:
@@ -252,7 +239,7 @@ struct StaticTuple[element_type: AnyTrivialRegType, size: Int](Sized):
         self = tmp
 
     @always_inline("nodebug")
-    fn __setitem__[index: Int](inout self, val: Self.element_type):
+    fn __setitem__[index: Int](mut self, val: Self.element_type):
         """Stores a single value into the tuple at the specified index.
 
         Parameters:
@@ -262,6 +249,4 @@ struct StaticTuple[element_type: AnyTrivialRegType, size: Int](Sized):
             val: The value to store.
         """
         constrained[index < size]()
-        var tmp = self
-        _set_array_elem[index, size, Self.element_type](val, tmp.array)
-        self = tmp
+        _set_array_elem[index, size, Self.element_type](val, self.array)

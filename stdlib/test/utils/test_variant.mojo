@@ -15,8 +15,8 @@
 from sys.ffi import _Global
 
 from memory import UnsafePointer
-from testing import assert_equal, assert_false, assert_true
 from test_utils import ObservableDel
+from testing import assert_equal, assert_false, assert_true
 
 from utils import Variant
 
@@ -116,7 +116,7 @@ def test_explicit_copy():
     var v1 = TestVariant(TestCounter())
 
     # Perform explicit copy
-    var v2 = TestVariant(other=v1)
+    var v2 = v1.copy()
 
     # Test copy counts
     assert_equal(v1[TestCounter].copied, 0)

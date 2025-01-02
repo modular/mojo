@@ -24,10 +24,12 @@ Instructions, ACM Transactions on the Web 12 (3), 2018.
 https://arxiv.org/abs/1704.00605
 """
 
-from builtin.simd import _sub_with_saturation
 from collections import InlineArray
 from math.math import _compile_time_iota
-from memory import memcpy, bitcast, UnsafePointer
+from sys import llvm_intrinsic
+
+from memory import UnsafePointer, bitcast, memcpy
+
 from utils import IndexList
 
 alias Bytes = SIMD[DType.uint8, _]
@@ -193,25 +195,10 @@ fn load_incomplete_simd[
     return result
 
 
-fn store_incomplete_simd[
-    simd_width: Int
-](
-    pointer: UnsafePointer[UInt8],
-    owned simd_vector: SIMD[DType.uint8, simd_width],
-    nb_of_elements_to_store: Int,
-):
-    var tmp_buffer_pointer = UnsafePointer.address_of(simd_vector).bitcast[
-        UInt8
-    ]()
-
-    memcpy(dest=pointer, src=tmp_buffer_pointer, count=nb_of_elements_to_store)
-    _ = simd_vector  # We make it live long enough
-
-
 # TODO: Use Span instead of List as input when Span is easier to use
 @no_inline
 fn b64encode_with_buffers(
-    input_bytes: List[UInt8, _], inout result: List[UInt8, _]
+    input_bytes: List[UInt8, _], mut result: List[UInt8, _]
 ):
     alias simd_width = sys.simdbytewidth()
     alias input_simd_width = simd_width * 3 // 4
@@ -227,11 +214,7 @@ fn b64encode_with_buffers(
 
         var input_vector = start_of_input_chunk.load[width=simd_width]()
 
-        result_vector = _to_b64_ascii(input_vector)
-
-        (result.unsafe_ptr() + len(result)).store(result_vector)
-
-        result.size += simd_width
+        result.extend(_to_b64_ascii(input_vector))
         input_index += input_simd_width
 
     # We handle the last 0, 1 or 2 chunks
@@ -266,12 +249,7 @@ fn b64encode_with_buffers(
         ](
             nb_of_elements_to_load
         )
-        store_incomplete_simd(
-            result.unsafe_ptr() + len(result),
-            result_vector_with_equals,
-            nb_of_elements_to_store,
-        )
-        result.size += nb_of_elements_to_store
+        result.extend(result_vector_with_equals, count=nb_of_elements_to_store)
         input_index += input_simd_width
 
 
@@ -291,3 +269,13 @@ fn _rshift_bits_in_u16[shift: Int](input: Bytes) -> __type_of(input):
     var u16 = bitcast[DType.uint16, input.size // 2](input)
     var res = bit.rotate_bits_right[shift](u16)
     return bitcast[DType.uint8, input.size](res)
+
+
+@always_inline
+fn _sub_with_saturation[
+    width: Int, //
+](a: SIMD[DType.uint8, width], b: SIMD[DType.uint8, width]) -> SIMD[
+    DType.uint8, width
+]:
+    # generates a single `vpsubusb` on x86 with AVX
+    return llvm_intrinsic["llvm.usub.sat", __type_of(a)](a, b)

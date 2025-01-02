@@ -23,9 +23,9 @@ from memory.memory import _free
 
 from utils import StringRef
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Error
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @register_passable
@@ -111,13 +111,13 @@ struct Error(
         self.data = dest
         self.loaded_length = -length
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other
+        return self
 
     fn __del__(owned self):
         """Releases memory if allocated."""
@@ -162,7 +162,7 @@ struct Error(
         return String.write(self)
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats this error to the provided Writer.
 

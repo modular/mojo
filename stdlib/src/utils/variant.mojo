@@ -18,7 +18,7 @@ You can use this type to implement variant/sum types. For example:
 from utils import Variant
 
 alias IntOrString = Variant[Int, String]
-fn to_string(inout x: IntOrString) -> String:
+fn to_string(mut x: IntOrString) -> String:
   if x.isa[String]():
     return x[String]
   # x.isa[Int]()
@@ -81,7 +81,7 @@ struct Variant[*Ts: CollectionElement](
     ```mojo
     from utils import Variant
     alias IntOrString = Variant[Int, String]
-    fn to_string(inout x: IntOrString) -> String:
+    fn to_string(mut x: IntOrString) -> String:
         if x.isa[String]():
             return x[String]
         # x.isa[Int]()
@@ -121,10 +121,10 @@ struct Variant[*Ts: CollectionElement](
         Args:
             unsafe_uninitialized: Marker argument indicating this initializer is unsafe.
         """
-        self._impl = __mlir_attr[`#kgen.unknown : `, Self._mlir_type]
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
     @implicit
-    fn __init__[T: CollectionElement](inout self, owned value: T):
+    fn __init__[T: CollectionElement](mut self, owned value: T):
         """Create a variant with one of the types.
 
         Parameters:
@@ -134,25 +134,25 @@ struct Variant[*Ts: CollectionElement](
         Args:
             value: The value to initialize the variant with.
         """
-        self._impl = __mlir_attr[`#kgen.unknown : `, self._mlir_type]
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
         alias idx = Self._check[T]()
         self._get_discr() = idx
         self._get_ptr[T]().init_pointee_move(value^)
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self, out copy: Self):
         """Explicitly creates a deep copy of an existing variant.
 
-        Args:
-            other: The value to copy from.
+        Returns:
+            A copy of the value.
         """
-        self = Self(unsafe_uninitialized=())
-        self._get_discr() = other._get_discr()
+        copy = Self(unsafe_uninitialized=())
+        copy._get_discr() = self._get_discr()
 
         @parameter
         for i in range(len(VariadicList(Ts))):
             alias T = Ts[i]
-            if self._get_discr() == i:
-                self._get_ptr[T]().init_pointee_move(other._get_ptr[T]()[])
+            if copy._get_discr() == i:
+                copy._get_ptr[T]().init_pointee_move(self._get_ptr[T]()[])
                 return
 
     fn __copyinit__(out self, other: Self):
@@ -163,7 +163,7 @@ struct Variant[*Ts: CollectionElement](
         """
 
         # Delegate to explicit copy initializer.
-        self = Self(other=other)
+        self = other.copy()
 
     fn __moveinit__(out self, owned other: Self):
         """Move initializer for the variant.
@@ -171,7 +171,7 @@ struct Variant[*Ts: CollectionElement](
         Args:
             other: The variant to move.
         """
-        self._impl = __mlir_attr[`#kgen.unknown : `, self._mlir_type]
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
         self._get_discr() = other._get_discr()
 
         @parameter
@@ -239,7 +239,7 @@ struct Variant[*Ts: CollectionElement](
         return UnsafePointer(discr_ptr).bitcast[UInt8]()[]
 
     @always_inline
-    fn take[T: CollectionElement](inout self) -> T:
+    fn take[T: CollectionElement](mut self) -> T:
         """Take the current value of the variant with the provided type.
 
         The caller takes ownership of the underlying value.
@@ -260,7 +260,7 @@ struct Variant[*Ts: CollectionElement](
         return self.unsafe_take[T]()
 
     @always_inline
-    fn unsafe_take[T: CollectionElement](inout self) -> T:
+    fn unsafe_take[T: CollectionElement](mut self) -> T:
         """Unsafely take the current value of the variant with the provided type.
 
         The caller takes ownership of the underlying value.
@@ -284,7 +284,7 @@ struct Variant[*Ts: CollectionElement](
     @always_inline
     fn replace[
         Tin: CollectionElement, Tout: CollectionElement
-    ](inout self, owned value: Tin) -> Tout:
+    ](mut self, owned value: Tin) -> Tout:
         """Replace the current value of the variant with the provided type.
 
         The caller takes ownership of the underlying value.
@@ -311,7 +311,7 @@ struct Variant[*Ts: CollectionElement](
     @always_inline
     fn unsafe_replace[
         Tin: CollectionElement, Tout: CollectionElement
-    ](inout self, owned value: Tin) -> Tout:
+    ](mut self, owned value: Tin) -> Tout:
         """Unsafely replace the current value of the variant with the provided type.
 
         The caller takes ownership of the underlying value.
@@ -337,7 +337,7 @@ struct Variant[*Ts: CollectionElement](
         self.set[Tin](value^)
         return x^
 
-    fn set[T: CollectionElement](inout self, owned value: T):
+    fn set[T: CollectionElement](mut self, owned value: T):
         """Set the variant value.
 
         This will call the destructor on the old value, and update the variant's
