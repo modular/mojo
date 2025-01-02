@@ -12,14 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from collections.string import (
-    _calc_initial_buffer_size_int32,
-    _calc_initial_buffer_size_int64,
-    _is_ascii_space,
-)
-
-from memory import UnsafePointer
-from python import Python
 from testing import (
     assert_equal,
     assert_false,
@@ -28,7 +20,15 @@ from testing import (
     assert_true,
 )
 
-from utils import StringRef, StringSlice
+from collections.string import StringSlice
+from collections.string.string import (
+    _calc_initial_buffer_size_int32,
+    _calc_initial_buffer_size_int64,
+    _isspace,
+)
+from memory import UnsafePointer
+from python import Python
+from utils import StringRef
 
 
 @value
@@ -640,20 +640,6 @@ def test_find():
     assert_equal(-1, String("abc").find("abcd"))
 
 
-def test_count():
-    var str = String("Hello world")
-
-    assert_equal(12, str.count(""))
-    assert_equal(1, str.count("Hell"))
-    assert_equal(3, str.count("l"))
-    assert_equal(1, str.count("ll"))
-    assert_equal(1, str.count("ld"))
-    assert_equal(0, str.count("universe"))
-
-    assert_equal(String("aaaaa").count("a"), 5)
-    assert_equal(String("aaaaaa").count("aa"), 3)
-
-
 def test_replace():
     # Replace empty
     var s1 = String("abc")
@@ -967,22 +953,24 @@ def test_upper():
 
 def test_isspace():
     # checking true cases
-    assert_true(_is_ascii_space(ord(" ")))
-    assert_true(_is_ascii_space(ord("\n")))
-    assert_true(_is_ascii_space(ord("\t")))
-    assert_true(_is_ascii_space(ord("\r")))
-    assert_true(_is_ascii_space(ord("\v")))
-    assert_true(_is_ascii_space(ord("\f")))
+    assert_true(_isspace(ord(" ")))
+    assert_true(_isspace(ord("\n")))
+    assert_true(_isspace("\n"))
+    assert_true(_isspace(ord("\t")))
+    assert_true(_isspace(ord("\r")))
+    assert_true(_isspace(ord("\v")))
+    assert_true(_isspace(ord("\f")))
 
     # Checking false cases
-    assert_false(_is_ascii_space(ord("a")))
-    assert_false(_is_ascii_space(ord("u")))
-    assert_false(_is_ascii_space(ord("s")))
-    assert_false(_is_ascii_space(ord("t")))
-    assert_false(_is_ascii_space(ord("i")))
-    assert_false(_is_ascii_space(ord("n")))
-    assert_false(_is_ascii_space(ord("z")))
-    assert_false(_is_ascii_space(ord(".")))
+    assert_false(_isspace(ord("a")))
+    assert_false(_isspace("a"))
+    assert_false(_isspace(ord("u")))
+    assert_false(_isspace(ord("s")))
+    assert_false(_isspace(ord("t")))
+    assert_false(_isspace(ord("i")))
+    assert_false(_isspace(ord("n")))
+    assert_false(_isspace(ord("z")))
+    assert_false(_isspace(ord(".")))
 
     # test all utf8 and unicode separators
     # 0 is to build a String with null terminator
@@ -1261,7 +1249,7 @@ def test_string_iter():
     assert_equal(321, atol(concat))
 
     for v in vs:
-        v.unsafe_ptr().bitcast[mut=True]()[] = ord("1")
+        v.unsafe_ptr().origin_cast[mut=True]()[] = ord("1")
 
     # Borrow immutably
     for v in vs:
@@ -1615,7 +1603,6 @@ def main():
     test_calc_initial_buffer_size_int64()
     test_contains()
     test_find()
-    test_count()
     test_replace()
     test_rfind()
     test_split()
