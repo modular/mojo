@@ -114,15 +114,16 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         self.size = 0
         self.capacity = 0
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Creates a deep copy of the given list.
 
-        Args:
-            other: The list to copy.
+        Returns:
+            A copy of the value.
         """
-        self = Self(capacity=other.capacity)
-        for e in other:
-            self.append(e[])
+        var copy = Self(capacity=self.capacity)
+        for e in self:
+            copy.append(e[])
+        return copy^
 
     fn __init__(out self, *, capacity: Int):
         """Constructs a list with the given capacity.
@@ -316,7 +317,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         # avoid the copy since it would be cleared immediately anyways
         if x == 0:
             return Self()
-        var result = List(other=self)
+        var result = self.copy()
         result.__mul(x)
         return result^
 
@@ -337,7 +338,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         Returns:
             The newly created list.
         """
-        var result = List(other=self)
+        var result = self.copy()
         result.extend(other^)
         return result^
 
@@ -497,9 +498,13 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
 
         Args:
             value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to twice the current capacity.
+            Except for 0 capacity where it sets 1.
         """
         if self.size >= self.capacity:
-            self._realloc(max(1, self.capacity * 2))
+            self._realloc(self.capacity * 2 | int(self.capacity == 0))
         (self.data + self.size).init_pointee_move(value^)
         self.size += 1
 
@@ -546,7 +551,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         if x == 0:
             self.clear()
             return
-        var orig = List(other=self)
+        var orig = self.copy()
         self.reserve(len(self) * x)
         for i in range(x - 1):
             self.extend(orig)
@@ -590,6 +595,64 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         # Update the size now that all new elements have been moved into this
         # list.
         self.size = final_size
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _]):
+        """Extends this list with the elements of a vector.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + value.size`.
+        """
+        self.reserve(self.size + value.size)
+        (self.data + self.size).store(value)
+        self.size += value.size
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: SIMD[D, _], *, count: Int):
+        """Extends this list with `count` number of elements from a vector.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+            count: The ammount of items to append. Must be less than or equal to
+                   `value.size`.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + count`.
+        """
+        debug_assert(count <= value.size, "count must be <= value.size")
+        self.reserve(self.size + count)
+        var v_ptr = UnsafePointer.address_of(value).bitcast[Scalar[D]]()
+        memcpy(self.data + self.size, v_ptr, count)
+        self.size += count
+
+    fn extend[
+        D: DType, //
+    ](mut self: List[Scalar[D], *_, **_], value: Span[Scalar[D]]):
+        """Extends this list with the elements of a `Span`.
+
+        Parameters:
+            D: The DType.
+
+        Args:
+            value: The value to append.
+
+        Notes:
+            If there is no capacity left, resizes to `len(self) + len(value)`.
+        """
+        self.reserve(self.size + len(value))
+        memcpy(self.data + self.size, value.unsafe_ptr(), len(value))
+        self.size += len(value)
 
     fn pop(mut self, i: Int = -1) -> T:
         """Pops a value from the list at the given index.

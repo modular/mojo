@@ -254,8 +254,8 @@ fn memcpy[
         count: The number of elements to copy.
     """
     _memcpy_impl(
-        dest.bitcast[Byte, origin=MutableAnyOrigin](),
-        src.bitcast[Byte, origin=MutableAnyOrigin](),
+        dest.bitcast[Byte]().origin_cast[origin=MutableAnyOrigin](),
+        src.bitcast[Byte]().origin_cast[origin=MutableAnyOrigin](),
         count * sizeof[T](),
     )
 
