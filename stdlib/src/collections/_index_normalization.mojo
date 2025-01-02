@@ -20,7 +20,8 @@ fn normalize_index[
     container_name: StringLiteral,
     *,
     ignore_zero_length: Bool = False,
-    cap_to_container_length: Bool = True,
+    clamp_to_container_length: Bool = False,
+    branchless: Bool = True,
     assert_mode: StringLiteral = "none",
 ](idx: Int, container: ContainerType) -> Int:
     """Normalize the given index value to a valid index value for the given
@@ -31,7 +32,8 @@ fn normalize_index[
         ContainerType: The type of the container. Must have a `__len__` method.
         container_name: The name of the container. Used for the error message.
         ignore_zero_length: Whether to ignore if the container is of length 0.
-        cap_to_container_length: Whether to cap the value to container length.
+        clamp_to_container_length: Whether to cap the value to container length.
+        branchless: Whether to use a branchless algorithm.
         assert_mode: The mode in which to do the bounds check asserts.
 
     Args:
@@ -42,7 +44,7 @@ fn normalize_index[
         The normalized index value.
 
     Notes:
-        Setting cap_to_container_length to True does not deactivate the
+        Setting clamp_to_container_length to True does not deactivate the
         debug_assert that warns that the index does not exceed the limit.
         Only when setting ignore_zero_length to True. Then if the container
         length is zero, the function always returns 0.
@@ -70,18 +72,33 @@ fn normalize_index[
             c_len - 1,
         )
 
-    var normalize_len = c_len * int(idx < 0)
-
     @parameter
-    if cap_to_container_length:
-        var v = idx + normalize_len
-        var v_or_zero = v * int(0 < v < c_len)
-        var c_end_on_overflow = (c_len - int(c_len != 0)) * int(v >= c_len)
-        return v_or_zero + c_end_on_overflow
-    else:
+    if branchless:
+        var normalize_len = c_len & -int(idx < 0)
 
         @parameter
-        if ignore_zero_length:
-            return idx * int(c_len != 0) + normalize_len
+        if clamp_to_container_length:
+            var v = idx + normalize_len
+            var v_or_zero = v & -int(0 < v < c_len)
+            var c_end_on_overflow = (c_len - int(c_len != 0)) & -int(v >= c_len)
+            return v_or_zero + c_end_on_overflow
         else:
-            return idx + normalize_len
+
+            @parameter
+            if ignore_zero_length:
+                return idx & -int(c_len != 0) + normalize_len
+            else:
+                return idx + normalize_len
+    else:
+        var normalize_len = c_len & -int(idx < 0)
+
+        @parameter
+        if clamp_to_container_length:
+            return max(c_len, idx) if idx > -1 else min(0, idx + c_len)
+        else:
+
+            @parameter
+            if ignore_zero_length:
+                return idx if idx > -1 else (idx + c_len if c_len != 0 else 0)
+            else:
+                return idx if idx > -1 else idx + c_len
