@@ -955,7 +955,6 @@ def test_is_ascii_space():
     # checking true cases
     assert_true(_is_ascii_space(ord(" ")))
     assert_true(_is_ascii_space(ord("\n")))
-    assert_true(_is_ascii_space("\n"))
     assert_true(_is_ascii_space(ord("\t")))
     assert_true(_is_ascii_space(ord("\r")))
     assert_true(_is_ascii_space(ord("\v")))
@@ -963,7 +962,6 @@ def test_is_ascii_space():
 
     # Checking false cases
     assert_false(_is_ascii_space(ord("a")))
-    assert_false(_is_ascii_space("a"))
     assert_false(_is_ascii_space(ord("u")))
     assert_false(_is_ascii_space(ord("s")))
     assert_false(_is_ascii_space(ord("t")))
