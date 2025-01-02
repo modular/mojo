@@ -277,11 +277,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #   StringLiteral is guaranteed to use UTF-8 encoding.
         # FIXME(MSTDL-160):
         #   Ensure StringLiteral _actually_ always uses UTF-8 encoding.
-        # FIXME: this gets practically stuck at compile time
-        # debug_assert(
-        #     _is_valid_utf8(lit.as_bytes()),
-        #     "StringLiteral doesn't have valid UTF-8 encoding",
-        # )
         self = StaticString(unsafe_from_utf8=lit.as_bytes())
 
     @always_inline
@@ -294,7 +289,10 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Safety:
             `unsafe_from_utf8` MUST be valid UTF-8 encoded data.
         """
-
+        # FIXME(#3706): can't run at compile time
+        # debug_assert(
+        #     _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
+        # )
         self._slice = unsafe_from_utf8
 
     fn __init__(out self, *, unsafe_from_utf8_strref: StringRef):
@@ -357,10 +355,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Args:
             value: The string value.
         """
-
-        debug_assert(
-            _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
-        )
         self = StringSlice[O](unsafe_from_utf8=value.as_bytes())
 
     # ===-------------------------------------------------------------------===#
@@ -877,10 +871,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         if o_len > self.byte_length():
             return False
         if end == -1:
-            return (
-                self.rfind(suffix, start) + o_len
-                == self.byte_length()
-            )
+            return self.rfind(suffix, start) + o_len == self.byte_length()
         return Self(ptr=self.unsafe_ptr() + start, length=end - start).endswith(
             suffix
         )
