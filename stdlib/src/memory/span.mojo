@@ -116,14 +116,13 @@ struct Span[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __init__(out self, *, ptr: UnsafePointer[T], length: Int):
+    fn __init__(out self, *, ptr: UnsafePointer[T], length: UInt):
         """Unsafe construction from a pointer and length.
 
         Args:
             ptr: The underlying pointer of the span.
             length: The length of the view.
         """
-        debug_assert(length > -1, "pointer length must be positive")
         self._data = ptr
         self._len = length
 

@@ -909,7 +909,7 @@ struct String(
         self = literal.__str__()
 
     @always_inline
-    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: Int):
+    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: UInt):
         """Creates a string from the buffer. Note that the string now owns
         the buffer.
 
@@ -919,7 +919,6 @@ struct String(
             ptr: The pointer to the buffer.
             length: The length of the buffer, including the null terminator.
         """
-        debug_assert(length > -1, "pointer length must be positive")
         # we don't know the capacity of ptr, but we'll assume it's the same or
         # larger than len
         self = Self(Self._buffer_type(ptr=ptr, length=length, capacity=length))
