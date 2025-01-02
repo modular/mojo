@@ -849,6 +849,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         """
         if end == -1:
             return self.find(prefix, start) == start
+        # FIXME: use normalize_index
         return Self(
             ptr=self.unsafe_ptr() + start, length=end - start
         ).startswith(prefix)
@@ -872,6 +873,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             return False
         if end == -1:
             return self.rfind(suffix, start) + o_len == self.byte_length()
+        # FIXME: use normalize_index
         return Self(ptr=self.unsafe_ptr() + start, length=end - start).endswith(
             suffix
         )
@@ -888,6 +890,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             A `StringSlice` borrowed from the current string containing the
             characters of the slice starting at start.
         """
+        # FIXME: use normalize_index
 
         var self_len = self.byte_length()
 
