@@ -17,11 +17,13 @@ from pathlib import Path
 # We can't check much more than this at the moment, because the license year
 # changes and the language is not mature enough to do regex yet.
 var LICENSE = String(
-    """
+    String(
+        """
 # ===----------------------------------------------------------------------=== #
 # Copyright (c)
 """
-).strip()
+    ).strip()
+)
 
 
 def main():
