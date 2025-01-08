@@ -229,11 +229,42 @@ fn ascii(value: String) -> String:
 # ===----------------------------------------------------------------------=== #
 
 
-fn _atol(str_slice: StringSlice, base: Int = 10) raises -> Int:
-    """Implementation of `atol` for StringSlice inputs.
+fn atol(str_slice: StringSlice, base: Int = 10) raises -> Int:
+    """Parses and returns the given string as an integer in the given base.
 
-    Please see its docstring for details.
+    If base is set to 0, the string is parsed as an Integer literal, with the
+    following considerations:
+    - '0b' or '0B' prefix indicates binary (base 2)
+    - '0o' or '0O' prefix indicates octal (base 8)
+    - '0x' or '0X' prefix indicates hexadecimal (base 16)
+    - Without a prefix, it's treated as decimal (base 10)
+
+    Args:
+        str_slice: A string to be parsed as an integer in the given base.
+        base: Base used for conversion, value must be between 2 and 36, or 0.
+
+    Returns:
+        An integer value that represents the string.
+
+    Raises:
+        If the given string cannot be parsed as an integer value or if an
+        incorrect base is provided.
+
+    Examples:
+        >>> atol("32")
+        32
+        >>> atol("FF", 16)
+        255
+        >>> atol("0xFF", 0)
+        255
+        >>> atol("0b1010", 0)
+        10
+
+    Notes:
+        This follows [Python's integer literals](
+        https://docs.python.org/3/reference/lexical_analysis.html#integers).
     """
+
     if (base != 0) and (base < 2 or base > 36):
         raise Error("Base must be >= 2 and <= 36, or 0.")
     if not str_slice:
@@ -427,55 +458,28 @@ fn _identify_base(str_slice: StringSlice, start: Int) -> Tuple[Int, Int]:
     return 10, start
 
 
-fn atol(str: String, base: Int = 10) raises -> Int:
-    """Parses and returns the given string as an integer in the given base.
-
-    If base is set to 0, the string is parsed as an Integer literal, with the
-    following considerations:
-    - '0b' or '0B' prefix indicates binary (base 2)
-    - '0o' or '0O' prefix indicates octal (base 8)
-    - '0x' or '0X' prefix indicates hexadecimal (base 16)
-    - Without a prefix, it's treated as decimal (base 10)
-
-    Args:
-        str: A string to be parsed as an integer in the given base.
-        base: Base used for conversion, value must be between 2 and 36, or 0.
-
-    Returns:
-        An integer value that represents the string.
-
-    Raises:
-        If the given string cannot be parsed as an integer value or if an
-        incorrect base is provided.
-
-    Examples:
-        >>> atol("32")
-        32
-        >>> atol("FF", 16)
-        255
-        >>> atol("0xFF", 0)
-        255
-        >>> atol("0b1010", 0)
-        10
-
-    Notes:
-        This follows [Python's integer literals](
-        https://docs.python.org/3/reference/lexical_analysis.html#integers).
-    """
-    return _atol(str.as_string_slice(), base)
-
-
 fn _atof_error(str_ref: StringSlice) -> Error:
     return Error("String is not convertible to float: '" + str(str_ref) + "'")
 
 
-fn _atof(str_ref: StringSlice) raises -> Float64:
-    """Implementation of `atof` for StringRef inputs.
+fn atof(str_slice: StringSlice) raises -> Float64:
+    """Parses the given string as a floating point and returns that value.
 
-    Please see its docstring for details.
+    For example, `atof("2.25")` returns `2.25`.
+
+    Raises:
+        If the given string cannot be parsed as an floating point value, for
+        example in `atof("hi")`.
+
+    Args:
+        str_slice: A string to be parsed as a floating point.
+
+    Returns:
+        An floating point value that represents the string, or otherwise raises.
     """
-    if not str_ref:
-        raise _atof_error(str_ref)
+
+    if not str_slice:
+        raise _atof_error(str_slice)
 
     var result: Float64 = 0.0
     var exponent: Int = 0
@@ -492,9 +496,9 @@ fn _atof(str_ref: StringSlice) raises -> Float64:
     alias ord_E = UInt8(ord("E"))
 
     var start: Int = 0
-    var str_ref_strip = str_ref.strip()
-    var str_len = len(str_ref_strip)
-    var buff = str_ref_strip.unsafe_ptr()
+    var str_slice_strip = str_slice.strip()
+    var str_len = len(str_slice_strip)
+    var buff = str_slice_strip.unsafe_ptr()
 
     # check sign, inf, nan
     if buff[start] == ord_plus:
@@ -543,13 +547,13 @@ fn _atof(str_ref: StringSlice) raises -> Float64:
             start += 1
         exponent += sign * shift
         if not has_number:
-            raise _atof_error(str_ref)
+            raise _atof_error(str_slice)
     # check for f/F at the end
     if buff[start] == ord_f or buff[start] == ord_F:
         start += 1
     # check if string got fully parsed
     if start != str_len:
-        raise _atof_error(str_ref)
+        raise _atof_error(str_slice)
     # apply shift
     # NOTE: Instead of `var result *= 10.0 ** exponent`, we calculate a positive
     # integer factor as shift and multiply or divide by it based on the shift
@@ -562,24 +566,6 @@ fn _atof(str_ref: StringSlice) raises -> Float64:
         result /= shift
     # apply sign
     return result * sign
-
-
-fn atof(str: String) raises -> Float64:
-    """Parses the given string as a floating point and returns that value.
-
-    For example, `atof("2.25")` returns `2.25`.
-
-    Raises:
-        If the given string cannot be parsed as an floating point value, for
-        example in `atof("hi")`.
-
-    Args:
-        str: A string to be parsed as a floating point.
-
-    Returns:
-        An floating point value that represents the string, or otherwise raises.
-    """
-    return _atof(str.as_string_slice())
 
 
 # ===----------------------------------------------------------------------=== #
@@ -866,21 +852,19 @@ struct String(
         """
         return self  # Just use the implicit copyinit.
 
-    @implicit
-    fn __init__(out self, str: StringRef):
+    fn __init__(out self, strref: StringRef):
         """Construct a string from a StringRef object.
 
         Args:
-            str: The StringRef from which to construct this string object.
+            strref: The StringRef from which to construct this string object.
         """
-        var length = len(str)
+        var length = len(strref)
         var buffer = Self._buffer_type()
         # +1 for null terminator, initialized to 0
         buffer.resize(length + 1, 0)
-        memcpy(dest=buffer.data, src=str.data, count=length)
+        memcpy(dest=buffer.data, src=strref.data, count=length)
         self = Self(buffer^)
 
-    @implicit
     fn __init__(out self, str_slice: StringSlice):
         """Construct a string from a string slice.
 
@@ -1101,7 +1085,7 @@ struct String(
         start, end, step = span.indices(self.byte_length())
         var r = range(start, end, step)
         if step == 1:
-            return StringRef(self._buffer.data + start, len(r))
+            return String(StringRef(self._buffer.data + start, len(r)))
 
         var buffer = Self._buffer_type()
         var result_len = len(r)

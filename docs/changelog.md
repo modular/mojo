@@ -93,6 +93,22 @@ what we publish.
   a `StringSlice` from a buffer containing UTF-8 encoded data. This method will
   raise if the buffer contents are not valid UTF-8.
 
+- Several standard library functions have been changed to take `StringSlice`
+  instead of `String`. This generalizes them to be used for any appropriately
+  encoded string in memory, without requiring that the string be heap allocated.
+
+  - `atol()`
+  - `atof()`
+
+- Removed `@implicit` decorator from some standard library initializer methods
+  that perform allocation. This reduces places where Mojo code could implicitly
+  allocate where the user may not be aware.
+
+  Remove `@implicit` from:
+
+  - `String.__init__(out self, StringRef)`
+  - `String.__init__(out self, StringSlice)`
+
 - The `ExplicitlyCopyable` trait has changed to require a
   `fn copy(self) -> Self` method. Previously, an initializer with the signature
   `fn __init__(out self, *, other: Self)` had been required by
@@ -117,6 +133,7 @@ what we publish.
 
 - `StringRef` is being deprecated. Use `StringSlice` instead.
   - Changed `sys.argv()` to return list of `StringSlice`.
+  - Added `Path` explicit constructor from `StringSlice`.
   - removed `StringRef.startswith()` and `StringRef.endswith()`
 
 ### 🛠️ Fixed
@@ -131,6 +148,9 @@ what we publish.
 
 - [Issue #3540](https://github.com/modularml/mojo/issues/3540) - Using named
   output slot breaks trait conformance
+
+- [Issue #3617](https://github.com/modularml/mojo/issues/3617) - Can't generate
+  the constructors for a type wrapping `!lit.ref`
 
 - The Mojo Language Server doesn't crash anymore on empty **init**.mojo files.
   [Issue #3826](https://github.com/modularml/mojo/issues/3826).
