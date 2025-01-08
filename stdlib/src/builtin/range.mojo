@@ -46,14 +46,14 @@ fn _sign(x: Int) -> Int:
 
 @register_passable("trivial")
 struct _ZeroStartingRange(Sized, ReversibleRange, _IntIterable):
-    var curr: Int
+    var start: Int
     var end: Int
 
     @always_inline
     @implicit
     fn __init__(out self, end: Int):
-        self.curr = max(0, end)
-        self.end = self.curr
+        self.start = 0
+        self.end = end
 
     @always_inline
     fn __iter__(self) -> Self:
@@ -61,9 +61,9 @@ struct _ZeroStartingRange(Sized, ReversibleRange, _IntIterable):
 
     @always_inline
     fn __next__(mut self) -> Int:
-        var curr = self.curr
-        self.curr -= 1
-        return self.end - curr
+        var start = self.start
+        self.start += 1
+        return start
 
     @always_inline
     fn __has_next__(self) -> Bool:
@@ -71,16 +71,16 @@ struct _ZeroStartingRange(Sized, ReversibleRange, _IntIterable):
 
     @always_inline
     fn __len__(self) -> Int:
-        return self.curr
+        return max(0, self.end - self.start)
 
     @always_inline
     fn __getitem__(self, idx: Int) -> Int:
         debug_assert(idx < self.__len__(), "index out of range")
-        return index(idx)
+        return self.start + index(idx)
 
     @always_inline
     fn __reversed__(self) -> _StridedRange:
-        return range(self.end - 1, -1, -1)
+        return range(self.end - 1, self.start - 1, -1)
 
 
 @value
