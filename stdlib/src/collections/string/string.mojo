@@ -750,7 +750,6 @@ struct String(
     # ===------------------------------------------------------------------=== #
 
     @always_inline
-    @implicit
     fn __init__(out self, owned buffer: List[Byte, *_]):
         """Construct a string from a buffer of null-terminated bytes, copying
         the allocated data. Use the transfer operator `^` to avoid the copy.
