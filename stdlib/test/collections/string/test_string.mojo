@@ -20,12 +20,12 @@ from testing import (
     assert_true,
 )
 
-from collections.string import StringSlice
 from collections.string.string import (
     _calc_initial_buffer_size_int32,
     _calc_initial_buffer_size_int64,
     _isspace,
 )
+from collections.string.string_slice import StringSlice, to_string_list
 from memory import UnsafePointer
 from python import Python
 from utils import StringRef
@@ -755,19 +755,18 @@ def test_split():
 
 
 def test_splitlines():
-    alias S = StringSlice[StaticConstantOrigin]
     alias L = List[StringSlice[StaticConstantOrigin]]
 
     # Test with no line breaks
-    assert_equal(S("hello world").splitlines(), L("hello world"))
+    assert_equal("hello world".splitlines(), L("hello world"))
 
     # Test with line breaks
-    assert_equal(S("hello\nworld").splitlines(), L("hello", "world"))
-    assert_equal(S("hello\rworld").splitlines(), L("hello", "world"))
-    assert_equal(S("hello\r\nworld").splitlines(), L("hello", "world"))
+    assert_equal("hello\nworld".splitlines(), L("hello", "world"))
+    assert_equal("hello\rworld".splitlines(), L("hello", "world"))
+    assert_equal("hello\r\nworld".splitlines(), L("hello", "world"))
 
     # Test with multiple different line breaks
-    s1 = S("hello\nworld\r\nmojo\rlanguage\r\n")
+    s1 = "hello\nworld\r\nmojo\rlanguage\r\n"
     hello_mojo = L("hello", "world", "mojo", "language")
     assert_equal(s1.splitlines(), hello_mojo)
     assert_equal(
@@ -776,9 +775,9 @@ def test_splitlines():
     )
 
     # Test with an empty string
-    assert_equal(S("").splitlines(), L())
+    assert_equal("".splitlines(), L())
     # test \v \f \x1c \x1d
-    s2 = S("hello\vworld\fmojo\x1clanguage\x1d")
+    s2 = "hello\vworld\fmojo\x1clanguage\x1d"
     assert_equal(s2.splitlines(), hello_mojo)
     assert_equal(
         s2.splitlines(keepends=True),
@@ -786,7 +785,7 @@ def test_splitlines():
     )
 
     # test \x1c \x1d \x1e
-    s3 = S("hello\x1cworld\x1dmojo\x1elanguage\x1e")
+    s3 = "hello\x1cworld\x1dmojo\x1elanguage\x1e"
     assert_equal(s3.splitlines(), hello_mojo)
     assert_equal(
         s3.splitlines(keepends=True),
@@ -807,7 +806,7 @@ def test_splitlines():
         s = StringSlice(item)
         assert_equal(s.splitlines(), hello_mojo)
         items = List("hello" + u, "world" + u, "mojo" + u, "language" + u)
-        assert_equal(s.splitlines(keepends=True), items)
+        assert_equal(to_string_list(s.splitlines(keepends=True)), items)
 
 
 def test_isupper():
