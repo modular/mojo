@@ -43,7 +43,7 @@ from collections.string.string_slice import (
     StringSlice,
     _shift_unicode_to_utf8,
     _StringSliceIter,
-    _to_string_list,
+    to_string_list,
     _unicode_codepoint_utf8_byte_length,
     _utf8_byte_type,
 )
@@ -1677,7 +1677,7 @@ struct String(
         Returns:
             A List of Strings containing the input split by line boundaries.
         """
-        return _to_string_list(self.as_string_slice().splitlines(keepends))
+        return to_string_list(self.as_string_slice().splitlines(keepends))
 
     fn replace(self, old: String, new: String) -> String:
         """Return a copy of the string with all occurrences of substring `old`

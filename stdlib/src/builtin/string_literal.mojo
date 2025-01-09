@@ -21,7 +21,7 @@ from collections.string.string_slice import (
     StringSlice,
     StaticString,
     _StringSliceIter,
-    _to_string_list,
+    to_string_list,
     _split,
 )
 from hashlib._hasher import _HashableWithHasher, _Hasher
@@ -799,7 +799,7 @@ struct StringLiteral(
         Returns:
             A List of Strings containing the input split by line boundaries.
         """
-        return _to_string_list(self.as_string_slice().splitlines(keepends))
+        return to_string_list(self.as_string_slice().splitlines(keepends))
 
     fn count(self, substr: String) -> Int:
         """Return the number of non-overlapping occurrences of substring
