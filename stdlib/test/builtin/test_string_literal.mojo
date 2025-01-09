@@ -22,6 +22,7 @@ from testing import (
     assert_raises,
     assert_true,
 )
+from collections.string import StringSlice
 
 
 def test_add():

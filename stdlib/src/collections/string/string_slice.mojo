@@ -350,7 +350,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
     @implicit
     fn __init__[
         O: ImmutableOrigin, //
-    ](mut self: StringSlice[O], ref [O]value: String):
+    ](out self: StringSlice[O], ref [O]value: String):
         """Construct an immutable StringSlice.
 
         Parameters:
@@ -586,20 +586,20 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         )
 
     fn __iter__(self) -> _StringSliceIter[origin]:
-        """Iterate over the string, returning immutable references.
+        """Iterate over the string, returning unicode characters.
 
         Returns:
-            An iterator of references to the string elements.
+            An iterator of references to the string unicode characters.
         """
         return _StringSliceIter[origin](
             ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __reversed__(self) -> _StringSliceIter[origin, False]:
-        """Iterate backwards over the string, returning immutable references.
+        """Iterate backwards over the string, returning unicode characters.
 
         Returns:
-            A reversed iterator of references to the string elements.
+            A reversed iterator of references to the string unicode characters.
         """
         return _StringSliceIter[origin, forward=False](
             ptr=self.unsafe_ptr(), length=self.byte_length()
@@ -823,6 +823,9 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
 
         Returns:
             A slice containing the underlying sequence of encoded bytes.
+
+        Notes:
+            This does not include the trailing null terminator.
         """
         return self._slice
 
@@ -1035,48 +1038,137 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
 
         return int(loc) - int(self.unsafe_ptr())
 
-    fn isspace(self) -> Bool:
+    fn isspace[single_character: Bool = False](self) -> Bool:
         """Determines whether every character in the given StringSlice is a
         python whitespace String. This corresponds to Python's
         [universal separators:](
         https://docs.python.org/3/library/stdtypes.html#str.splitlines)
         `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e\\x85\\u2028\\u2029"`.
 
+        Parameters:
+            single_character: Whether to evaluate the stringslice as a single
+                unicode character (avoids overhead when already iterating).
+
         Returns:
             True if the whole StringSlice is made up of whitespace characters
             listed above, otherwise False.
         """
 
-        if self.byte_length() == 0:
-            return False
-
-        # TODO add line and paragraph separator as stringliteral
-        # once Unicode escape sequences are accepted
-        var next_line = List[UInt8](0xC2, 0x85)
-        """TODO: \\x85"""
-        var unicode_line_sep = List[UInt8](0xE2, 0x80, 0xA8)
-        """TODO: \\u2028"""
-        var unicode_paragraph_sep = List[UInt8](0xE2, 0x80, 0xA9)
-        """TODO: \\u2029"""
-
-        for s in self:
+        fn _is_space_char(s: StringSlice) -> Bool:
+            # sorry for readability, but this has less overhead than memcmp
+            # highly performance sensitive code, benchmark before touching
             var no_null_len = s.byte_length()
             var ptr = s.unsafe_ptr()
-            if no_null_len == 1 and _isspace(ptr[0]):
-                continue
-            elif (
-                no_null_len == 2 and memcmp(ptr, next_line.unsafe_ptr(), 2) == 0
-            ):
-                continue
-            elif no_null_len == 3 and (
-                memcmp(ptr, unicode_line_sep.unsafe_ptr(), 3) == 0
-                or memcmp(ptr, unicode_paragraph_sep.unsafe_ptr(), 3) == 0
-            ):
-                continue
-            else:
-                return False
-        _ = next_line, unicode_line_sep, unicode_paragraph_sep
-        return True
+            if likely(no_null_len == 1):
+                return _isspace(ptr[0])
+            elif no_null_len == 2:
+                return ptr[0] == 0xC2 and ptr[1] == 0x85  # next_line: \x85
+            elif no_null_len == 3:
+                # unicode line sep or paragraph sep: \u2028 , \u2029
+                lastbyte = ptr[2] == 0xA8 or ptr[2] == 0xA9
+                return ptr[0] == 0xE2 and ptr[1] == 0x80 and lastbyte
+            return False
+
+        @parameter
+        if single_character:
+            return _is_space_char(self)
+        else:
+            for s in self:
+                if not _is_space_char(s):
+                    return False
+            return self.byte_length() != 0
+
+    @always_inline
+    fn split(self, sep: StringSlice, maxsplit: Int) -> List[Self]:
+        """Split the string by a separator.
+
+        Args:
+            sep: The string to split on.
+            maxsplit: The maximum amount of items to split from String.
+
+        Returns:
+            A List of Strings containing the input split by the separator.
+
+        Examples:
+        ```mojo
+        # Splitting with maxsplit
+        _ = "1,2,3".split(",", maxsplit=1) # ['1', '2,3']
+        # Splitting with starting or ending separators
+        _ = ",1,2,3,".split(",", maxsplit=1) # ['', '1,2,3,']
+        _ = "123".split("", maxsplit=1) # ['', '123']
+        ```
+        .
+        """
+        return _split[has_maxsplit=True](self, sep, maxsplit)
+
+    @always_inline
+    fn split(self, sep: StringSlice) -> List[Self]:
+        """Split the string by a separator.
+
+        Args:
+            sep: The string to split on.
+
+        Returns:
+            A List of Strings containing the input split by the separator.
+
+        Examples:
+        ```mojo
+        # Splitting a space
+        _ = "hello world".split(" ") # ["hello", "world"]
+        # Splitting adjacent separators
+        _ = "hello,,world".split(",") # ["hello", "", "world"]
+        # Splitting with starting or ending separators
+        _ = ",1,2,3,".split(",") # ['', '1', '2', '3', '']
+        _ = "123".split("") # ['', '1', '2', '3', '']
+        ```
+        .
+        """
+        return _split[has_maxsplit=False](self, sep, -1)
+
+    @always_inline
+    fn split(self, *, maxsplit: Int) -> List[Self]:
+        """Split the string by every Whitespace separator.
+
+        Args:
+            maxsplit: The maximum amount of items to split from String.
+
+        Returns:
+            A List of Strings containing the input split by the separator.
+
+        Examples:
+        ```mojo
+        # Splitting with maxsplit
+        _ = "1     2  3".split(maxsplit=1) # ['1', '2  3']
+        ```
+        .
+        """
+        return _split[has_maxsplit=True](self, None, maxsplit)
+
+    @always_inline
+    fn split(self, sep: NoneType = None) -> List[Self]:
+        """Split the string by every Whitespace separator.
+
+        Args:
+            sep: None.
+
+        Returns:
+            A List of Strings containing the input split by the separator.
+
+        Examples:
+        ```mojo
+        # Splitting an empty string or filled with whitespaces
+        _ = "      ".split() # []
+        _ = "".split() # []
+        # Splitting a string with leading, trailing, and middle whitespaces
+        _ = "      hello    world     ".split() # ["hello", "world"]
+        # Splitting adjacent universal newlines:
+        _ = (
+            "hello \\t\\n\\r\\f\\v\\x1c\\x1d\\x1e\\x85\\u2028\\u2029world"
+        ).split()  # ["hello", "world"]
+        ```
+        .
+        """
+        return _split[has_maxsplit=False](self, sep, -1)
 
     fn isnewline[single_character: Bool = False](self) -> Bool:
         """Determines whether every character in the given StringSlice is a
@@ -1091,7 +1183,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
 
         Returns:
             True if the whole StringSlice is made up of whitespace characters
-                listed above, otherwise False.
+            listed above, otherwise False.
         """
 
         var ptr = self.unsafe_ptr()
@@ -1311,3 +1403,110 @@ fn _is_newline_char[
         var b2 = p[eol_start + 2]
         return b0 == 0xE2 and b1 == 0x80 and (b2 == 0xA8 or b2 == 0xA9)
     return False
+
+
+fn _split[
+    has_maxsplit: Bool
+](
+    src_str: StringSlice,
+    sep: StringSlice,
+    maxsplit: Int,
+    out output: List[__type_of(src_str)],
+):
+    alias S = __type_of(src_str)
+    alias O = __type_of(src_str).origin
+    var ptr = src_str.unsafe_ptr().origin_cast[origin=MutableAnyOrigin]()
+    var sep_len = sep.byte_length()
+    if sep_len == 0:
+        var iterator = src_str.__iter__()
+        var i_len = len(iterator) + 2
+        var out_ptr = UnsafePointer[S].alloc(i_len)
+        out_ptr[0] = S(ptr=ptr, length=0)
+        var i = 1
+        for s in iterator:
+            out_ptr[i] = s
+            i += 1
+        out_ptr[i] = S(ptr=ptr + i, length=0)
+        output = __type_of(output)(ptr=out_ptr, length=i_len, capacity=i_len)
+        return
+
+    alias prealloc = 32  # guessing, Python's implementation uses 12
+    var amnt = prealloc
+
+    @parameter
+    if has_maxsplit:
+        amnt = maxsplit + 1 if maxsplit < prealloc else prealloc
+    output = __type_of(output)(capacity=amnt)
+    var str_byte_len = src_str.byte_length()
+    var lhs = 0
+    var rhs = 0
+    var items = 0
+    # var str_span = src_str.as_bytes() # FIXME: solve #3526 with #3548
+    # var sep_span = sep.as_bytes() # FIXME: solve #3526 with #3548
+
+    while lhs <= str_byte_len:
+        # FIXME(#3526): use str_span and sep_span
+        rhs = src_str.find(sep, lhs)
+        # if not found go to the end
+        rhs += -int(rhs == -1) & (str_byte_len + 1)
+
+        @parameter
+        if has_maxsplit:
+            rhs += -int(items == maxsplit) & (str_byte_len - rhs)
+            items += 1
+
+        output.append(S(ptr=ptr + lhs, length=rhs - lhs))
+        lhs = rhs + sep_len
+
+
+fn _split[
+    has_maxsplit: Bool
+](
+    src_str: StringSlice,
+    sep: NoneType,
+    maxsplit: Int,
+    out output: List[__type_of(src_str)],
+):
+    alias S = __type_of(src_str)
+    alias O = __type_of(src_str).origin
+    alias prealloc = 32  # guessing, Python's implementation uses 12
+    var amnt = prealloc
+
+    @parameter
+    if has_maxsplit:
+        amnt = maxsplit + 1 if maxsplit < prealloc else prealloc
+    output = __type_of(output)(capacity=amnt)
+    var str_byte_len = src_str.byte_length()
+    var lhs = 0
+    var rhs = 0
+    var items = 0
+    var ptr = src_str.unsafe_ptr().origin_cast[origin=MutableAnyOrigin]()
+
+    @always_inline("nodebug")
+    fn _build_slice(p: UnsafePointer[Byte], start: Int, end: Int) -> S:
+        return S(ptr=p + start, length=end - start)
+
+    while lhs <= str_byte_len:
+        # Python adds all "whitespace chars" as one separator
+        # if no separator was specified
+        for s in _build_slice(ptr, lhs, str_byte_len):
+            if not s.isspace[single_character=True]():
+                break
+            lhs += s.byte_length()
+        # if it went until the end of the String, then it should be sliced
+        # until the start of the whitespace which was already appended
+        if lhs == str_byte_len:
+            break
+        rhs = lhs + _utf8_first_byte_sequence_length(ptr[lhs])
+        for s in _build_slice(ptr, rhs, str_byte_len):
+            if s.isspace[single_character=True]():
+                break
+            rhs += s.byte_length()
+
+        @parameter
+        if has_maxsplit:
+            rhs += -int(items == maxsplit) & (str_byte_len - rhs)
+            items += 1
+
+        output.append(S(ptr=ptr + lhs, length=rhs - lhs))
+        lhs = rhs
