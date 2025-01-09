@@ -667,7 +667,7 @@ def test_split():
     res = L("", "bb", "", "", "", "bbb", "")
     assert_equal("abbaaaabbba".split("a"), res)
     assert_equal("abbaaaabbba".split("a", 8), res)
-    s1 = st("abbaaaabbba").split("a", 5)
+    s1 = "abbaaaabbba".split("a", 5)
     assert_equal(s1, L("", "bb", "", "", "", "bbba"))
     assert_equal("aaa".split("a", 0), L("aaa"))
     assert_equal("a".split("a"), L("", ""))

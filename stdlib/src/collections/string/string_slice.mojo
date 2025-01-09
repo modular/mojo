@@ -1318,12 +1318,13 @@ fn _to_string_list[
 
 
 @always_inline
-fn _to_string_list[
-    O: ImmutableOrigin, //
+fn to_string_list[
+    mut: Bool, O: Origin[mut], //
 ](items: List[StringSlice[O]]) -> List[String]:
     """Create a list of Strings **copying** the existing data.
 
     Parameters:
+        mut: The mutability of the data.
         O: The origin of the data.
 
     Args:
@@ -1343,12 +1344,13 @@ fn _to_string_list[
 
 
 @always_inline
-fn _to_string_list[
-    O: ImmutableOrigin, //
+fn to_string_list[
+    mut: Bool, O: Origin[mut], //
 ](items: List[Span[Byte, O]]) -> List[String]:
     """Create a list of Strings **copying** the existing data.
 
     Parameters:
+        mut: The mutability of the data.
         O: The origin of the data.
 
     Args:
