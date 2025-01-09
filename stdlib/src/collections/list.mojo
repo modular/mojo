@@ -135,7 +135,6 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         self.size = 0
         self.capacity = capacity
 
-    @implicit
     fn __init__(out self, owned *values: T):
         """Constructs a list from the given values.
 
@@ -167,7 +166,6 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
 
         self.size = length
 
-    @implicit
     fn __init__(out self, span: Span[T]):
         """Constructs a list from the a Span of values.
 
@@ -178,7 +176,9 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         for value in span:
             self.append(value[])
 
-    fn __init__(mut self, *, ptr: UnsafePointer[T], length: Int, capacity: Int):
+    fn __init__(
+        out self, *, ptr: UnsafePointer[T], length: UInt, capacity: UInt
+    ):
         """Constructs a list from a pointer, its length, and its capacity.
 
         Args:
@@ -999,6 +999,19 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
             The pointer to the underlying memory.
         """
         return self.data
+
+    fn _cast_hint_trivial_type[
+        hint_trivial_type: Bool
+    ](owned self) -> List[T, hint_trivial_type]:
+        var size = self.size
+        var capacity = self.capacity
+
+        # TODO: Why doesn't `__disable_del self` work here?
+        var data = self.steal_data()
+
+        return List[T, hint_trivial_type](
+            ptr=data, length=size, capacity=capacity
+        )
 
 
 fn _clip(value: Int, start: Int, end: Int) -> Int:

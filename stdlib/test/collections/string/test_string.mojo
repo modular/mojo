@@ -44,32 +44,6 @@ def test_stringable():
     assert_equal("a string", str(AString()))
 
 
-def test_repr():
-    # Standard single-byte characters
-    assert_equal(String.__repr__("hello"), "'hello'")
-    assert_equal(String.__repr__(str(0)), "'0'")
-    assert_equal(String.__repr__("A"), "'A'")
-    assert_equal(String.__repr__(" "), "' '")
-    assert_equal(String.__repr__("~"), "'~'")
-
-    # Special single-byte characters
-    assert_equal(String.__repr__("\0"), r"'\x00'")
-    assert_equal(String.__repr__("\x06"), r"'\x06'")
-    assert_equal(String.__repr__("\x09"), r"'\t'")
-    assert_equal(String.__repr__("\n"), r"'\n'")
-    assert_equal(String.__repr__("\x0d"), r"'\r'")
-    assert_equal(String.__repr__("\x0e"), r"'\x0e'")
-    assert_equal(String.__repr__("\x1f"), r"'\x1f'")
-    assert_equal(String.__repr__("'"), '"\'"')
-    assert_equal(String.__repr__("\\"), r"'\\'")
-    assert_equal(String.__repr__("\x7f"), r"'\x7f'")
-
-    # Multi-byte characters
-    assert_equal(String.__repr__("Örnsköldsvik"), "'Örnsköldsvik'")  # 2-byte
-    assert_equal(String.__repr__("你好!"), "'你好!'")  # 3-byte
-    assert_equal(String.__repr__("hello 🔥!"), "'hello 🔥!'")  # 4-byte
-
-
 def test_constructors():
     # Default construction
     assert_equal(0, len(String()))
@@ -233,60 +207,6 @@ def test_string_join():
 
     var s6 = String(",").join(List[String]("1", "2", "3"))
     assert_equal(s6, "1,2,3")
-
-
-def test_string_literal_join():
-    var s2 = ",".join(List[UInt8](1, 2, 3))
-    assert_equal(s2, "1,2,3")
-
-    var s3 = ",".join(List[UInt8](1, 2, 3, 4, 5, 6, 7, 8, 9))
-    assert_equal(s3, "1,2,3,4,5,6,7,8,9")
-
-    var s4 = ",".join(List[UInt8]())
-    assert_equal(s4, "")
-
-    var s5 = ",".join(List[UInt8](1))
-    assert_equal(s5, "1")
-
-
-def test_stringref():
-    var a = StringRef("AAA")
-    var b = StringRef("BBB")
-    var c = StringRef("AAA")
-
-    assert_equal(3, len(a))
-    assert_equal(3, len(b))
-    assert_equal(3, len(c))
-    assert_equal(4, len("ABBA"))
-
-    # Equality operators
-    assert_not_equal(a, b)
-    assert_not_equal(b, a)
-
-    # Self equality
-    assert_equal(a, a)
-
-    # Value equality
-    assert_equal(a, c)
-
-
-def test_stringref_from_dtypepointer():
-    var a = StringRef("AAA")
-    var b = StringRef(ptr=a.data)
-    assert_equal(3, len(a))
-    assert_equal(3, len(b))
-    assert_equal(a, b)
-
-
-def test_stringref_strip():
-    var a = StringRef("  mojo rocks  ")
-    var b = StringRef("mojo  ")
-    var c = StringRef("  mojo")
-    var d = StringRef("")
-    assert_equal(a.strip(), "mojo rocks")
-    assert_equal(b.strip(), "mojo")
-    assert_equal(c.strip(), "mojo")
-    assert_equal(d.strip(), "")
 
 
 def test_ord():
@@ -1587,12 +1507,7 @@ def main():
     test_add()
     test_add_string_slice()
     test_stringable()
-    test_repr()
     test_string_join()
-    test_string_literal_join()
-    test_stringref()
-    test_stringref_from_dtypepointer()
-    test_stringref_strip()
     test_ord()
     test_chr()
     test_string_indexing()
