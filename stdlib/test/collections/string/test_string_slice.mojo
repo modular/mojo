@@ -12,12 +12,36 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from testing import assert_equal, assert_false, assert_true
+from testing import assert_equal, assert_false, assert_true, assert_raises
 
-from memory import Span
-from utils import StringSlice
-from utils._utf8_validation import _is_valid_utf8
-from utils.string_slice import _count_utf8_continuation_bytes
+from collections.string.string_slice import (
+    StringSlice,
+    _count_utf8_continuation_bytes,
+)
+from collections.string._utf8_validation import _is_valid_utf8
+from memory import Span, UnsafePointer
+
+from sys.info import sizeof, alignof
+
+
+fn test_string_slice_layout() raises:
+    # Test that the layout of `StringSlice` is the same as `llvm::StringRef`.
+    # This is necessary for `StringSlice` to be validly bitcasted to and from
+    # `llvm::StringRef`
+
+    # StringSlice should be two words in size.
+    assert_equal(sizeof[StringSlice[MutableAnyOrigin]](), 2 * sizeof[Int]())
+
+    var str_slice = StringSlice("")
+
+    var base_ptr = int(UnsafePointer.address_of(str_slice))
+    var first_word_ptr = int(UnsafePointer.address_of(str_slice._slice._data))
+    var second_word_ptr = int(UnsafePointer.address_of(str_slice._slice._len))
+
+    # 1st field should be at 0-byte offset from base ptr
+    assert_equal(first_word_ptr - base_ptr, 0)
+    # 2nd field should at 1-word offset from base ptr
+    assert_equal(second_word_ptr - base_ptr, sizeof[Int]())
 
 
 fn test_string_literal_byte_span() raises:
@@ -176,6 +200,34 @@ fn test_slice_bool() raises:
     assert_true(str1.as_string_slice().__bool__())
     var str2: String = ""
     assert_true(not str2.as_string_slice().__bool__())
+
+
+def test_slice_repr():
+    # Standard single-byte characters
+    assert_equal(StringSlice.__repr__("hello"), "'hello'")
+    assert_equal(StringSlice.__repr__(str(0)), "'0'")
+    assert_equal(StringSlice.__repr__("A"), "'A'")
+    assert_equal(StringSlice.__repr__(" "), "' '")
+    assert_equal(StringSlice.__repr__("~"), "'~'")
+
+    # Special single-byte characters
+    assert_equal(StringSlice.__repr__("\0"), r"'\x00'")
+    assert_equal(StringSlice.__repr__("\x06"), r"'\x06'")
+    assert_equal(StringSlice.__repr__("\x09"), r"'\t'")
+    assert_equal(StringSlice.__repr__("\n"), r"'\n'")
+    assert_equal(StringSlice.__repr__("\x0d"), r"'\r'")
+    assert_equal(StringSlice.__repr__("\x0e"), r"'\x0e'")
+    assert_equal(StringSlice.__repr__("\x1f"), r"'\x1f'")
+    assert_equal(StringSlice.__repr__("'"), '"\'"')
+    assert_equal(StringSlice.__repr__("\\"), r"'\\'")
+    assert_equal(StringSlice.__repr__("\x7f"), r"'\x7f'")
+
+    # Multi-byte characters
+    assert_equal(
+        StringSlice.__repr__("Örnsköldsvik"), "'Örnsköldsvik'"
+    )  # 2-byte
+    assert_equal(StringSlice.__repr__("你好!"), "'你好!'")  # 3-byte
+    assert_equal(StringSlice.__repr__("hello 🔥!"), "'hello 🔥!'")  # 4-byte
 
 
 fn test_utf8_validation() raises:
@@ -349,6 +401,17 @@ def test_bad_utf8_sequences():
         assert_false(validate_utf8(sequence[]))
 
 
+def test_stringslice_from_utf8():
+    for sequence in GOOD_SEQUENCES:
+        var bytes = sequence[].as_bytes()
+        _ = StringSlice.from_utf8(bytes)
+
+    for sequence in BAD_SEQUENCES:
+        with assert_raises(contains="buffer is not valid UTF-8"):
+            var bytes = sequence[].as_bytes()
+            _ = StringSlice.from_utf8(bytes)
+
+
 def test_combination_good_utf8_sequences():
     # any combination of good sequences should be good
     for i in range(0, len(GOOD_SEQUENCES)):
@@ -422,14 +485,6 @@ def test_splitlines():
 
     # FIXME: remove once StringSlice conforms to TestableCollectionElement
     fn _assert_equal[
-        O1: ImmutableOrigin, O2: ImmutableOrigin
-    ](l1: List[StringSlice[O1]], l2: List[StringSlice[O2]]) raises:
-        assert_equal(len(l1), len(l2))
-        for i in range(len(l1)):
-            assert_equal(str(l1[i]), str(l2[i]))
-
-    # FIXME: remove once StringSlice conforms to TestableCollectionElement
-    fn _assert_equal[
         O1: ImmutableOrigin
     ](l1: List[StringSlice[O1]], l2: List[String]) raises:
         assert_equal(len(l1), len(l2))
@@ -437,36 +492,36 @@ def test_splitlines():
             assert_equal(str(l1[i]), l2[i])
 
     # Test with no line breaks
-    _assert_equal(S("hello world").splitlines(), L("hello world"))
+    assert_equal(S("hello world").splitlines(), L("hello world"))
 
     # Test with line breaks
-    _assert_equal(S("hello\nworld").splitlines(), L("hello", "world"))
-    _assert_equal(S("hello\rworld").splitlines(), L("hello", "world"))
-    _assert_equal(S("hello\r\nworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\nworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\rworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\r\nworld").splitlines(), L("hello", "world"))
 
     # Test with multiple different line breaks
     s1 = S("hello\nworld\r\nmojo\rlanguage\r\n")
     hello_mojo = L("hello", "world", "mojo", "language")
-    _assert_equal(s1.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s1.splitlines(), hello_mojo)
+    assert_equal(
         s1.splitlines(keepends=True),
         L("hello\n", "world\r\n", "mojo\r", "language\r\n"),
     )
 
     # Test with an empty string
-    _assert_equal(S("").splitlines(), L())
+    assert_equal(S("").splitlines(), L())
     # test \v \f \x1c \x1d
     s2 = S("hello\vworld\fmojo\x1clanguage\x1d")
-    _assert_equal(s2.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s2.splitlines(), hello_mojo)
+    assert_equal(
         s2.splitlines(keepends=True),
         L("hello\v", "world\f", "mojo\x1c", "language\x1d"),
     )
 
     # test \x1c \x1d \x1e
     s3 = S("hello\x1cworld\x1dmojo\x1elanguage\x1e")
-    _assert_equal(s3.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s3.splitlines(), hello_mojo)
+    assert_equal(
         s3.splitlines(keepends=True),
         L("hello\x1c", "world\x1d", "mojo\x1e", "language\x1e"),
     )
@@ -483,7 +538,7 @@ def test_splitlines():
         u = i[]
         item = String("").join("hello", u, "world", u, "mojo", u, "language", u)
         s = StringSlice(item)
-        _assert_equal(s.splitlines(), hello_mojo)
+        assert_equal(s.splitlines(), hello_mojo)
         items = List("hello" + u, "world" + u, "mojo" + u, "language" + u)
         _assert_equal(s.splitlines(keepends=True), items)
 
@@ -624,23 +679,41 @@ def test_endswith():
     assert_true(ab.endswith("ab"))
 
 
+def test_count():
+    var str = StringSlice("Hello world")
+
+    assert_equal(12, str.count(""))
+    assert_equal(1, str.count("Hell"))
+    assert_equal(3, str.count("l"))
+    assert_equal(1, str.count("ll"))
+    assert_equal(1, str.count("ld"))
+    assert_equal(0, str.count("universe"))
+
+    assert_equal(StringSlice("aaaaa").count("a"), 5)
+    assert_equal(StringSlice("aaaaaa").count("aa"), 3)
+
+
 def main():
+    test_string_slice_layout()
     test_string_literal_byte_span()
     test_string_byte_span()
     test_heap_string_from_string_slice()
     test_slice_len()
     test_slice_eq()
     test_slice_bool()
+    test_slice_repr()
     test_utf8_validation()
     test_find()
     test_good_utf8_sequences()
     test_bad_utf8_sequences()
+    test_stringslice_from_utf8()
     test_combination_good_utf8_sequences()
     test_combination_bad_utf8_sequences()
     test_combination_good_bad_utf8_sequences()
     test_combination_10_good_utf8_sequences()
     test_combination_10_good_10_bad_utf8_sequences()
     test_count_utf8_continuation_bytes()
+    test_count()
     test_splitlines()
     test_rstrip()
     test_lstrip()

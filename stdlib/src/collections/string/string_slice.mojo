@@ -12,27 +12,26 @@
 # ===----------------------------------------------------------------------=== #
 """Implements the StringSlice type.
 
-You can import these APIs from the `utils.string_slice` module.
+You can import these APIs from the `collections.string.string_slice` module.
 
 Examples:
 
 ```mojo
-from utils import StringSlice
+from collections.string import StringSlice
 ```
 """
 
-from collections import List, Optional
-from collections.string import _atof, _atol, _isspace
-from sys import bitwidthof, simdwidthof
-from sys.intrinsics import unlikely, likely
-
 from bit import count_leading_zeros
+from collections import List, Optional
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string._utf8_validation import _is_valid_utf8
+from collections.string.string import _isspace
 from memory import UnsafePointer, memcmp, memcpy, Span
 from memory.memory import _memcmp_impl_unconstrained
-
-from utils.format import _CurlyEntryFormattable, _FormatCurlyEntry
-
-from ._utf8_validation import _is_valid_utf8
+from sys import bitwidthof, simdwidthof
+from sys.intrinsics import unlikely, likely
+from utils.stringref import StringRef, _memmem
+from os import PathLike
 
 alias StaticString = StringSlice[StaticConstantOrigin]
 """An immutable static string slice."""
@@ -184,9 +183,9 @@ struct _StringSliceIter[
     var ptr: UnsafePointer[Byte]
     var length: Int
 
-    fn __init__(mut self, *, unsafe_pointer: UnsafePointer[Byte], length: Int):
+    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: UInt):
         self.index = 0 if forward else length
-        self.ptr = unsafe_pointer
+        self.ptr = ptr
         self.length = length
 
     fn __iter__(self) -> Self:
@@ -236,13 +235,19 @@ struct _StringSliceIter[
 @register_passable("trivial")
 struct StringSlice[mut: Bool, //, origin: Origin[mut]](
     Stringable,
+    Representable,
     Sized,
     Writable,
     CollectionElement,
     CollectionElementNew,
+    EqualityComparable,
     Hashable,
+    PathLike,
 ):
     """A non-owning view to encoded string data.
+
+    This type is guaranteed to have the same ABI (size, alignment, and field
+    layout) as the `llvm::StringRef` type.
 
     Parameters:
         mut: Whether the slice is mutable.
@@ -317,7 +322,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         self = Self(unsafe_from_utf8=byte_slice)
 
     @always_inline
-    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: Int):
+    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: UInt):
         """Construct a `StringSlice` from a pointer to a sequence of UTF-8
         encoded bytes and a length.
 
@@ -331,16 +336,16 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             - `ptr` must point to data that is live for the duration of
                 `origin`.
         """
-        self._slice = Span[Byte, origin](ptr=ptr, length=length)
+        self = Self(unsafe_from_utf8=Span[Byte, origin](ptr=ptr, length=length))
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly construct a deep copy of the provided `StringSlice`.
 
-        Args:
-            other: The `StringSlice` to copy.
+        Returns:
+            A copy of the value.
         """
-        self._slice = other._slice
+        return Self(unsafe_from_utf8=self._slice)
 
     @implicit
     fn __init__[
@@ -355,10 +360,42 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             value: The string value.
         """
 
-        debug_assert(
-            _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
-        )
+        # TODO(MOCO-1525):
+        #   Support skipping UTF-8 during comptime evaluations, or support
+        #   the necessary SIMD intrinsics to allow this to evaluate at compile
+        #   time.
+        # debug_assert(
+        #     _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
+        # )
+
         self = StringSlice[O](unsafe_from_utf8=value.as_bytes())
+
+    # ===-------------------------------------------------------------------===#
+    # Factory methods
+    # ===-------------------------------------------------------------------===#
+
+    # TODO: Change to `__init__(out self, *, from_utf8: Span[..])` once ambiguity
+    #   with existing `unsafe_from_utf8` overload is fixed. Would require
+    #   signature comparision to take into account required named arguments.
+    @staticmethod
+    fn from_utf8(from_utf8: Span[Byte, origin]) raises -> StringSlice[origin]:
+        """Construct a new `StringSlice` from a buffer containing UTF-8 encoded
+        data.
+
+        Args:
+            from_utf8: A span of bytes containing UTF-8 encoded data.
+
+        Returns:
+            A new validated `StringSlice` pointing to the provided buffer.
+
+        Raises:
+            An exception is raised if the provided buffer byte values do not
+            form valid UTF-8 encoded codepoints.
+        """
+        if not _is_valid_utf8(from_utf8):
+            raise Error("StringSlice: buffer is not valid UTF-8")
+
+        return StringSlice[origin](unsafe_from_utf8=from_utf8)
 
     # ===------------------------------------------------------------------===#
     # Trait implementations
@@ -372,6 +409,42 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             The string representation of the slice.
         """
         return String(str_slice=self)
+
+    fn __repr__(self) -> String:
+        """Return a Mojo-compatible representation of this string slice.
+
+        Returns:
+            Representation of this string slice as a Mojo string literal input
+            form syntax.
+        """
+        var result = String()
+        var use_dquote = False
+        for s in self:
+            use_dquote = use_dquote or (s == "'")
+
+            if s == "\\":
+                result += r"\\"
+            elif s == "\t":
+                result += r"\t"
+            elif s == "\n":
+                result += r"\n"
+            elif s == "\r":
+                result += r"\r"
+            else:
+                var codepoint = ord(s)
+                if isprintable(codepoint):
+                    result += s
+                elif codepoint < 0x10:
+                    result += hex(codepoint, prefix=r"\x0")
+                elif codepoint < 0x20 or codepoint == 0x7F:
+                    result += hex(codepoint, prefix=r"\x")
+                else:  # multi-byte character
+                    result += s
+
+        if use_dquote:
+            return '"' + result + '"'
+        else:
+            return "'" + result + "'"
 
     fn __len__(self) -> Int:
         """Nominally returns the _length in Unicode codepoints_ (not bytes!).
@@ -413,6 +486,35 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         """
         return hash(self._slice._data, self._slice._len)
 
+    fn __fspath__(self) -> String:
+        """Return the file system path representation of this string.
+
+        Returns:
+          The file system path representation as a string.
+        """
+        return String(self)
+
+    # ===------------------------------------------------------------------===#
+    # Operator dunders
+    # ===------------------------------------------------------------------===#
+
+    # This decorator informs the compiler that indirect address spaces are not
+    # dereferenced by the method.
+    # TODO: replace with a safe model that checks the body of the method for
+    # accesses to the origin.
+    @__unsafe_disable_nested_origin_exclusivity
+    fn __eq__(self, rhs_same: Self) -> Bool:
+        """Verify if a `StringSlice` is equal to another `StringSlice` with the
+        same origin.
+
+        Args:
+            rhs_same: The `StringSlice` to compare against.
+
+        Returns:
+            If the `StringSlice` is equal to the input in length and contents.
+        """
+        return Self.__eq__(self, rhs=rhs_same)
+
     # This decorator informs the compiler that indirect address spaces are not
     # dereferenced by the method.
     # TODO: replace with a safe model that checks the body of the method for
@@ -427,41 +529,29 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Returns:
             If the `StringSlice` is equal to the input in length and contents.
         """
-        if not self and not rhs:
-            return True
-        if len(self) != len(rhs):
+
+        var s_len = self.byte_length()
+        var s_ptr = self.unsafe_ptr()
+        var rhs_ptr = rhs.unsafe_ptr()
+        if s_len != rhs.byte_length():
             return False
         # same pointer and length, so equal
-        if self._slice.unsafe_ptr() == rhs._slice.unsafe_ptr():
+        elif s_len == 0 or s_ptr == rhs_ptr:
             return True
-        for i in range(len(self)):
-            if self._slice[i] != rhs._slice.unsafe_ptr()[i]:
-                return False
-        return True
+        return memcmp(s_ptr, rhs_ptr, s_len) == 0
 
-    @always_inline
-    fn __eq__(self, rhs: String) -> Bool:
-        """Verify if a `StringSlice` is equal to a string.
+    fn __ne__(self, rhs_same: Self) -> Bool:
+        """Verify if a `StringSlice` is not equal to another `StringSlice` with
+        the same origin.
 
         Args:
-            rhs: The `String` to compare against.
+            rhs_same: The `StringSlice` to compare against.
 
         Returns:
-            If the `StringSlice` is equal to the input in length and contents.
+            If the `StringSlice` is not equal to the input in length and
+            contents.
         """
-        return self == rhs.as_string_slice()
-
-    @always_inline
-    fn __eq__(self, rhs: StringLiteral) -> Bool:
-        """Verify if a `StringSlice` is equal to a literal.
-
-        Args:
-            rhs: The `StringLiteral` to compare against.
-
-        Returns:
-            If the `StringSlice` is equal to the input in length and contents.
-        """
-        return self == rhs.as_string_slice()
+        return Self.__ne__(self, rhs=rhs_same)
 
     @__unsafe_disable_nested_origin_exclusivity
     @always_inline
@@ -470,32 +560,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
 
         Args:
             rhs: The `StringSlice` to compare against.
-
-        Returns:
-            If the `StringSlice` is not equal to the input in length and
-            contents.
-        """
-        return not self == rhs
-
-    @always_inline
-    fn __ne__(self, rhs: String) -> Bool:
-        """Verify if span is not equal to another `StringSlice`.
-
-        Args:
-            rhs: The `StringSlice` to compare against.
-
-        Returns:
-            If the `StringSlice` is not equal to the input in length and
-            contents.
-        """
-        return not self == rhs
-
-    @always_inline
-    fn __ne__(self, rhs: StringLiteral) -> Bool:
-        """Verify if span is not equal to a `StringLiteral`.
-
-        Args:
-            rhs: The `StringLiteral` to compare against.
 
         Returns:
             If the `StringSlice` is not equal to the input in length and
@@ -528,7 +592,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             An iterator of references to the string elements.
         """
         return _StringSliceIter[origin](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __reversed__(self) -> _StringSliceIter[origin, False]:
@@ -538,7 +602,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             A reversed iterator of references to the string elements.
         """
         return _StringSliceIter[origin, forward=False](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __getitem__[IndexerType: Indexer](self, idx: IndexerType) -> String:
@@ -578,7 +642,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Returns:
             An integer value that represents the string, or otherwise raises.
         """
-        return _atol(self)
+        return atol(self)
 
     @always_inline
     fn __float__(self) raises -> Float64:
@@ -588,7 +652,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Returns:
             A float value that represents the string, or otherwise raises.
         """
-        return _atof(self)
+        return atof(self)
 
     fn __mul__(self, n: Int) -> String:
         """Concatenates the string `n` times.
@@ -926,7 +990,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         # is positive, and offset from the end if `start` is negative.
         var haystack_str = self._from_start(start)
 
-        var loc = stringref._memmem(
+        var loc = _memmem(
             haystack_str.unsafe_ptr(),
             haystack_str.byte_length(),
             substr.unsafe_ptr(),
@@ -1104,6 +1168,35 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             offset = eol_start + eol_length
 
         return output^
+
+    fn count(self, substr: StringSlice) -> Int:
+        """Return the number of non-overlapping occurrences of substring
+        `substr` in the string.
+
+        If sub is empty, returns the number of empty strings between characters
+        which is the length of the string plus one.
+
+        Args:
+            substr: The substring to count.
+
+        Returns:
+            The number of occurrences of `substr`.
+        """
+        if not substr:
+            return len(self) + 1
+
+        var res = 0
+        var offset = 0
+
+        while True:
+            var pos = self.find(substr, offset)
+            if pos == -1:
+                break
+            res += 1
+
+            offset = pos + substr.byte_length()
+
+        return res
 
 
 # ===-----------------------------------------------------------------------===#
