@@ -53,22 +53,6 @@ from collections.string.string_slice import (
 # ===----------------------------------------------------------------------=== #
 
 
-fn ord(s: String) -> Int:
-    """Returns an integer that represents the given one-character string.
-
-    Given a string representing one character, return an integer
-    representing the code point of that character. For example, `ord("a")`
-    returns the integer `97`. This is the inverse of the `chr()` function.
-
-    Args:
-        s: The input string slice, which must contain only a single character.
-
-    Returns:
-        An integer representing the code point of the given character.
-    """
-    return ord(s.as_string_slice())
-
-
 fn ord(s: StringSlice) -> Int:
     """Returns an integer that represents the given one-character string.
 
@@ -200,7 +184,7 @@ fn _repr_ascii(c: UInt8) -> String:
 
 
 @always_inline
-fn ascii(value: String) -> String:
+fn ascii(value: StringSlice) -> String:
     """Get the ASCII representation of the object.
 
     Args:
@@ -213,8 +197,8 @@ fn ascii(value: String) -> String:
     var result = String()
     var use_dquote = False
 
-    for idx in range(len(value._buffer) - 1):
-        var char = value._buffer[idx]
+    for idx in range(len(value._slice)):
+        var char = value._slice[idx]
         result += _repr_ascii(char)
         use_dquote = use_dquote or (char == ord_squote)
 
@@ -766,8 +750,7 @@ struct String(
     # ===------------------------------------------------------------------=== #
 
     @always_inline
-    @implicit
-    fn __init__(out self, owned impl: List[UInt8, *_]):
+    fn __init__(out self, owned buffer: List[UInt8, *_]):
         """Construct a string from a buffer of bytes without copying the
         allocated data.
 
@@ -778,57 +761,17 @@ struct String(
         buf.append(ord('H'))
         buf.append(ord('i'))
         buf.append(0)
-        var hi = String(buf)
+        var hi = String(buffer=buf)
         ```
 
         Args:
-            impl: The buffer.
+            buffer: The buffer.
         """
         debug_assert(
-            len(impl) > 0 and impl[-1] == 0,
+            len(buffer) > 0 and buffer[-1] == 0,
             "expected last element of String buffer to be null terminator",
         )
-        # We make a backup because steal_data() will clear size and capacity.
-        var size = impl.size
-        debug_assert(
-            impl[size - 1] == 0,
-            "expected last element of String buffer to be null terminator",
-        )
-        var capacity = impl.capacity
-        self._buffer = Self._buffer_type(
-            ptr=impl.steal_data(), length=size, capacity=capacity
-        )
-
-    @always_inline
-    @implicit
-    fn __init__(out self, impl: Self._buffer_type):
-        """Construct a string from a buffer of bytes, copying the allocated
-        data. Use the transfer operator ^ to avoid the copy.
-
-        The buffer must be terminated with a null byte:
-
-        ```mojo
-        var buf = List[UInt8]()
-        buf.append(ord('H'))
-        buf.append(ord('i'))
-        buf.append(0)
-        var hi = String(buf)
-        ```
-
-        Args:
-            impl: The buffer.
-        """
-        debug_assert(
-            len(impl) > 0 and impl[-1] == 0,
-            "expected last element of String buffer to be null terminator",
-        )
-        # We make a backup because steal_data() will clear size and capacity.
-        var size = impl.size
-        debug_assert(
-            impl[size - 1] == 0,
-            "expected last element of String buffer to be null terminator",
-        )
-        self._buffer = impl
+        self._buffer = buffer^._cast_hint_trivial_type[True]()
 
     @always_inline
     fn __init__(out self):
@@ -893,7 +836,7 @@ struct String(
         self = literal.__str__()
 
     @always_inline
-    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: Int):
+    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: UInt):
         """Creates a string from the buffer. Note that the string now owns
         the buffer.
 
@@ -1203,30 +1146,6 @@ struct String(
         return Self(buffer^)
 
     @always_inline
-    fn __add__(self, other: String) -> String:
-        """Creates a string by appending another string at the end.
-
-        Args:
-            other: The string to append.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[True](self.as_bytes(), other.as_bytes())
-
-    @always_inline
-    fn __add__(self, other: StringLiteral) -> String:
-        """Creates a string by appending a string literal at the end.
-
-        Args:
-            other: The string literal to append.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[False](self.as_bytes(), other.as_bytes())
-
-    @always_inline
     fn __add__(self, other: StringSlice) -> String:
         """Creates a string by appending a string slice at the end.
 
@@ -1237,30 +1156,6 @@ struct String(
             The new constructed string.
         """
         return Self._add[False](self.as_bytes(), other.as_bytes())
-
-    @always_inline
-    fn __radd__(self, other: String) -> String:
-        """Creates a string by prepending another string to the start.
-
-        Args:
-            other: The string to prepend.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[True](other.as_bytes(), self.as_bytes())
-
-    @always_inline
-    fn __radd__(self, other: StringLiteral) -> String:
-        """Creates a string by prepending another string literal to the start.
-
-        Args:
-            other: The string to prepend.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[True](other.as_bytes(), self.as_bytes())
 
     @always_inline
     fn __radd__(self, other: StringSlice) -> String:
@@ -1295,24 +1190,6 @@ struct String(
             s_ptr[sum_len] = 0
 
     @always_inline
-    fn __iadd__(mut self, other: String):
-        """Appends another string to this string.
-
-        Args:
-            other: The string to append.
-        """
-        self._iadd[True](other.as_bytes())
-
-    @always_inline
-    fn __iadd__(mut self, other: StringLiteral):
-        """Appends another string literal to this string.
-
-        Args:
-            other: The string to append.
-        """
-        self._iadd[False](other.as_bytes())
-
-    @always_inline
     fn __iadd__(mut self, other: StringSlice):
         """Appends another string slice to this string.
 
@@ -1328,7 +1205,7 @@ struct String(
             An iterator of references to the string elements.
         """
         return _StringSliceIter[__origin_of(self)](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
@@ -1338,7 +1215,7 @@ struct String(
             A reversed iterator of references to the string elements.
         """
         return _StringSliceIter[__origin_of(self), forward=False](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     # ===------------------------------------------------------------------=== #
@@ -1389,34 +1266,7 @@ struct String(
         Returns:
             A new representation of the string.
         """
-        var result = String()
-        var use_dquote = False
-        for s in self:
-            use_dquote = use_dquote or (s == "'")
-
-            if s == "\\":
-                result += r"\\"
-            elif s == "\t":
-                result += r"\t"
-            elif s == "\n":
-                result += r"\n"
-            elif s == "\r":
-                result += r"\r"
-            else:
-                var codepoint = ord(s)
-                if isprintable(codepoint):
-                    result += s
-                elif codepoint < 0x10:
-                    result += hex(codepoint, prefix=r"\x0")
-                elif codepoint < 0x20 or codepoint == 0x7F:
-                    result += hex(codepoint, prefix=r"\x")
-                else:  # multi-byte character
-                    result += s
-
-        if use_dquote:
-            return '"' + result + '"'
-        else:
-            return "'" + result + "'"
+        return repr(StringSlice(self))
 
     fn __fspath__(self) -> String:
         """Return the file system path representation (just the string itself).

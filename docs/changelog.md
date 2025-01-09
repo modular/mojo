@@ -99,6 +99,29 @@ what we publish.
 
   - `atol()`
   - `atof()`
+  - `ord()`
+  - `ascii()`
+  - `b64encode()`
+    - Additionally, the `b64encode()` overload that previously took `List` has
+      been changed to
+      take a `Span`.
+  - `b64decode()`
+  - `b16encode()`
+  - `b16decode()`
+
+- Various functionality has moved from `String` and `StringRef` to the more
+  general `StringSlice` type.
+
+  - `StringSlice` now implements `Representable`, and that implementation is now
+    used by `String.__repr__()` and `StringRef.__repr__()`.
+
+- `StringSlice` now implements `EqualityComparable`.
+
+  Up until now, `StringSlice` has implemented a more general `__eq__` and
+  `__ne__` comparision with `StringSlice` types that had arbitrary other
+  origins. However, to satisfy `EqualityComparable`, `StringSlice` now also
+  has narrower comparison methods that support comparing only with
+  `StringSlice`'s with the exact same origin.
 
 - Removed `@implicit` decorator from some standard library initializer methods
   that perform allocation. This reduces places where Mojo code could implicitly
@@ -108,6 +131,8 @@ what we publish.
 
   - `String.__init__(out self, StringRef)`
   - `String.__init__(out self, StringSlice)`
+  - `List.__init__(out self, owned *values: T)`
+  - `List.__init__(out self, span: Span[T])`
 
 - The `ExplicitlyCopyable` trait has changed to require a
   `fn copy(self) -> Self` method. Previously, an initializer with the signature
@@ -135,6 +160,7 @@ what we publish.
   - Changed `sys.argv()` to return list of `StringSlice`.
   - Added `Path` explicit constructor from `StringSlice`.
   - removed `StringRef.startswith()` and `StringRef.endswith()`
+  - removed `StringRef.strip()`
 
 ### 🛠️ Fixed
 
