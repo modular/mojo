@@ -15,6 +15,7 @@
 
 import os
 from collections import List
+from collections.string import StringSlice
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from os import PathLike, listdir, stat_result
 from sys import external_call, os_is_windows
@@ -83,6 +84,15 @@ struct Path(
         """Initializes a path with the current directory."""
         self = cwd()
 
+    # Note: Not @implicit so that allocation is not implicit.
+    fn __init__(out self, path: StringSlice):
+        """Initializes a path with the provided path.
+
+        Args:
+          path: The file system path.
+        """
+        self.path = String(path)
+
     @implicit
     fn __init__(out self, path: String):
         """Initializes a path with the provided path.
@@ -92,13 +102,13 @@ struct Path(
         """
         self.path = path
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.path = String(other=other.path)
+        return Self(self.path)
 
     fn __truediv__(self, suffix: Self) -> Self:
         """Joins two paths using the system-defined path separator.

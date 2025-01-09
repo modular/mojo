@@ -10,10 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-"""Implements basic object methods for working with strings.
-
-These are Mojo built-ins, so you don't need to import them.
-"""
+"""Implements basic object methods for working with strings."""
 
 from collections import KeyElement, List, Optional
 from collections._index_normalization import normalize_index
@@ -35,43 +32,25 @@ from utils import (
     Writer,
     write_args,
 )
-from utils._unicode import (
+from collections.string._unicode import (
     is_lowercase,
     is_uppercase,
     to_lowercase,
     to_uppercase,
 )
-from utils.format import _CurlyEntryFormattable, _FormatCurlyEntry
-from utils.string_slice import (
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string.string_slice import (
     StringSlice,
     _shift_unicode_to_utf8,
     _StringSliceIter,
     _to_string_list,
     _unicode_codepoint_utf8_byte_length,
     _utf8_byte_type,
-    _utf8_first_byte_sequence_length,
-    _split,
 )
 
 # ===----------------------------------------------------------------------=== #
 # ord
 # ===----------------------------------------------------------------------=== #
-
-
-fn ord(s: String) -> Int:
-    """Returns an integer that represents the given one-character string.
-
-    Given a string representing one character, return an integer
-    representing the code point of that character. For example, `ord("a")`
-    returns the integer `97`. This is the inverse of the `chr()` function.
-
-    Args:
-        s: The input string slice, which must contain only a single character.
-
-    Returns:
-        An integer representing the code point of the given character.
-    """
-    return ord(s.as_string_slice())
 
 
 fn ord(s: StringSlice) -> Int:
@@ -205,7 +184,7 @@ fn _repr_ascii(c: UInt8) -> String:
 
 
 @always_inline
-fn ascii(value: String) -> String:
+fn ascii(value: StringSlice) -> String:
     """Get the ASCII representation of the object.
 
     Args:
@@ -218,8 +197,8 @@ fn ascii(value: String) -> String:
     var result = String()
     var use_dquote = False
 
-    for idx in range(len(value._buffer) - 1):
-        var char = value._buffer[idx]
+    for idx in range(len(value._slice)):
+        var char = value._slice[idx]
         result += _repr_ascii(char)
         use_dquote = use_dquote or (char == ord_squote)
 
@@ -234,11 +213,42 @@ fn ascii(value: String) -> String:
 # ===----------------------------------------------------------------------=== #
 
 
-fn _atol(str_slice: StringSlice, base: Int = 10) raises -> Int:
-    """Implementation of `atol` for StringSlice inputs.
+fn atol(str_slice: StringSlice, base: Int = 10) raises -> Int:
+    """Parses and returns the given string as an integer in the given base.
 
-    Please see its docstring for details.
+    If base is set to 0, the string is parsed as an Integer literal, with the
+    following considerations:
+    - '0b' or '0B' prefix indicates binary (base 2)
+    - '0o' or '0O' prefix indicates octal (base 8)
+    - '0x' or '0X' prefix indicates hexadecimal (base 16)
+    - Without a prefix, it's treated as decimal (base 10)
+
+    Args:
+        str_slice: A string to be parsed as an integer in the given base.
+        base: Base used for conversion, value must be between 2 and 36, or 0.
+
+    Returns:
+        An integer value that represents the string.
+
+    Raises:
+        If the given string cannot be parsed as an integer value or if an
+        incorrect base is provided.
+
+    Examples:
+        >>> atol("32")
+        32
+        >>> atol("FF", 16)
+        255
+        >>> atol("0xFF", 0)
+        255
+        >>> atol("0b1010", 0)
+        10
+
+    Notes:
+        This follows [Python's integer literals](
+        https://docs.python.org/3/reference/lexical_analysis.html#integers).
     """
+
     if (base != 0) and (base < 2 or base > 36):
         raise Error("Base must be >= 2 and <= 36, or 0.")
     if not str_slice:
@@ -432,55 +442,28 @@ fn _identify_base(str_slice: StringSlice, start: Int) -> Tuple[Int, Int]:
     return 10, start
 
 
-fn atol(str: String, base: Int = 10) raises -> Int:
-    """Parses and returns the given string as an integer in the given base.
-
-    If base is set to 0, the string is parsed as an Integer literal, with the
-    following considerations:
-    - '0b' or '0B' prefix indicates binary (base 2)
-    - '0o' or '0O' prefix indicates octal (base 8)
-    - '0x' or '0X' prefix indicates hexadecimal (base 16)
-    - Without a prefix, it's treated as decimal (base 10)
-
-    Args:
-        str: A string to be parsed as an integer in the given base.
-        base: Base used for conversion, value must be between 2 and 36, or 0.
-
-    Returns:
-        An integer value that represents the string.
-
-    Raises:
-        If the given string cannot be parsed as an integer value or if an
-        incorrect base is provided.
-
-    Examples:
-        >>> atol("32")
-        32
-        >>> atol("FF", 16)
-        255
-        >>> atol("0xFF", 0)
-        255
-        >>> atol("0b1010", 0)
-        10
-
-    Notes:
-        This follows [Python's integer literals](
-        https://docs.python.org/3/reference/lexical_analysis.html#integers).
-    """
-    return _atol(str.as_string_slice(), base)
-
-
 fn _atof_error(str_ref: StringSlice) -> Error:
     return Error("String is not convertible to float: '" + str(str_ref) + "'")
 
 
-fn _atof(str_ref: StringSlice) raises -> Float64:
-    """Implementation of `atof` for StringRef inputs.
+fn atof(str_slice: StringSlice) raises -> Float64:
+    """Parses the given string as a floating point and returns that value.
 
-    Please see its docstring for details.
+    For example, `atof("2.25")` returns `2.25`.
+
+    Raises:
+        If the given string cannot be parsed as an floating point value, for
+        example in `atof("hi")`.
+
+    Args:
+        str_slice: A string to be parsed as a floating point.
+
+    Returns:
+        An floating point value that represents the string, or otherwise raises.
     """
-    if not str_ref:
-        raise _atof_error(str_ref)
+
+    if not str_slice:
+        raise _atof_error(str_slice)
 
     var result: Float64 = 0.0
     var exponent: Int = 0
@@ -497,9 +480,9 @@ fn _atof(str_ref: StringSlice) raises -> Float64:
     alias ord_E = UInt8(ord("E"))
 
     var start: Int = 0
-    var str_ref_strip = str_ref.strip()
-    var str_len = len(str_ref_strip)
-    var buff = str_ref_strip.unsafe_ptr()
+    var str_slice_strip = str_slice.strip()
+    var str_len = len(str_slice_strip)
+    var buff = str_slice_strip.unsafe_ptr()
 
     # check sign, inf, nan
     if buff[start] == ord_plus:
@@ -548,13 +531,13 @@ fn _atof(str_ref: StringSlice) raises -> Float64:
             start += 1
         exponent += sign * shift
         if not has_number:
-            raise _atof_error(str_ref)
+            raise _atof_error(str_slice)
     # check for f/F at the end
     if buff[start] == ord_f or buff[start] == ord_F:
         start += 1
     # check if string got fully parsed
     if start != str_len:
-        raise _atof_error(str_ref)
+        raise _atof_error(str_slice)
     # apply shift
     # NOTE: Instead of `var result *= 10.0 ** exponent`, we calculate a positive
     # integer factor as shift and multiply or divide by it based on the shift
@@ -567,24 +550,6 @@ fn _atof(str_ref: StringSlice) raises -> Float64:
         result /= shift
     # apply sign
     return result * sign
-
-
-fn atof(str: String) raises -> Float64:
-    """Parses the given string as a floating point and returns that value.
-
-    For example, `atof("2.25")` returns `2.25`.
-
-    Raises:
-        If the given string cannot be parsed as an floating point value, for
-        example in `atof("hi")`.
-
-    Args:
-        str: A string to be parsed as a floating point.
-
-    Returns:
-        An floating point value that represents the string, or otherwise raises.
-    """
-    return _atof(str.as_string_slice())
 
 
 # ===----------------------------------------------------------------------=== #
@@ -785,8 +750,7 @@ struct String(
     # ===------------------------------------------------------------------=== #
 
     @always_inline
-    @implicit
-    fn __init__(out self, owned impl: List[UInt8, *_]):
+    fn __init__(out self, owned buffer: List[UInt8, *_]):
         """Construct a string from a buffer of bytes without copying the
         allocated data.
 
@@ -797,57 +761,17 @@ struct String(
         buf.append(ord('H'))
         buf.append(ord('i'))
         buf.append(0)
-        var hi = String(buf)
+        var hi = String(buffer=buf)
         ```
 
         Args:
-            impl: The buffer.
+            buffer: The buffer.
         """
         debug_assert(
-            len(impl) > 0 and impl[-1] == 0,
+            len(buffer) > 0 and buffer[-1] == 0,
             "expected last element of String buffer to be null terminator",
         )
-        # We make a backup because steal_data() will clear size and capacity.
-        var size = impl.size
-        debug_assert(
-            impl[size - 1] == 0,
-            "expected last element of String buffer to be null terminator",
-        )
-        var capacity = impl.capacity
-        self._buffer = Self._buffer_type(
-            ptr=impl.steal_data(), length=size, capacity=capacity
-        )
-
-    @always_inline
-    @implicit
-    fn __init__(out self, impl: Self._buffer_type):
-        """Construct a string from a buffer of bytes, copying the allocated
-        data. Use the transfer operator ^ to avoid the copy.
-
-        The buffer must be terminated with a null byte:
-
-        ```mojo
-        var buf = List[UInt8]()
-        buf.append(ord('H'))
-        buf.append(ord('i'))
-        buf.append(0)
-        var hi = String(buf)
-        ```
-
-        Args:
-            impl: The buffer.
-        """
-        debug_assert(
-            len(impl) > 0 and impl[-1] == 0,
-            "expected last element of String buffer to be null terminator",
-        )
-        # We make a backup because steal_data() will clear size and capacity.
-        var size = impl.size
-        debug_assert(
-            impl[size - 1] == 0,
-            "expected last element of String buffer to be null terminator",
-        )
-        self._buffer = impl
+        self._buffer = buffer^._cast_hint_trivial_type[True]()
 
     @always_inline
     fn __init__(out self):
@@ -863,46 +787,43 @@ struct String(
         """
         self._buffer = Self._buffer_type(capacity=capacity)
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly copy the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other  # Just use the implicit copyinit.
+        return self  # Just use the implicit copyinit.
 
-    @implicit
-    fn __init__(out self, str: StringRef):
+    fn __init__(out self, strref: StringRef):
         """Construct a string from a StringRef object.
 
         Args:
-            str: The StringRef from which to construct this string object.
+            strref: The StringRef from which to construct this string object.
         """
-        var length = len(str)
+        var length = len(strref)
         var buffer = Self._buffer_type()
         # +1 for null terminator, initialized to 0
         buffer.resize(length + 1, 0)
-        memcpy(dest=buffer.data, src=str.data, count=length)
+        memcpy(dest=buffer.data, src=strref.data, count=length)
         self = Self(buffer^)
 
-    @implicit
     fn __init__(out self, str_slice: StringSlice):
         """Construct a string from a string slice.
 
-        This will allocate a new string that copies the string contents from
-        the provided string slice `str_slice`.
-
         Args:
             str_slice: The string slice from which to construct this string.
+
+        Notes:
+            This will allocate a new string that copies the string contents from
+            the provided string slice.
         """
 
         var length = str_slice.byte_length()
-        var buffer = Self._buffer_type(capacity=length + 1)
-        var ptr = buffer.unsafe_ptr()
+        var ptr = UnsafePointer[Byte].alloc(length + 1)  # null terminator
         memcpy(ptr, str_slice.unsafe_ptr(), length)
-        buffer.size = length + 1
         ptr[length] = 0
-        self = Self(buffer^)
+        self = String(ptr=ptr, length=length + 1)
 
     @always_inline
     @implicit
@@ -915,7 +836,7 @@ struct String(
         self = literal.__str__()
 
     @always_inline
-    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: Int):
+    fn __init__(out self, *, ptr: UnsafePointer[Byte], length: UInt):
         """Creates a string from the buffer. Note that the string now owns
         the buffer.
 
@@ -1107,7 +1028,7 @@ struct String(
         start, end, step = span.indices(self.byte_length())
         var r = range(start, end, step)
         if step == 1:
-            return StringRef(self._buffer.data + start, len(r))
+            return String(StringRef(self._buffer.data + start, len(r)))
 
         var buffer = Self._buffer_type()
         var result_len = len(r)
@@ -1225,30 +1146,6 @@ struct String(
         return Self(buffer^)
 
     @always_inline
-    fn __add__(self, other: String) -> String:
-        """Creates a string by appending another string at the end.
-
-        Args:
-            other: The string to append.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[True](self.as_bytes(), other.as_bytes())
-
-    @always_inline
-    fn __add__(self, other: StringLiteral) -> String:
-        """Creates a string by appending a string literal at the end.
-
-        Args:
-            other: The string literal to append.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[False](self.as_bytes(), other.as_bytes())
-
-    @always_inline
     fn __add__(self, other: StringSlice) -> String:
         """Creates a string by appending a string slice at the end.
 
@@ -1259,30 +1156,6 @@ struct String(
             The new constructed string.
         """
         return Self._add[False](self.as_bytes(), other.as_bytes())
-
-    @always_inline
-    fn __radd__(self, other: String) -> String:
-        """Creates a string by prepending another string to the start.
-
-        Args:
-            other: The string to prepend.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[True](other.as_bytes(), self.as_bytes())
-
-    @always_inline
-    fn __radd__(self, other: StringLiteral) -> String:
-        """Creates a string by prepending another string literal to the start.
-
-        Args:
-            other: The string to prepend.
-
-        Returns:
-            The new constructed string.
-        """
-        return Self._add[True](other.as_bytes(), self.as_bytes())
 
     @always_inline
     fn __radd__(self, other: StringSlice) -> String:
@@ -1317,24 +1190,6 @@ struct String(
             s_ptr[sum_len] = 0
 
     @always_inline
-    fn __iadd__(mut self, other: String):
-        """Appends another string to this string.
-
-        Args:
-            other: The string to append.
-        """
-        self._iadd[True](other.as_bytes())
-
-    @always_inline
-    fn __iadd__(mut self, other: StringLiteral):
-        """Appends another string literal to this string.
-
-        Args:
-            other: The string to append.
-        """
-        self._iadd[False](other.as_bytes())
-
-    @always_inline
     fn __iadd__(mut self, other: StringSlice):
         """Appends another string slice to this string.
 
@@ -1343,26 +1198,24 @@ struct String(
         """
         self._iadd[False](other.as_bytes())
 
-    fn __iter__(ref self) -> _StringSliceIter[__origin_of(self)]:
-        """Iterate over the string unicode characters.
+    fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
+        """Iterate over the string, returning immutable references.
 
         Returns:
-            An iterator of references to the string unicode characters.
+            An iterator of references to the string elements.
         """
         return _StringSliceIter[__origin_of(self)](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
-    fn __reversed__(
-        ref self,
-    ) -> _StringSliceIter[__origin_of(self), forward=False]:
-        """Iterate backwards over the string unicode characters.
+    fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
+        """Iterate backwards over the string, returning immutable references.
 
         Returns:
-            A reversed iterator of references to the string unicode characters.
+            A reversed iterator of references to the string elements.
         """
         return _StringSliceIter[__origin_of(self), forward=False](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     # ===------------------------------------------------------------------=== #
@@ -1413,34 +1266,7 @@ struct String(
         Returns:
             A new representation of the string.
         """
-        var result = String()
-        var use_dquote = False
-        for s in self:
-            use_dquote = use_dquote or (s == "'")
-
-            if s == "\\":
-                result += r"\\"
-            elif s == "\t":
-                result += r"\t"
-            elif s == "\n":
-                result += r"\n"
-            elif s == "\r":
-                result += r"\r"
-            else:
-                var codepoint = ord(s)
-                if isprintable(codepoint):
-                    result += s
-                elif codepoint < 0x10:
-                    result += hex(codepoint, prefix=r"\x0")
-                elif codepoint < 0x20 or codepoint == 0x7F:
-                    result += hex(codepoint, prefix=r"\x")
-                else:  # multi-byte character
-                    result += s
-
-        if use_dquote:
-            return '"' + result + '"'
-        else:
-            return "'" + result + "'"
+        return repr(StringSlice(self))
 
     fn __fspath__(self) -> String:
         """Return the file system path representation (just the string itself).
@@ -1628,8 +1454,10 @@ struct String(
         Notes:
             This does not include the trailing null terminator.
         """
+
+        # Does NOT include the NUL terminator.
         return Span[Byte, __origin_of(self)](
-            ptr=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self._buffer.unsafe_ptr(), length=self.byte_length()
         )
 
     @always_inline
@@ -1639,6 +1467,9 @@ struct String(
         Returns:
             A string slice pointing to the data owned by this string.
         """
+        # FIXME(MSTDL-160):
+        #   Enforce UTF-8 encoding in String so this is actually
+        #   guaranteed to be valid.
         return StringSlice(unsafe_from_utf8=self.as_bytes())
 
     @always_inline
@@ -1667,7 +1498,7 @@ struct String(
         self._buffer.capacity = 0
         return ptr
 
-    fn count(self, substr: String) -> Int:
+    fn count(self, substr: StringSlice) -> Int:
         """Return the number of non-overlapping occurrences of substring
         `substr` in the string.
 
@@ -1680,21 +1511,7 @@ struct String(
         Returns:
           The number of occurrences of `substr`.
         """
-        if not substr:
-            return len(self) + 1
-
-        var res = 0
-        var offset = 0
-
-        while True:
-            var pos = self.find(substr, offset)
-            if pos == -1:
-                break
-            res += 1
-
-            offset = pos + substr.byte_length()
-
-        return res
+        return self.as_string_slice().count(substr)
 
     fn __contains__(self, substr: String) -> Bool:
         """Returns True if the substring is contained within the current string.
@@ -1712,12 +1529,13 @@ struct String(
         `start`. If not found, returns -1.
 
         Args:
-            substr: The substring to find.
-            start: The offset from which to find.
+          substr: The substring to find.
+          start: The offset from which to find.
 
         Returns:
-            The offset of `substr` relative to the beginning of the string.
+          The offset of `substr` relative to the beginning of the string.
         """
+
         return self.as_string_slice().find(substr.as_string_slice(), start)
 
     fn rfind(self, substr: String, start: Int = 0) -> Int:
@@ -1725,13 +1543,16 @@ struct String(
         `start`. If not found, returns -1.
 
         Args:
-            substr: The substring to find.
-            start: The offset from which to find.
+          substr: The substring to find.
+          start: The offset from which to find.
 
         Returns:
-            The offset of `substr` relative to the beginning of the string.
+          The offset of `substr` relative to the beginning of the string.
         """
-        return self.as_string_slice().rfind(substr.as_string_slice(), start)
+
+        return self.as_string_slice().rfind(
+            substr.as_string_slice(), start=start
+        )
 
     fn isspace(self) -> Bool:
         """Determines whether every character in the given String is a
@@ -1746,89 +1567,70 @@ struct String(
         """
         return self.as_string_slice().isspace()
 
-    @always_inline
-    fn split(
-        ref self, sep: StringSlice, maxsplit: Int
-    ) -> List[StringSlice[__origin_of(self)]]:
+    fn split(self, sep: String, maxsplit: Int = -1) raises -> List[String]:
         """Split the string by a separator.
 
         Args:
             sep: The string to split on.
             maxsplit: The maximum amount of items to split from String.
+                Defaults to unlimited.
 
         Returns:
             A List of Strings containing the input split by the separator.
 
-        Examples:
-
-        ```mojo
-        # Splitting with maxsplit
-        _ = "1,2,3".split(",", maxsplit=1) # ['1', '2,3']
-        # Splitting with starting or ending separators
-        _ = ",1,2,3,".split(",", maxsplit=1) # ['', '1,2,3,']
-        _ = "123".split("", maxsplit=1) # ['', '123']
-        ```
-        .
-        """
-        return self.as_string_slice().split(sep, maxsplit)
-
-    @always_inline
-    fn split(
-        ref self, sep: StringSlice
-    ) -> List[StringSlice[__origin_of(self)]]:
-        """Split the string by a separator.
-
-        Args:
-            sep: The string to split on.
-
-        Returns:
-            A List of Strings containing the input split by the separator.
+        Raises:
+            If the separator is empty.
 
         Examples:
 
         ```mojo
         # Splitting a space
-        _ = "hello world".split(" ") # ["hello", "world"]
+        _ = String("hello world").split(" ") # ["hello", "world"]
         # Splitting adjacent separators
-        _ = "hello,,world".split(",") # ["hello", "", "world"]
-        # Splitting with starting or ending separators
-        _ = ",1,2,3,".split(",") # ['', '1', '2', '3', '']
-        _ = "123".split("") # ['', '1', '2', '3', '']
-        ```
-        .
-        """
-        return self.as_string_slice().split(sep)
-
-    @always_inline
-    fn split(
-        ref self, *, maxsplit: Int
-    ) -> List[StringSlice[__origin_of(self)]]:
-        """Split the string by every Whitespace separator.
-
-        Args:
-            maxsplit: The maximum amount of items to split from String.
-
-        Returns:
-            A List of Strings containing the input split by the separator.
-
-        Examples:
-
-        ```mojo
+        _ = String("hello,,world").split(",") # ["hello", "", "world"]
         # Splitting with maxsplit
-        _ = "1     2  3".split(maxsplit=1) # ['1', '2  3']
+        _ = String("1,2,3").split(",", 1) # ['1', '2,3']
         ```
         .
         """
-        return self.as_string_slice().split(maxsplit=maxsplit)
+        var output = List[String]()
 
-    @always_inline
-    fn split(
-        ref self, sep: NoneType = None
-    ) -> List[StringSlice[__origin_of(self)]]:
+        var str_byte_len = self.byte_length() - 1
+        var lhs = 0
+        var rhs = 0
+        var items = 0
+        var sep_len = sep.byte_length()
+        if sep_len == 0:
+            raise Error("Separator cannot be empty.")
+        if str_byte_len < 0:
+            output.append("")
+
+        while lhs <= str_byte_len:
+            rhs = self.find(sep, lhs)
+            if rhs == -1:
+                output.append(self[lhs:])
+                break
+
+            if maxsplit > -1:
+                if items == maxsplit:
+                    output.append(self[lhs:])
+                    break
+                items += 1
+
+            output.append(self[lhs:rhs])
+            lhs = rhs + sep_len
+
+        if self.endswith(sep) and (len(output) <= maxsplit or maxsplit == -1):
+            output.append("")
+        return output
+
+    fn split(self, sep: NoneType = None, maxsplit: Int = -1) -> List[String]:
         """Split the string by every Whitespace separator.
 
         Args:
             sep: None.
+            maxsplit: The maximum amount of items to split from String. Defaults
+                to unlimited.
 
         Returns:
             A List of Strings containing the input split by the separator.
@@ -1837,18 +1639,60 @@ struct String(
 
         ```mojo
         # Splitting an empty string or filled with whitespaces
-        _ = "      ".split() # []
-        _ = "".split() # []
+        _ = String("      ").split() # []
+        _ = String("").split() # []
+
         # Splitting a string with leading, trailing, and middle whitespaces
-        _ = "      hello    world     ".split() # ["hello", "world"]
+        _ = String("      hello    world     ").split() # ["hello", "world"]
         # Splitting adjacent universal newlines:
-        _ = (
+        _ = String(
             "hello \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e\\x85\\u2028\\u2029world"
         ).split()  # ["hello", "world"]
         ```
         .
         """
-        return self.as_string_slice().split()
+
+        fn num_bytes(b: UInt8) -> Int:
+            var flipped = ~b
+            return int(count_leading_zeros(flipped) + (flipped >> 7))
+
+        var output = List[String]()
+        var str_byte_len = self.byte_length() - 1
+        var lhs = 0
+        var rhs = 0
+        var items = 0
+        while lhs <= str_byte_len:
+            # Python adds all "whitespace chars" as one separator
+            # if no separator was specified
+            for s in self[lhs:]:
+                if not s.isspace():
+                    break
+                lhs += s.byte_length()
+            # if it went until the end of the String, then
+            # it should be sliced up until the original
+            # start of the whitespace which was already appended
+            if lhs - 1 == str_byte_len:
+                break
+            elif lhs == str_byte_len:
+                # if the last char is not whitespace
+                output.append(self[str_byte_len])
+                break
+            rhs = lhs + num_bytes(self.unsafe_ptr()[lhs])
+            for s in self[lhs + num_bytes(self.unsafe_ptr()[lhs]) :]:
+                if s.isspace():
+                    break
+                rhs += s.byte_length()
+
+            if maxsplit > -1:
+                if items == maxsplit:
+                    output.append(self[lhs:])
+                    break
+                items += 1
+
+            output.append(self[lhs:rhs])
+            lhs = rhs
+
+        return output
 
     fn splitlines(self, keepends: Bool = False) -> List[String]:
         """Split the string at line boundaries. This corresponds to Python's

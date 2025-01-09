@@ -12,14 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from collections.string import (
-    _calc_initial_buffer_size_int32,
-    _calc_initial_buffer_size_int64,
-    _isspace,
-)
-
-from memory import UnsafePointer
-from python import Python
 from testing import (
     assert_equal,
     assert_false,
@@ -28,8 +20,15 @@ from testing import (
     assert_true,
 )
 
+from collections.string import StringSlice
+from collections.string.string import (
+    _calc_initial_buffer_size_int32,
+    _calc_initial_buffer_size_int64,
+    _isspace,
+)
+from memory import UnsafePointer
+from python import Python
 from utils import StringRef
-from utils.string_slice import StringSlice
 
 
 @value
@@ -43,32 +42,6 @@ def test_stringable():
     assert_equal("0", str(0))
     assert_equal("AAA", str(StringRef("AAA")))
     assert_equal("a string", str(AString()))
-
-
-def test_repr():
-    # Standard single-byte characters
-    assert_equal(String.__repr__("hello"), "'hello'")
-    assert_equal(String.__repr__(str(0)), "'0'")
-    assert_equal(String.__repr__("A"), "'A'")
-    assert_equal(String.__repr__(" "), "' '")
-    assert_equal(String.__repr__("~"), "'~'")
-
-    # Special single-byte characters
-    assert_equal(String.__repr__("\0"), r"'\x00'")
-    assert_equal(String.__repr__("\x06"), r"'\x06'")
-    assert_equal(String.__repr__("\x09"), r"'\t'")
-    assert_equal(String.__repr__("\n"), r"'\n'")
-    assert_equal(String.__repr__("\x0d"), r"'\r'")
-    assert_equal(String.__repr__("\x0e"), r"'\x0e'")
-    assert_equal(String.__repr__("\x1f"), r"'\x1f'")
-    assert_equal(String.__repr__("'"), '"\'"')
-    assert_equal(String.__repr__("\\"), r"'\\'")
-    assert_equal(String.__repr__("\x7f"), r"'\x7f'")
-
-    # Multi-byte characters
-    assert_equal(String.__repr__("Örnsköldsvik"), "'Örnsköldsvik'")  # 2-byte
-    assert_equal(String.__repr__("你好!"), "'你好!'")  # 3-byte
-    assert_equal(String.__repr__("hello 🔥!"), "'hello 🔥!'")  # 4-byte
 
 
 def test_constructors():
@@ -236,60 +209,6 @@ def test_string_join():
     assert_equal(s6, "1,2,3")
 
 
-def test_string_literal_join():
-    var s2 = ",".join(List[UInt8](1, 2, 3))
-    assert_equal(s2, "1,2,3")
-
-    var s3 = ",".join(List[UInt8](1, 2, 3, 4, 5, 6, 7, 8, 9))
-    assert_equal(s3, "1,2,3,4,5,6,7,8,9")
-
-    var s4 = ",".join(List[UInt8]())
-    assert_equal(s4, "")
-
-    var s5 = ",".join(List[UInt8](1))
-    assert_equal(s5, "1")
-
-
-def test_stringref():
-    var a = StringRef("AAA")
-    var b = StringRef("BBB")
-    var c = StringRef("AAA")
-
-    assert_equal(3, len(a))
-    assert_equal(3, len(b))
-    assert_equal(3, len(c))
-    assert_equal(4, len("ABBA"))
-
-    # Equality operators
-    assert_not_equal(a, b)
-    assert_not_equal(b, a)
-
-    # Self equality
-    assert_equal(a, a)
-
-    # Value equality
-    assert_equal(a, c)
-
-
-def test_stringref_from_dtypepointer():
-    var a = StringRef("AAA")
-    var b = StringRef(ptr=a.data)
-    assert_equal(3, len(a))
-    assert_equal(3, len(b))
-    assert_equal(a, b)
-
-
-def test_stringref_strip():
-    var a = StringRef("  mojo rocks  ")
-    var b = StringRef("mojo  ")
-    var c = StringRef("  mojo")
-    var d = StringRef("")
-    assert_equal(a.strip(), "mojo rocks")
-    assert_equal(b.strip(), "mojo")
-    assert_equal(c.strip(), "mojo")
-    assert_equal(d.strip(), "")
-
-
 def test_ord():
     # Regular ASCII
     assert_equal(ord("A"), 65)
@@ -364,13 +283,13 @@ def test_string_indexing():
 
 def test_atol():
     # base 10
-    assert_equal(375, atol(String("375")))
-    assert_equal(1, atol(String("001")))
-    assert_equal(5, atol(String(" 005")))
-    assert_equal(13, atol(String(" 013  ")))
-    assert_equal(-89, atol(String("-89")))
-    assert_equal(-52, atol(String(" -52")))
-    assert_equal(-69, atol(String(" -69  ")))
+    assert_equal(375, atol("375"))
+    assert_equal(1, atol("001"))
+    assert_equal(5, atol(" 005"))
+    assert_equal(13, atol(" 013  "))
+    assert_equal(-89, atol("-89"))
+    assert_equal(-52, atol(" -52"))
+    assert_equal(-69, atol(" -69  "))
     assert_equal(1_100_200, atol(" 1_100_200"))
 
     # other bases
@@ -394,12 +313,12 @@ def test_atol():
     with assert_raises(
         contains="String is not convertible to integer with base 10: '9.03'"
     ):
-        _ = atol(String("9.03"))
+        _ = atol("9.03")
 
     with assert_raises(
         contains="String is not convertible to integer with base 10: ' 10 1'"
     ):
-        _ = atol(String(" 10 1"))
+        _ = atol(" 10 1")
 
     # start/end with underscore double underscores
     with assert_raises(
@@ -456,12 +375,12 @@ def test_atol():
     with assert_raises(
         contains="String is not convertible to integer with base 10: ''"
     ):
-        _ = atol(String(""))
+        _ = atol("")
 
     with assert_raises(
         contains="String expresses an integer too large to store in Int."
     ):
-        _ = atol(String("9223372036854775832"))
+        _ = atol("9223372036854775832")
 
 
 def test_atol_base_0():
@@ -522,63 +441,63 @@ def test_atol_base_0():
 
 
 def test_atof():
-    assert_equal(375.0, atof(String("375.f")))
-    assert_equal(1.0, atof(String("001.")))
-    assert_equal(+5.0, atof(String(" +005.")))
-    assert_equal(13.0, atof(String(" 013.f  ")))
-    assert_equal(-89, atof(String("-89")))
-    assert_equal(-0.3, atof(String(" -0.3")))
-    assert_equal(-69e3, atof(String(" -69E+3  ")))
-    assert_equal(123.2e1, atof(String(" 123.2E1  ")))
-    assert_equal(23e3, atof(String(" 23E3  ")))
-    assert_equal(989343e-13, atof(String(" 989343E-13  ")))
-    assert_equal(1.123, atof(String(" 1.123f")))
-    assert_equal(0.78, atof(String(" .78 ")))
-    assert_equal(121234.0, atof(String(" 121234.  ")))
-    assert_equal(985031234.0, atof(String(" 985031234.F  ")))
-    assert_equal(FloatLiteral.negative_zero, atof(String("-0")))
-    assert_equal(FloatLiteral.nan, atof(String("  nan")))
-    assert_equal(FloatLiteral.infinity, atof(String(" inf ")))
-    assert_equal(FloatLiteral.negative_infinity, atof(String("-inf  ")))
+    assert_equal(375.0, atof("375.f"))
+    assert_equal(1.0, atof("001."))
+    assert_equal(+5.0, atof(" +005."))
+    assert_equal(13.0, atof(" 013.f  "))
+    assert_equal(-89, atof("-89"))
+    assert_equal(-0.3, atof(" -0.3"))
+    assert_equal(-69e3, atof(" -69E+3  "))
+    assert_equal(123.2e1, atof(" 123.2E1  "))
+    assert_equal(23e3, atof(" 23E3  "))
+    assert_equal(989343e-13, atof(" 989343E-13  "))
+    assert_equal(1.123, atof(" 1.123f"))
+    assert_equal(0.78, atof(" .78 "))
+    assert_equal(121234.0, atof(" 121234.  "))
+    assert_equal(985031234.0, atof(" 985031234.F  "))
+    assert_equal(FloatLiteral.negative_zero, atof("-0"))
+    assert_equal(FloatLiteral.nan, atof("  nan"))
+    assert_equal(FloatLiteral.infinity, atof(" inf "))
+    assert_equal(FloatLiteral.negative_infinity, atof("-inf  "))
 
     # Negative cases
     with assert_raises(contains="String is not convertible to float: ''"):
-        _ = atof(String(""))
+        _ = atof("")
 
     with assert_raises(
         contains="String is not convertible to float: ' 123 asd'"
     ):
-        _ = atof(String(" 123 asd"))
+        _ = atof(" 123 asd")
 
     with assert_raises(
         contains="String is not convertible to float: ' f.9123 '"
     ):
-        _ = atof(String(" f.9123 "))
+        _ = atof(" f.9123 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' 989343E-1A3 '"
     ):
-        _ = atof(String(" 989343E-1A3 "))
+        _ = atof(" 989343E-1A3 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' 124124124_2134124124 '"
     ):
-        _ = atof(String(" 124124124_2134124124 "))
+        _ = atof(" 124124124_2134124124 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' 123.2E '"
     ):
-        _ = atof(String(" 123.2E "))
+        _ = atof(" 123.2E ")
 
     with assert_raises(
         contains="String is not convertible to float: ' --958.23 '"
     ):
-        _ = atof(String(" --958.23 "))
+        _ = atof(" --958.23 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' ++94. '"
     ):
-        _ = atof(String(" ++94. "))
+        _ = atof(" ++94. ")
 
 
 def test_calc_initial_buffer_size_int32():
@@ -641,20 +560,6 @@ def test_find():
     assert_equal(-1, String("abc").find("abcd"))
 
 
-def test_count():
-    var str = String("Hello world")
-
-    assert_equal(12, str.count(""))
-    assert_equal(1, str.count("Hell"))
-    assert_equal(3, str.count("l"))
-    assert_equal(1, str.count("ll"))
-    assert_equal(1, str.count("ld"))
-    assert_equal(0, str.count("universe"))
-
-    assert_equal(String("aaaaa").count("a"), 5)
-    assert_equal(String("aaaaaa").count("aa"), 3)
-
-
 def test_replace():
     # Replace empty
     var s1 = String("abc")
@@ -703,7 +608,15 @@ def test_rfind():
 
 
 def test_split():
-    alias L = List[StringSlice[StaticConstantOrigin]]
+    # empty separators default to whitespace
+    var d = String("hello world").split()
+    assert_true(len(d) == 2)
+    assert_true(d[0] == "hello")
+    assert_true(d[1] == "world")
+    d = String("hello \t\n\n\v\fworld").split("\n")
+    assert_true(len(d) == 3)
+    assert_true(d[0] == "hello \t" and d[1] == "" and d[2] == "\v\fworld")
+
     # Should add all whitespace-like chars as one
     # test all unicode separators
     # 0 is to build a String with null terminator
@@ -715,73 +628,130 @@ def test_split():
     """TODO: \\u2029"""
     # TODO add line and paragraph separator as StringLiteral once unicode
     # escape secuences are accepted
-    univ_sep_var = (
-        " "
-        + "\t"
-        + "\n"
-        + "\r"
-        + "\v"
-        + "\f"
-        + "\x1c"
-        + "\x1d"
-        + "\x1e"
+    var univ_sep_var = (
+        String(" ")
+        + String("\t")
+        + String("\n")
+        + String("\r")
+        + String("\v")
+        + String("\f")
+        + String("\x1c")
+        + String("\x1d")
+        + String("\x1e")
         + String(next_line)
         + String(unicode_line_sep)
         + String(unicode_paragraph_sep)
     )
-    s = univ_sep_var + "hello" + univ_sep_var + "world" + univ_sep_var
-    assert_equal(s.split(), L("hello", "world"))
+    var s = univ_sep_var + "hello" + univ_sep_var + "world" + univ_sep_var
+    d = s.split()
+    assert_true(len(d) == 2)
+    assert_true(d[0] == "hello" and d[1] == "world")
 
     # should split into empty strings between separators
-    assert_equal("1,,,3".split(","), L("1", "", "", "3"))
-    assert_equal(",,,".split(","), L("", "", "", ""))
-    assert_equal(" a b ".split(" "), L("", "a", "b", ""))
-    assert_equal("abababaaba".split("aba"), L("", "b", "", ""))
-    assert_true(len("".split()) == 0)
-    assert_true(len(" ".split()) == 0)
-    assert_true(len("".split(" ")) == 1)
-    assert_true(len(",".split(",")) == 2)
-    assert_true(len(" ".split(" ")) == 2)
-    assert_true(len("".split("")) == 2)
-    assert_true(len("  ".split(" ")) == 3)
-    assert_true(len("   ".split(" ")) == 4)
+    d = String("1,,,3").split(",")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "1" and d[1] == "" and d[2] == "" and d[3] == "3")
+    d = String(",,,").split(",")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "" and d[1] == "" and d[2] == "" and d[3] == "")
+    d = String(" a b ").split(" ")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "" and d[1] == "a" and d[2] == "b" and d[3] == "")
+    d = String("abababaaba").split("aba")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "" and d[1] == "b" and d[2] == "" and d[3] == "")
 
     # should split into maxsplit + 1 items
-    assert_equal("1,2,3".split(",", 0), L("1,2,3"))
-    assert_equal("1,2,3".split(",", 1), L("1", "2,3"))
+    d = String("1,2,3").split(",", 0)
+    assert_true(len(d) == 1)
+    assert_true(d[0] == "1,2,3")
+    d = String("1,2,3").split(",", 1)
+    assert_true(len(d) == 2)
+    assert_true(d[0] == "1" and d[1] == "2,3")
+
+    assert_true(len(String("").split()) == 0)
+    assert_true(len(String(" ").split()) == 0)
+    assert_true(len(String("").split(" ")) == 1)
+    assert_true(len(String(" ").split(" ")) == 2)
+    assert_true(len(String("  ").split(" ")) == 3)
+    assert_true(len(String("   ").split(" ")) == 4)
+
+    with assert_raises():
+        _ = String("").split("")
 
     # Split in middle
-    assert_equal("faang".split("n"), L("faa", "g"))
+    var d1 = String("n")
+    var in1 = String("faang")
+    var res1 = in1.split(d1)
+    assert_equal(len(res1), 2)
+    assert_equal(res1[0], "faa")
+    assert_equal(res1[1], "g")
+
+    # Matches should be properly split in multiple case
+    var d2 = String(" ")
+    var in2 = String("modcon is coming soon")
+    var res2 = in2.split(d2)
+    assert_equal(len(res2), 4)
+    assert_equal(res2[0], "modcon")
+    assert_equal(res2[1], "is")
+    assert_equal(res2[2], "coming")
+    assert_equal(res2[3], "soon")
 
     # No match from the delimiter
-    assert_equal("hello world".split("x"), L("hello world"))
+    var d3 = String("x")
+    var in3 = String("hello world")
+    var res3 = in3.split(d3)
+    assert_equal(len(res3), 1)
+    assert_equal(res3[0], "hello world")
 
     # Multiple character delimiter
-    assert_equal("hello".split("ll"), L("he", "o"))
+    var d4 = String("ll")
+    var in4 = String("hello")
+    var res4 = in4.split(d4)
+    assert_equal(len(res4), 2)
+    assert_equal(res4[0], "he")
+    assert_equal(res4[1], "o")
 
-    res = L("", "bb", "", "", "", "bbb", "")
-    assert_equal("abbaaaabbba".split("a"), res)
-    assert_equal("abbaaaabbba".split("a", 8), res)
-    s1 = st("abbaaaabbba").split("a", 5)
-    assert_equal(s1, L("", "bb", "", "", "", "bbba"))
-    assert_equal("aaa".split("a", 0), L("aaa"))
-    assert_equal("a".split("a"), L("", ""))
-    assert_equal("1,2,3".split("3", 0), L("1,2,3"))
-    assert_equal("1,2,3".split("3", 1), L("1,2,", ""))
-    assert_equal("1,2,3,3".split("3", 2), L("1,2,", ",", ""))
-    assert_equal("1,2,3,3,3".split("3", 2), L("1,2,", ",", ",3"))
+    # related to #2879
+    # TODO: replace string comparison when __eq__ is implemented for List
+    assert_equal(
+        String("abbaaaabbba").split("a").__str__(),
+        "['', 'bb', '', '', '', 'bbb', '']",
+    )
+    assert_equal(
+        String("abbaaaabbba").split("a", 8).__str__(),
+        "['', 'bb', '', '', '', 'bbb', '']",
+    )
+    assert_equal(
+        String("abbaaaabbba").split("a", 5).__str__(),
+        "['', 'bb', '', '', '', 'bbba']",
+    )
+    assert_equal(String("aaa").split("a", 0).__str__(), "['aaa']")
+    assert_equal(String("a").split("a").__str__(), "['', '']")
+    assert_equal(String("1,2,3").split("3", 0).__str__(), "['1,2,3']")
+    assert_equal(String("1,2,3").split("3", 1).__str__(), "['1,2,', '']")
+    assert_equal(String("1,2,3,3").split("3", 2).__str__(), "['1,2,', ',', '']")
+    assert_equal(
+        String("1,2,3,3,3").split("3", 2).__str__(), "['1,2,', ',', ',3']"
+    )
 
-    assert_equal("Hello 🔥!".split(), L("Hello", "🔥!"))
+    var in5 = String("Hello 🔥!")
+    var res5 = in5.split()
+    assert_equal(len(res5), 2)
+    assert_equal(res5[0], "Hello")
+    assert_equal(res5[1], "🔥!")
 
-    s2 = "Лорем ипсум долор сит амет".split(" ")
-    assert_equal(s2, L("Лорем", "ипсум", "долор", "сит", "амет"))
-    s3 = "Лорем ипсум долор сит амет".split("м")
-    assert_equal(s3, L("Лоре", " ипсу", " долор сит а", "ет"))
+    var in6 = String("Лорем ипсум долор сит амет")
+    var res6 = in6.split(" ")
+    assert_equal(len(res6), 5)
+    assert_equal(res6[0], "Лорем")
+    assert_equal(res6[1], "ипсум")
+    assert_equal(res6[2], "долор")
+    assert_equal(res6[3], "сит")
+    assert_equal(res6[4], "амет")
 
-    assert_equal("123".split(""), L("", "1", "2", "3", ""))
-    assert_equal("".join("123".split("")), "123")
-    assert_equal(",1,2,3,".split(","), "123".split(""))
-    assert_equal(",".join("123".split("")), ",1,2,3,")
+    with assert_raises(contains="Separator cannot be empty."):
+        _ = String("1, 2, 3").split("")
 
 
 def test_splitlines():
@@ -1199,7 +1169,7 @@ def test_string_iter():
     assert_equal(321, atol(concat))
 
     for v in vs:
-        v.unsafe_ptr().bitcast[mut=True]()[] = ord("1")
+        v.unsafe_ptr().origin_cast[mut=True]()[] = ord("1")
 
     # Borrow immutably
     for v in vs:
@@ -1212,19 +1182,19 @@ def test_string_iter():
     var iterator = vs.__iter__()
     assert_equal(5, len(iterator))
     var item = iterator.__next__()
-    assert_equal("m", item)
+    assert_equal(String("m"), String(item))
     assert_equal(4, len(iterator))
     item = iterator.__next__()
-    assert_equal("o", item)
+    assert_equal(String("o"), String(item))
     assert_equal(3, len(iterator))
     item = iterator.__next__()
-    assert_equal("j", item)
+    assert_equal(String("j"), String(item))
     assert_equal(2, len(iterator))
     item = iterator.__next__()
-    assert_equal("o", item)
+    assert_equal(String("o"), String(item))
     assert_equal(1, len(iterator))
     item = iterator.__next__()
-    assert_equal("🔥", item)
+    assert_equal(String("🔥"), String(item))
     assert_equal(0, len(iterator))
 
     var items = List[String](
@@ -1537,12 +1507,7 @@ def main():
     test_add()
     test_add_string_slice()
     test_stringable()
-    test_repr()
     test_string_join()
-    test_string_literal_join()
-    test_stringref()
-    test_stringref_from_dtypepointer()
-    test_stringref_strip()
     test_ord()
     test_chr()
     test_string_indexing()
@@ -1553,7 +1518,6 @@ def main():
     test_calc_initial_buffer_size_int64()
     test_contains()
     test_find()
-    test_count()
     test_replace()
     test_rfind()
     test_split()

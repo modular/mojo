@@ -32,8 +32,8 @@ from utils import StringRef, Variant
 struct _NoneMarker(CollectionElementNew):
     """This is a trivial class to indicate that an object is `None`."""
 
-    fn __init__(out self, *, other: Self):
-        pass
+    fn copy(self) -> Self:
+        return _NoneMarker {}
 
 
 @register_passable("trivial")
@@ -55,8 +55,8 @@ struct _ImmutableString(CollectionElement, CollectionElementNew):
         self.length = length
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        self = other
+    fn copy(self) -> Self:
+        return self
 
     @always_inline
     fn string_compare(self, rhs: _ImmutableString) -> Int:
@@ -93,10 +93,6 @@ struct _RefCountedListRef(CollectionElement, CollectionElementNew):
         var ptr = UnsafePointer[_RefCountedList].alloc(1)
         __get_address_as_uninit_lvalue(ptr.address) = _RefCountedList()
         self.lst = ptr.bitcast[NoneType]()
-
-    @always_inline
-    fn __init__(out self, *, other: Self):
-        self.lst = other.lst
 
     @always_inline
     fn copy(self) -> Self:
@@ -189,10 +185,6 @@ struct _RefCountedAttrsDictRef(CollectionElement, CollectionElementNew):
         self.attrs = ptr.bitcast[Int8]()
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        self = other
-
-    @always_inline
     fn copy(self) -> Self:
         _ = self.attrs.bitcast[_RefCountedAttrsDict]()[].impl
         return Self {attrs: self.attrs}
@@ -217,8 +209,8 @@ struct _Function(CollectionElement, CollectionElementNew):
         self.value = f
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        self.value = other.value
+    fn copy(self) -> Self:
+        return self
 
     alias fn0 = fn () raises -> object
     """Nullary function type."""
@@ -349,15 +341,6 @@ struct _ObjectImpl(
         self.value = Self.type(value)
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        """Copy the object.
-
-        Args:
-            other: The value to copy.
-        """
-        self = other.value
-
-    @always_inline
     fn __copyinit__(out self, existing: Self):
         self = existing.value
 
@@ -367,6 +350,11 @@ struct _ObjectImpl(
 
     @always_inline
     fn copy(self) -> Self:
+        """Copy the object.
+
+        Returns:
+            A copy of the value.
+        """
         if self.is_str():
             var str = self.get_as_string()
             var impl = _ImmutableString(
@@ -1836,10 +1824,10 @@ struct object(
     @always_inline
     fn _convert_index_to_int(i: object) raises -> Int:
         if i._value.is_bool():
-            return i._value.convert_bool_to_int().get_as_int().value
+            return int(i._value.convert_bool_to_int().get_as_int())
         elif not i._value.is_int():
             raise Error("TypeError: string indices must be integers")
-        return i._value.get_as_int().value
+        return int(i._value.get_as_int())
 
     @always_inline
     fn __getitem__(self, i: object) raises -> object:
@@ -1865,7 +1853,7 @@ struct object(
             var char = self._value.get_as_string().data[index]
             impl.data.init_pointee_move(char)
             return object(impl)
-        return self._value.get_list_element(i._value.get_as_int().value)
+        return self._value.get_list_element(int(i._value.get_as_int()))
 
     @always_inline
     fn __getitem__(self, *index: object) raises -> object:
