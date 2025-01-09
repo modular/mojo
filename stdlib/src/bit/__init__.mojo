@@ -13,14 +13,15 @@
 """Implements the bit package."""
 
 from .bit import (
-    bit_ceil,
-    bit_floor,
+    next_power_of_two,
+    prev_power_of_two,
     bit_not,
     bit_reverse,
     bit_width,
     byte_swap,
     count_leading_zeros,
     count_trailing_zeros,
+    log2_floor,
     is_power_of_two,
     pop_count,
     rotate_bits_left,

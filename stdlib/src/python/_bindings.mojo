@@ -11,28 +11,45 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from memory import UnsafePointer, Box
-
+from collections import Optional
+from os import abort
 from sys.ffi import c_int
 from sys.info import sizeof
 
-from os import abort
-
-from collections import Optional
-
+from memory import UnsafePointer
 from python import PythonObject, TypedPythonObject
-from python.python import _get_global_python_itf
 from python._cpython import (
+    Py_TPFLAGS_DEFAULT,
+    PyCFunction,
+    PyMethodDef,
     PyObject,
     PyObjectPtr,
-    PyCFunction,
-    PyType_Spec,
     PyType_Slot,
-    PyMethodDef,
-    Py_TPFLAGS_DEFAULT,
-    newfunc,
+    PyType_Spec,
     destructor,
+    newfunc,
 )
+from python.python import _get_global_python_itf
+
+
+trait ConvertibleFromPython(CollectionElement):
+    """Denotes a type that can attempt construction from a read-only Python
+    object.
+    """
+
+    @staticmethod
+    fn try_from_python(obj: PythonObject) raises -> Self:
+        """Attempt to construct an instance of this object from a read-only
+        Python value.
+
+        Args:
+            obj: The Python object to convert from.
+
+        Raises:
+            If conversion was not successful.
+        """
+        ...
+
 
 # ===-----------------------------------------------------------------------===#
 # Mojo Object
@@ -53,65 +70,65 @@ trait Pythonable(Defaultable, Representable):
     pass
 
 
-struct PyMojoObject[T: Pythonable]:
+struct PyMojoObject[T: AnyType]:
     """Storage backing a PyObject* wrapping a Mojo value."""
 
     var ob_base: PyObject
     var mojo_value: T
 
-    @staticmethod
-    fn python_type_object[
-        type_name: StringLiteral,
-    ](owned methods: List[PyMethodDef]) raises -> TypedPythonObject["Type"]:
-        """Construct a Python 'type' describing PyMojoObject[T].
 
-        Parameters:
-            type_name: The name of the Mojo type.
-        """
+fn python_type_object[
+    T: Pythonable,
+    type_name: StringLiteral,
+](owned methods: List[PyMethodDef]) raises -> TypedPythonObject["Type"]:
+    """Construct a Python 'type' describing PyMojoObject[T].
 
-        var cpython = _get_global_python_itf().cpython()
+    Parameters:
+        T: The mojo type to wrap.
+        type_name: The name of the Mojo type.
+    """
 
-        var slots = List[PyType_Slot](
-            # All wrapped Mojo types are allocated generically.
-            PyType_Slot.tp_new(
-                cpython.lib.get_function[newfunc]("PyType_GenericNew")
-            ),
-            PyType_Slot.tp_init(empty_tp_init_wrapper[T]),
-            PyType_Slot.tp_dealloc(tp_dealloc_wrapper[T]),
-            PyType_Slot.tp_repr(tp_repr_wrapper[T]),
+    var cpython = _get_global_python_itf().cpython()
+
+    var slots = List[PyType_Slot](
+        # All wrapped Mojo types are allocated generically.
+        PyType_Slot.tp_new(
+            cpython.lib.get_function[newfunc]("PyType_GenericNew")
+        ),
+        PyType_Slot.tp_init(empty_tp_init_wrapper[T]),
+        PyType_Slot.tp_dealloc(tp_dealloc_wrapper[T]),
+        PyType_Slot.tp_repr(tp_repr_wrapper[T]),
+    )
+
+    if methods:
+        # FIXME: Avoid leaking the methods data pointer in this way.
+        slots.append(PyType_Slot.tp_methods(methods.steal_data()))
+
+    # Zeroed item terminator
+    slots.append(PyType_Slot.null())
+
+    var type_spec = PyType_Spec {
+        # FIXME(MOCO-1306): This should be `T.__name__`.
+        name: type_name.unsafe_cstr_ptr(),
+        basicsize: sizeof[PyMojoObject[T]](),
+        itemsize: 0,
+        flags: Py_TPFLAGS_DEFAULT,
+        # Note: This pointer is only "read-only" by PyType_FromSpec.
+        slots: slots.unsafe_ptr(),
+    }
+
+    # Construct a Python 'type' object from our type spec.
+    var type_obj = cpython.PyType_FromSpec(UnsafePointer.address_of(type_spec))
+
+    if type_obj.is_null():
+        Python.throw_python_exception_if_error_state(cpython)
+        return abort[TypedPythonObject["Type"]](
+            "expected to raise after getting NULL type object"
         )
 
-        if methods:
-            # FIXME: Avoid leaking the methods data pointer in this way.
-            slots.append(PyType_Slot.tp_methods(methods.steal_data()))
-
-        # Zeroed item terminator
-        slots.append(PyType_Slot.null())
-
-        var type_spec = PyType_Spec {
-            # FIXME(MOCO-1306): This should be `T.__name__`.
-            name: type_name.unsafe_cstr_ptr(),
-            basicsize: sizeof[PyMojoObject[T]](),
-            itemsize: 0,
-            flags: Py_TPFLAGS_DEFAULT,
-            # Note: This pointer is only "borrowed" by PyType_FromSpec.
-            slots: slots.unsafe_ptr(),
-        }
-
-        # Construct a Python 'type' object from our type spec.
-        var type_obj = cpython.PyType_FromSpec(
-            UnsafePointer.address_of(type_spec)
-        )
-
-        if type_obj.is_null():
-            Python.throw_python_exception_if_error_state(cpython)
-            return abort[TypedPythonObject["Type"]](
-                "expected to raise after getting NULL type object"
-            )
-
-        return TypedPythonObject["Type"](
-            unsafe_unchecked_from=PythonObject(type_obj)
-        )
+    return TypedPythonObject["Type"](
+        unsafe_unchecked_from=PythonObject(type_obj)
+    )
 
 
 # Impedance match between:
@@ -121,7 +138,7 @@ struct PyMojoObject[T: Pythonable]:
 #
 # The latter is the C function signature that the CPython API expects a
 # PyObject initializer function to have. The former is an unsafe form of the
-# `fn(inout self)` signature that Mojo types with default constructors provide.
+# `fn(mut self)` signature that Mojo types with default constructors provide.
 #
 # To support CPython calling a Mojo types default constructor, we need to
 # provide a wrapper function (around the Mojo constructor) that has the
@@ -157,7 +174,7 @@ fn empty_tp_init_wrapper[
         # ------------------------------------------------
 
         # TODO(MSTDL-950): Avoid forming ref through uninit pointee.
-        T.__init__(obj_ptr[])
+        obj_ptr[] = T()
 
         return 0
     except e:
@@ -195,63 +212,62 @@ fn tp_repr_wrapper[T: Pythonable](py_self: PyObjectPtr) -> PyObjectPtr:
 # ===-----------------------------------------------------------------------===#
 
 
-fn create_wrapper_function[
+fn py_c_function_wrapper[
     user_func: fn (PythonObject, TypedPythonObject["Tuple"]) -> PythonObject
-]() -> PyCFunction:
+](py_self_ptr: PyObjectPtr, args_ptr: PyObjectPtr,) -> PyObjectPtr:
+    """The instantiated type of this generic function is a `PyCFunction`,
+    suitable for being called from Python.
+    """
+
     #   > When a C function is called from Python, it borrows references to its
     #   > arguments from the caller. The caller owns a reference to the object,
-    #   > so the borrowed reference’s lifetime is guaranteed until the function
-    #   > returns. Only when such a borrowed reference must be stored or passed
+    #   > so the read-only reference’s lifetime is guaranteed until the function
+    #   > returns. Only when such a read-only reference must be stored or passed
     #   > on, it must be turned into an owned reference by calling Py_INCREF().
     #   >
     #   >  -- https://docs.python.org/3/extending/extending.html#ownership-rules
 
-    fn wrapper(py_self_ptr: PyObjectPtr, args_ptr: PyObjectPtr) -> PyObjectPtr:
-        # SAFETY:
-        #   Here we illegally (but carefully) construct _owned_ `PythonObject`
-        #   values from the borrowed object reference arguments. We are careful
-        #   down below to prevent the destructor for these objects from running
-        #   so that we do not illegally decrement the reference count of these
-        #   objects we do not own.
-        #
-        #   This is valid to do, because these are passed using the `borrowed`
-        #   argument convention to `user_func`, so logically they are treated
-        #   as Python borrowed references.
-        var py_self = PythonObject(py_self_ptr)
-        var args = TypedPythonObject["Tuple"](
-            unsafe_unchecked_from=PythonObject(args_ptr)
-        )
+    # SAFETY:
+    #   Here we illegally (but carefully) construct _owned_ `PythonObject`
+    #   values from the read-only object reference arguments. We are careful
+    #   down below to prevent the destructor for these objects from running
+    #   so that we do not illegally decrement the reference count of these
+    #   objects we do not own.
+    #
+    #   This is valid to do, because these are passed using the `read-only`
+    #   argument convention to `user_func`, so logically they are treated
+    #   as Python read-only references.
+    var py_self = PythonObject(py_self_ptr)
+    var args = TypedPythonObject["Tuple"](
+        unsafe_unchecked_from=PythonObject(args_ptr)
+    )
 
-        # SAFETY:
-        #   Call the user provided function, and take ownership of the
-        #   PyObjectPtr of the returned PythonObject.
-        var result = user_func(py_self, args).steal_data()
+    # SAFETY:
+    #   Call the user provided function, and take ownership of the
+    #   PyObjectPtr of the returned PythonObject.
+    var result = user_func(py_self, args).steal_data()
 
-        # Do not destroy the provided PyObjectPtr arguments, since they
-        # actually have ownership of the underlying object.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(py_self)
-        )
+    # Do not destroy the provided PyObjectPtr arguments, since they
+    # actually have ownership of the underlying object.
+    __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(py_self))
 
-        # SAFETY:
-        #   Prevent `args` AND `args._obj` from being destroyed, since we don't
-        #   own them.
-        # TODO: Use a `mem.forget(args^)` function here in the future.
-        __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(args))
-        var _obj = args._obj^
-        __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(_obj))
+    # SAFETY:
+    #   Prevent `args` AND `args._obj` from being destroyed, since we don't
+    #   own them.
+    # TODO: Use a `mem.forget(args^)` function here in the future.
+    __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(args))
+    var _obj = args._obj^
+    __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(_obj))
 
-        return result
-
-    return wrapper
+    return result
 
 
 # Wrap a `raises` function
-fn create_wrapper_function[
+fn py_c_function_wrapper[
     user_func: fn (
         PythonObject, TypedPythonObject["Tuple"]
     ) raises -> PythonObject
-]() -> PyCFunction:
+](py_self_ptr: PyObjectPtr, py_args_ptr: PyObjectPtr) -> PyObjectPtr:
     fn wrapper(
         py_self: PythonObject, args: TypedPythonObject["Tuple"]
     ) -> PythonObject:
@@ -280,8 +296,8 @@ fn create_wrapper_function[
     #   Does this lead to multiple levels of indirect function calls for
     #   `raises` functions? Could we fix that by marking `wrapper` here as
     #   `@always_inline`?
-    # Call the non-`raises` overload of `create_wrapper_function`.
-    return create_wrapper_function[wrapper]()
+    # Call the non-`raises` overload of `py_c_function_wrapper`.
+    return py_c_function_wrapper[wrapper](py_self_ptr, py_args_ptr)
 
 
 fn check_arguments_arity(
@@ -325,7 +341,7 @@ fn check_arguments_arity(
 
 
 fn check_argument_type[
-    T: Pythonable,
+    T: AnyType
 ](
     func_name: StringLiteral,
     type_name_id: StringLiteral,
@@ -340,17 +356,12 @@ fn check_argument_type[
     ](type_name_id)
 
     if not opt:
-        var cpython = _get_global_python_itf().cpython()
-
-        var actual_type = cpython.Py_TYPE(obj.unsafe_as_py_object_ptr())
-        var actual_type_name = PythonObject(cpython.PyType_GetName(actual_type))
-
         raise Error(
             String.format(
                 "TypeError: {}() expected Mojo '{}' type argument, got '{}'",
                 func_name,
                 type_name_id,
-                str(actual_type_name),
+                obj._get_type_name(),
             )
         )
 

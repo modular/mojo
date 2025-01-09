@@ -16,16 +16,17 @@
 These are Mojo built-ins, so you don't need to import them.
 """
 
+from collections import InlineArray, List, Optional
 from os import abort
-from collections import List, Optional, InlineArray
-from utils import StringSlice, StaticString
+
+from utils import StaticString, StringSlice
 
 alias _DEFAULT_DIGIT_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # bin
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn bin(num: Scalar, /, *, prefix: StaticString = "0b") -> String:
@@ -81,9 +82,9 @@ fn bin[T: Indexer, //](num: T, /, *, prefix: StaticString = "0b") -> String:
     return bin(Scalar[DType.index](index(num)), prefix=prefix)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # hex
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn hex(value: Scalar, /, *, prefix: StaticString = "0x") -> String:
@@ -143,9 +144,9 @@ fn hex(value: Scalar[DType.bool], /, *, prefix: StaticString = "0x") -> String:
     return hex(value.cast[DType.int8](), prefix=prefix)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # oct
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn oct(value: Scalar, /, *, prefix: StaticString = "0o") -> String:
@@ -205,9 +206,9 @@ fn oct(value: Scalar[DType.bool], /, *, prefix: StaticString = "0o") -> String:
     return oct(value.cast[DType.int8](), prefix=prefix)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Integer formatting utilities
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn _try_format_int(
@@ -248,7 +249,7 @@ fn _write_int[
     type: DType,
     W: Writer,
 ](
-    inout writer: W,
+    mut writer: W,
     value: Scalar[type],
     /,
     radix: Int = 10,
@@ -267,7 +268,7 @@ fn _try_write_int[
     type: DType,
     W: Writer,
 ](
-    inout writer: W,
+    mut writer: W,
     value: Scalar[type],
     /,
     radix: Int = 10,
@@ -322,13 +323,12 @@ fn _try_write_int[
         # Construct a null-terminated buffer of single-byte char.
         var zero_buf = InlineArray[UInt8, 2](zero_char, 0)
 
+        # TODO(MSTDL-720):
+        #   Support printing non-null-terminated strings on GPU and switch
+        #   back to this code without a workaround.
+        # ptr=digit_chars_array,
         var zero = StringSlice[ImmutableAnyOrigin](
-            # TODO(MSTDL-720):
-            #   Support printing non-null-terminated strings on GPU and switch
-            #   back to this code without a workaround.
-            # unsafe_from_utf8_ptr=digit_chars_array,
-            unsafe_from_utf8_ptr=zero_buf.unsafe_ptr(),
-            len=1,
+            ptr=zero_buf.unsafe_ptr(), length=1
         )
         writer.write(zero)
 
@@ -404,10 +404,7 @@ fn _try_write_int[
 
     # SAFETY:
     #   Create a slice to only those bytes in `buf` that have been initialized.
-    var str_slice = StringSlice[__origin_of(buf)](
-        unsafe_from_utf8_ptr=buf_ptr,
-        len=len,
-    )
+    var str_slice = StringSlice[__origin_of(buf)](ptr=buf_ptr, length=len)
 
     writer.write(str_slice)
 

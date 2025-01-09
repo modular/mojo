@@ -13,11 +13,10 @@
 """This module includes the inlined_assembly function."""
 
 from sys.intrinsics import _mlirtype_is_eq
-from builtin.builtin_list import _LITRefPackHelper
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # 0-arg
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -27,9 +26,9 @@ fn inlined_assembly[
     *types: AnyType,
     constraints: StringLiteral,
     has_side_effect: Bool = True,
-](*arguments: *types) -> result_type:
+](*args: *types) -> result_type:
     """Generates assembly via inline assembly."""
-    var loaded_pack = _LITRefPackHelper(arguments._value).get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
     @parameter
     if _mlirtype_is_eq[result_type, NoneType]():

@@ -13,9 +13,9 @@
 
 from builtin.range import _StridedRangeIterator, _UIntStridedRangeIterator
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # __MLIRType
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @register_passable("trivial")
@@ -23,18 +23,18 @@ struct __MLIRType[T: AnyTrivialRegType](Movable, Copyable):
     var value: T
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # parameter_for
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 trait _IntNext(Copyable):
-    fn __next__(inout self) -> Int:
+    fn __next__(mut self) -> Int:
         ...
 
 
 trait _UIntNext(Copyable):
-    fn __next__(inout self) -> UInt:
+    fn __next__(mut self) -> UInt:
         ...
 
 
@@ -68,7 +68,7 @@ struct _ParamForIterator[IteratorT: Copyable]:
     var value: Int
     var stop: Bool
 
-    fn __init__(inout self, next_it: IteratorT, value: Int, stop: Bool):
+    fn __init__(out self, next_it: IteratorT, value: Int, stop: Bool):
         self.next_it = next_it
         self.value = value
         self.stop = stop
@@ -95,12 +95,11 @@ fn parameter_for_generator[
 fn _generator[
     IteratorT: _IntIter
 ](it: IteratorT) -> _ParamForIterator[IteratorT]:
-    if it.__len__() == 0:
-        return _ParamForIterator[IteratorT](
-            __mlir_attr[`#kgen.unknown : !kgen.paramref<`, IteratorT, `>`],
-            0,
-            True,
-        )
-    var next_it = it
-    var value = next_it.__next__()
-    return _ParamForIterator(next_it, value, False)
+    if it.__len__() != 0:
+        var next_it = it
+        var value = next_it.__next__()
+        return _ParamForIterator(next_it, value, False)
+
+    var value: IteratorT
+    __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(value))
+    return _ParamForIterator(value^, 0, True)

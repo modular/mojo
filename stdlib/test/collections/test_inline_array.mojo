@@ -13,10 +13,11 @@
 # RUN: %mojo %s
 
 from collections import InlineArray
-from testing import assert_equal, assert_false, assert_true
-from memory.maybe_uninitialized import UnsafeMaybeUninitialized
+
 from memory import UnsafePointer
+from memory.maybe_uninitialized import UnsafeMaybeUninitialized
 from test_utils import ValueDestructorRecorder
+from testing import assert_equal, assert_false, assert_true
 
 
 def test_array_unsafe_get():
@@ -174,7 +175,7 @@ def test_array_unsafe_assume_initialized_constructor_string():
     assert_equal(initialized_arr2[2], "world")
 
     # trigger a copy
-    var initialized_arr3 = InlineArray(other=initialized_arr2)
+    var initialized_arr3 = initialized_arr2.copy()
 
     assert_equal(initialized_arr3[0], "hello")
     assert_equal(initialized_arr3[1], "mojo")

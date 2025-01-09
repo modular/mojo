@@ -23,9 +23,9 @@ from memory.memory import _free
 
 from utils import StringRef
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Error
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @register_passable
@@ -59,13 +59,14 @@ struct Error(
     # ===-------------------------------------------------------------------===#
 
     @always_inline
-    fn __init__(inout self):
+    fn __init__(out self):
         """Default constructor."""
         self.data = UnsafePointer[UInt8]()
         self.loaded_length = 0
 
     @always_inline
-    fn __init__(inout self, value: StringLiteral):
+    @implicit
+    fn __init__(out self, value: StringLiteral):
         """Construct an Error object with a given string literal.
 
         Args:
@@ -74,7 +75,8 @@ struct Error(
         self.data = value.unsafe_ptr()
         self.loaded_length = len(value)
 
-    fn __init__(inout self, src: String):
+    @implicit
+    fn __init__(out self, src: String):
         """Construct an Error object with a given string.
 
         Args:
@@ -91,7 +93,8 @@ struct Error(
         self.data = dest
         self.loaded_length = -length
 
-    fn __init__(inout self, src: StringRef):
+    @implicit
+    fn __init__(out self, src: StringRef):
         """Construct an Error object with a given string ref.
 
         Args:
@@ -108,20 +111,20 @@ struct Error(
         self.data = dest
         self.loaded_length = -length
 
-    fn __init__(inout self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other
+        return self
 
     fn __del__(owned self):
         """Releases memory if allocated."""
         if self.loaded_length < 0:
             self.data.free()
 
-    fn __copyinit__(inout self, existing: Self):
+    fn __copyinit__(out self, existing: Self):
         """Creates a deep copy of an existing error.
 
         Args:
@@ -159,7 +162,7 @@ struct Error(
         return String.write(self)
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats this error to the provided Writer.
 
@@ -180,7 +183,7 @@ struct Error(
         Returns:
             A printable representation of the error message.
         """
-        return "Error(" + repr(self._message()) + ")"
+        return String.write("Error(", repr(self._message()), ")")
 
     # ===-------------------------------------------------------------------===#
     # Methods
@@ -211,6 +214,7 @@ struct Error(
         return String(StringRef(self.data, length))
 
 
+@doc_private
 fn __mojo_debugger_raise_hook():
     """This function is used internally by the Mojo Debugger."""
     pass

@@ -238,7 +238,7 @@ def test_dict_copy():
     orig["a"] = 1
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     assert_equal(1, copy["a"])
 
     # test there are two copies of dict and
@@ -253,7 +253,7 @@ def test_dict_copy_delete_original():
     orig["a"] = 1
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     # don't access the original dict, anymore, confirm that
     # deleting the original doesn't violate the integrity of the copy
     assert_equal(1, copy["a"])
@@ -264,7 +264,7 @@ def test_dict_copy_add_new_item():
     orig["a"] = 1
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     assert_equal(1, copy["a"])
 
     # test there are two copies of dict and
@@ -278,7 +278,7 @@ def test_dict_copy_calls_copy_constructor():
     orig["a"] = CopyCounter()
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     assert_equal(0, orig["a"].copy_count)
     assert_equal(1, copy["a"].copy_count)
     assert_equal(0, orig._find_ref("a").copy_count)
@@ -391,7 +391,11 @@ def test_dict_update_empty_new():
 struct DummyKey(KeyElement):
     var value: Int
 
-    fn __init__(inout self, *, other: Self):
+    @implicit
+    fn __init__(out self, value: Int):
+        self.value = value
+
+    fn __init__(out self, *, other: Self):
         self = other
 
     fn __hash__(self) -> UInt:
@@ -598,6 +602,23 @@ fn test_dict_setdefault() raises:
     assert_equal(0, other_dict["b"].copy_count)
 
 
+def test_compile_time_dict():
+    alias N = 10
+
+    fn _get_dict() -> Dict[String, Int32]:
+        var res = Dict[String, Int32]()
+        for i in range(N):
+            res[str(i)] = i
+        return res
+
+    alias my_dict = _get_dict()
+
+    @parameter
+    for i in range(N):
+        alias val = my_dict.get(str(i)).value()
+        assert_equal(val, i)
+
+
 def main():
     test_dict()
     test_dict_fromkeys()
@@ -611,3 +632,4 @@ def main():
     test_clear()
     test_init_initial_capacity()
     test_dict_setdefault()
+    test_compile_time_dict()

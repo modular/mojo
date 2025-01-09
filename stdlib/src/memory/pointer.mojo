@@ -19,11 +19,12 @@ from memory import Pointer
 ```
 """
 
-from builtin._documentation import doc_private
+from sys import is_nvidia_gpu
 
-# ===----------------------------------------------------------------------===#
+
+# ===-----------------------------------------------------------------------===#
 # AddressSpace
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
@@ -32,21 +33,21 @@ struct _GPUAddressSpace(EqualityComparable):
     var _value: Int
 
     # See https://docs.nvidia.com/cuda/nvvm-ir-spec/#address-space
+    # And https://llvm.org/docs/AMDGPUUsage.html#address-spaces
     alias GENERIC = AddressSpace(0)
     """Generic address space."""
     alias GLOBAL = AddressSpace(1)
     """Global address space."""
-    alias CONSTANT = AddressSpace(2)
-    """Constant address space."""
     alias SHARED = AddressSpace(3)
     """Shared address space."""
-    alias PARAM = AddressSpace(4)
-    """Param address space."""
+    alias CONSTANT = AddressSpace(4)
+    """Constant address space."""
     alias LOCAL = AddressSpace(5)
     """Local address space."""
 
     @always_inline("nodebug")
-    fn __init__(inout self, value: Int):
+    @implicit
+    fn __init__(out self, value: Int):
         self._value = value
 
     @always_inline("nodebug")
@@ -160,7 +161,7 @@ struct _GPUAddressSpace(EqualityComparable):
 
 @value
 @register_passable("trivial")
-struct AddressSpace(EqualityComparable):
+struct AddressSpace(EqualityComparable, Stringable, Writable):
     """Address space of the pointer."""
 
     var _value: Int
@@ -169,7 +170,8 @@ struct AddressSpace(EqualityComparable):
     """Generic address space."""
 
     @always_inline("nodebug")
-    fn __init__(inout self, value: Int):
+    @implicit
+    fn __init__(out self, value: Int):
         """Initializes the address space from the underlying integral value.
 
         Args:
@@ -178,7 +180,8 @@ struct AddressSpace(EqualityComparable):
         self._value = value
 
     @always_inline("nodebug")
-    fn __init__(inout self, value: _GPUAddressSpace):
+    @implicit
+    fn __init__(out self, value: _GPUAddressSpace):
         """Initializes the address space from the underlying integral value.
 
         Args:
@@ -261,24 +264,52 @@ struct AddressSpace(EqualityComparable):
         """
         return self.value() != other.value()
 
+    @always_inline("nodebug")
+    fn __str__(self) -> String:
+        """Gets a string representation of the AddressSpace.
 
-# ===----------------------------------------------------------------------===#
+        Returns:
+            The string representation of the AddressSpace.
+        """
+        return String.write(self)
+
+    @always_inline("nodebug")
+    fn write_to[W: Writer](self, mut writer: W):
+        """
+        Formats the address space to the provided Writer.
+
+        Parameters:
+            W: A type conforming to the Writable trait.
+
+        Args:
+            writer: The object to write to.
+        """
+        if self is AddressSpace.GENERIC:
+            writer.write("AddressSpace.GENERIC")
+        else:
+            writer.write("AddressSpace(", self.value(), ")")
+
+
+# ===-----------------------------------------------------------------------===#
 # Pointer
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
 @register_passable("trivial")
 struct Pointer[
-    is_mutable: Bool, //,
+    mut: Bool, //,
     type: AnyType,
-    origin: Origin[is_mutable].type,
+    origin: Origin[mut],
     address_space: AddressSpace = AddressSpace.GENERIC,
 ](CollectionElementNew, Stringable):
     """Defines a non-nullable safe pointer.
 
+    For a comparison with other pointer types, see [Intro to
+    pointers](/mojo/manual/pointers/) in the Mojo Manual.
+
     Parameters:
-        is_mutable: Whether the pointee data may be mutated through this.
+        mut: Whether the pointee data may be mutated through this.
         type: Type of the underlying data.
         origin: The origin of the pointer.
         address_space: The address space of the pointee data.
@@ -288,7 +319,7 @@ struct Pointer[
         `!lit.ref<`,
         type,
         `, `,
-        origin,
+        origin._mlir_origin,
         `, `,
         address_space._value.value,
         `>`,
@@ -303,7 +334,7 @@ struct Pointer[
 
     @doc_private
     @always_inline("nodebug")
-    fn __init__(inout self, *, _mlir_value: Self._mlir_type):
+    fn __init__(out self, *, _mlir_value: Self._mlir_type):
         """Constructs a Pointer from its MLIR prepresentation.
 
         Args:
@@ -313,7 +344,7 @@ struct Pointer[
 
     @staticmethod
     @always_inline("nodebug")
-    fn address_of(ref [origin, address_space._value.value]value: type) -> Self:
+    fn address_of(ref [origin, address_space]value: type) -> Self:
         """Constructs a Pointer from a reference to a value.
 
         Args:
@@ -324,22 +355,22 @@ struct Pointer[
         """
         return Pointer(_mlir_value=__get_mvalue_as_litref(value))
 
-    fn __init__(inout self, *, other: Self):
+    fn copy(self) -> Self:
         """Constructs a copy from another Pointer.
 
         Note that this does **not** copy the underlying data.
 
-        Args:
-            other: The `Pointer` to copy.
+        Returns:
+            A copy of the value.
         """
-        self._value = other._value
+        return Self(_mlir_value=self._value)
 
     # ===------------------------------------------------------------------===#
     # Operator dunders
     # ===------------------------------------------------------------------===#
 
     @always_inline("nodebug")
-    fn __getitem__(self) -> ref [origin, address_space._value.value] type:
+    fn __getitem__(self) -> ref [origin, address_space] type:
         """Enable subscript syntax `ptr[]` to access the element.
 
         Returns:

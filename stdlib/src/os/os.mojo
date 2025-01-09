@@ -19,11 +19,12 @@ from os import listdir
 ```
 """
 
-from collections import List, InlineArray
-from sys import os_is_linux, os_is_windows, triple_is_nvidia_cuda, external_call
-from sys.ffi import c_char, OpaquePointer
+from collections import InlineArray, List
+from sys import external_call, is_gpu, os_is_linux, os_is_windows
+from sys.ffi import OpaquePointer, c_char
 
 from memory import UnsafePointer
+
 from utils import StringRef
 
 from .path import isdir, split
@@ -95,7 +96,7 @@ struct _DirHandle:
 
     var _handle: OpaquePointer
 
-    fn __init__(inout self, path: String) raises:
+    fn __init__(out self, path: String) raises:
         """Construct the _DirHandle using the path provided.
 
         Args:
@@ -153,7 +154,7 @@ struct _DirHandle:
             )
             if name_str == "." or name_str == "..":
                 continue
-            res.append(name_str)
+            res.append(String(name_str))
             _ = name^
 
         return res
@@ -179,7 +180,7 @@ struct _DirHandle:
             )
             if name_str == "." or name_str == "..":
                 continue
-            res.append(name_str)
+            res.append(String(name_str))
             _ = name^
 
         return res
@@ -265,7 +266,7 @@ fn abort[
     """
 
     @parameter
-    if not triple_is_nvidia_cuda():
+    if not is_gpu():
         print(message, flush=True)
 
     return abort[result]()

@@ -11,31 +11,29 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from memory import UnsafePointer
-
-from sys import sizeof, alignof
-from sys.ffi import OpaquePointer
+from collections import Optional
+from sys import alignof, sizeof
 
 import python._cpython as cp
-from python import TypedPythonObject, Python, PythonObject
-from python.python import _get_global_python_itf
+from memory import UnsafePointer, stack_allocation
+from python import Python, PythonObject, TypedPythonObject
+from python._bindings import (  # Imported for use by the compiler
+    ConvertibleFromPython,
+    PyMojoObject,
+    Pythonable,
+    check_argument_type,
+    check_arguments_arity,
+    py_c_function_wrapper,
+    python_type_object,
+)
 from python._cpython import (
-    PyObjectPtr,
+    CPython,
     PyMethodDef,
+    PyObjectPtr,
     PyType_Slot,
     PyType_Spec,
-    CPython,
 )
-from python._bindings import (
-    Pythonable,
-    PyMojoObject,
-    create_wrapper_function,
-    check_argument_type,
-    # Imported for use by the compiler
-    check_arguments_arity,
-)
-
-from collections import Optional
+from python.python import _get_global_python_itf
 
 alias PyModule = TypedPythonObject["Module"]
 
@@ -63,10 +61,13 @@ fn fail_initialization(owned err: Error) -> PythonObject:
 
 fn pointer_bitcast[
     To: AnyType
-](ptr: Pointer) -> Pointer[To, ptr.origin, ptr.address_space, *_, **_] as out:
-    return __type_of(out)(
+](
+    ptr: Pointer,
+    out result: Pointer[To, ptr.origin, ptr.address_space, *_, **_],
+):
+    return __type_of(result)(
         _mlir_value=__mlir_op.`lit.ref.from_pointer`[
-            _type = __type_of(out)._mlir_type
+            _type = __type_of(result)._mlir_type
         ](
             UnsafePointer(__mlir_op.`lit.ref.to_pointer`(ptr._value))
             .bitcast[To]()
@@ -78,12 +79,12 @@ fn pointer_bitcast[
 fn gen_pytype_wrapper[
     T: Pythonable,
     name: StringLiteral,
-](inout module: PythonObject) raises:
+](mut module: PythonObject) raises:
     # TODO(MOCO-1301): Add support for member method generation.
     # TODO(MOCO-1302): Add support for generating member field as computed properties.
     # TODO(MOCO-1307): Add support for constructor generation.
 
-    var type_obj = PyMojoObject[T].python_type_object[name](
+    var type_obj = python_type_object[T, name](
         methods=List[PyMethodDef](),
     )
 
@@ -101,20 +102,20 @@ fn add_wrapper_to_module[
         PythonObject, TypedPythonObject["Tuple"]
     ) raises -> PythonObject,
     func_name: StringLiteral,
-](inout module_obj: PythonObject) raises:
+](mut module_obj: PythonObject) raises:
     var module = TypedPythonObject["Module"](unsafe_unchecked_from=module_obj)
     Python.add_functions(
         module,
         List[PyMethodDef](
             PyMethodDef.function[
-                create_wrapper_function[wrapper_func](), func_name
+                py_c_function_wrapper[wrapper_func], func_name
             ]()
         ),
     )
 
 
 fn check_and_get_arg[
-    T: Pythonable
+    T: AnyType
 ](
     func_name: StringLiteral,
     type_name_id: StringLiteral,
@@ -122,3 +123,64 @@ fn check_and_get_arg[
     index: Int,
 ) raises -> UnsafePointer[T]:
     return check_argument_type[T](func_name, type_name_id, py_args[index])
+
+
+# NOTE:
+#   @always_inline is needed so that the stack_allocation() that appears in
+#   the definition below is valid in the _callers_ stack frame, effectively
+#   allowing us to "return" a pointer to stack-allocated data from this
+#   function.
+@always_inline
+fn check_and_get_or_convert_arg[
+    T: ConvertibleFromPython
+](
+    func_name: StringLiteral,
+    type_name_id: StringLiteral,
+    py_args: TypedPythonObject["Tuple"],
+    index: Int,
+) raises -> UnsafePointer[T]:
+    # Stack space to hold a converted value for this argument, if needed.
+    var converted_arg_ptr: UnsafePointer[T] = stack_allocation[1, T]()
+
+    try:
+        return check_and_get_arg[T](func_name, type_name_id, py_args, index)
+    except e:
+        converted_arg_ptr.init_pointee_move(
+            _try_convert_arg[T](
+                func_name,
+                type_name_id,
+                py_args,
+                index,
+            )
+        )
+        # Return a pointer to stack data. Only valid because this function is
+        # @always_inline.
+        return converted_arg_ptr
+
+
+fn _try_convert_arg[
+    T: ConvertibleFromPython
+](
+    func_name: StringLiteral,
+    type_name_id: StringLiteral,
+    py_args: TypedPythonObject["Tuple"],
+    argidx: Int,
+    out result: T,
+) raises:
+    try:
+        result = T.try_from_python(py_args[argidx])
+    except convert_err:
+        raise Error(
+            String.format(
+                (
+                    "TypeError: {}() expected argument at position {} to be"
+                    " instance of (or convertible to) Mojo '{}'; got '{}'."
+                    " (Note: attempted conversion failed due to: {})"
+                ),
+                func_name,
+                argidx,
+                type_name_id,
+                py_args[argidx]._get_type_name(),
+                convert_err,
+            )
+        )

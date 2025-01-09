@@ -12,9 +12,44 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from testing import assert_equal, assert_false, assert_raises, assert_true
+from testing import (
+    assert_equal,
+    assert_false,
+    assert_raises,
+    assert_true,
+    assert_not_equal,
+)
 
 from utils import StringRef
+
+
+def test_stringref():
+    var a = StringRef("AAA")
+    var b = StringRef("BBB")
+    var c = StringRef("AAA")
+
+    assert_equal(3, len(a))
+    assert_equal(3, len(b))
+    assert_equal(3, len(c))
+    assert_equal(4, len("ABBA"))
+
+    # Equality operators
+    assert_not_equal(a, b)
+    assert_not_equal(b, a)
+
+    # Self equality
+    assert_equal(a, a)
+
+    # Value equality
+    assert_equal(a, c)
+
+
+def test_stringref_from_pointer():
+    var a = StringRef("AAA")
+    var b = StringRef(ptr=a.data)
+    assert_equal(3, len(a))
+    assert_equal(3, len(b))
+    assert_equal(a, b)
 
 
 def test_strref_from_start():
@@ -108,26 +143,6 @@ def test_find():
     assert_equal(StringRef("").find("abc"), -1)
 
 
-def test_endswith():
-    var empty = StringRef("")
-    assert_true(empty.endswith(""))
-    assert_false(empty.endswith("a"))
-    assert_false(empty.endswith("ab"))
-
-    var a = StringRef("a")
-    assert_true(a.endswith(""))
-    assert_true(a.endswith("a"))
-    assert_false(a.endswith("ab"))
-
-    var ab = StringRef("ab")
-    assert_true(ab.endswith(""))
-    assert_false(ab.endswith("a"))
-    assert_true(ab.endswith("b"))
-    assert_true(ab.endswith("b", start=1))
-    assert_true(ab.endswith("a", end=1))
-    assert_true(ab.endswith("ab"))
-
-
 fn test_stringref_split() raises:
     # Reject empty delimiters
     with assert_raises(
@@ -169,11 +184,32 @@ fn test_stringref_split() raises:
     assert_equal(res4[1], "o")
 
 
+def test_str_and_ref():
+    assert_equal(StringRef("abc").__str__(), "abc")
+    assert_equal(StringRef("abc").__repr__(), "StringRef('abc')")
+    assert_equal(StringRef("\0").__repr__(), r"StringRef('\x00')")
+    assert_equal(StringRef("\x09").__repr__(), r"StringRef('\t')")
+    assert_equal(StringRef("\n").__repr__(), r"StringRef('\n')")
+    assert_equal(StringRef("\x0d").__repr__(), r"StringRef('\r')")
+    assert_equal(StringRef("'").__repr__(), 'StringRef("\'")')
+
+    # Multi-byte characters.__repr__()
+    assert_equal(
+        StringRef("Örnsköldsvik").__repr__(), "StringRef('Örnsköldsvik')"
+    )  # 2-byte
+    assert_equal(StringRef("你好!").__repr__(), "StringRef('你好!')")  # 3-byte
+    assert_equal(
+        StringRef("hello 🔥!").__repr__(), "StringRef('hello 🔥!')"
+    )  # 4-byte
+
+
 def main():
+    test_stringref()
+    test_stringref_from_pointer()
     test_strref_from_start()
     test_stringref_split()
     test_comparison_operators()
     test_intable()
     test_indexing()
     test_find()
-    test_endswith()
+    test_str_and_ref()

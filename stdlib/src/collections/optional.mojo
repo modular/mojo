@@ -31,21 +31,27 @@ print(d)  # prints 2
 ```
 """
 
-from builtin._documentation import doc_private
 from os import abort
+
 from utils import Variant
 
 
 # TODO(27780): NoneType can't currently conform to traits
 @value
 struct _NoneType(CollectionElement, CollectionElementNew):
-    fn __init__(inout self, *, other: Self):
+    fn __init__(out self, *, other: Self):
         pass
 
+    fn __copyinit__(out self, other: Self):
+        pass
 
-# ===----------------------------------------------------------------------===#
+    fn copy(self) -> Self:
+        return _NoneType()
+
+
+# ===-----------------------------------------------------------------------===#
 # Optional
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
@@ -89,11 +95,12 @@ struct Optional[T: CollectionElement](
     # Life cycle methods
     # ===-------------------------------------------------------------------===#
 
-    fn __init__(inout self):
+    fn __init__(out self):
         """Construct an empty Optional."""
         self._value = Self._type(_NoneType())
 
-    fn __init__(inout self, owned value: T):
+    @implicit
+    fn __init__(out self, owned value: T):
         """Construct an Optional containing a value.
 
         Args:
@@ -105,7 +112,8 @@ struct Optional[T: CollectionElement](
     #   This initializer should not be necessary, we should need
     #   only the initilaizer from a `NoneType`.
     @doc_private
-    fn __init__(inout self, value: NoneType._mlir_type):
+    @implicit
+    fn __init__(out self, value: NoneType._mlir_type):
         """Construct an empty Optional.
 
         Args:
@@ -113,7 +121,8 @@ struct Optional[T: CollectionElement](
         """
         self = Self(value=NoneType(value))
 
-    fn __init__(inout self, value: NoneType):
+    @implicit
+    fn __init__(out self, value: NoneType):
         """Construct an empty Optional.
 
         Args:
@@ -121,13 +130,13 @@ struct Optional[T: CollectionElement](
         """
         self = Self()
 
-    fn __init__(inout self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy construct an Optional.
 
-        Args:
-            other: The Optional to copy.
+        Returns:
+            A copy of the value.
         """
-        self.__copyinit__(other)
+        return self
 
     # ===-------------------------------------------------------------------===#
     # Operator dunders
@@ -278,7 +287,7 @@ struct Optional[T: CollectionElement](
 
     fn write_to[
         W: Writer, U: RepresentableCollectionElement, //
-    ](self: Optional[U], inout writer: W):
+    ](self: Optional[U], mut writer: W):
         """Write Optional string representation to a `Writer`.
 
         Parameters:
@@ -299,7 +308,7 @@ struct Optional[T: CollectionElement](
     # ===-------------------------------------------------------------------===#
 
     @always_inline
-    fn value(ref [_]self: Self) -> ref [self._value] T:
+    fn value(ref self) -> ref [self._value] T:
         """Retrieve a reference to the value of the Optional.
 
         This check to see if the optional contains a value.
@@ -316,7 +325,7 @@ struct Optional[T: CollectionElement](
         return self.unsafe_value()
 
     @always_inline
-    fn unsafe_value(ref [_]self: Self) -> ref [self._value] T:
+    fn unsafe_value(ref self) -> ref [self._value] T:
         """Unsafely retrieve a reference to the value of the Optional.
 
         This doesn't check to see if the optional contains a value.
@@ -330,7 +339,7 @@ struct Optional[T: CollectionElement](
         debug_assert(self.__bool__(), ".value() on empty Optional")
         return self._value.unsafe_get[T]()
 
-    fn take(inout self) -> T:
+    fn take(mut self) -> T:
         """Move the value out of the Optional.
 
         The caller takes ownership over the new value, which is moved
@@ -348,7 +357,7 @@ struct Optional[T: CollectionElement](
             abort(".take() on empty Optional")
         return self.unsafe_take()
 
-    fn unsafe_take(inout self) -> T:
+    fn unsafe_take(mut self) -> T:
         """Unsafely move the value out of the Optional.
 
         The caller takes ownership over the new value, which is moved
@@ -379,10 +388,52 @@ struct Optional[T: CollectionElement](
             return self._value[T]
         return default
 
+    fn copied[
+        mut: Bool,
+        origin: Origin[mut], //,
+        T: CollectionElement,
+    ](self: Optional[Pointer[T, origin]]) -> Optional[T]:
+        """Converts an Optional containing a Pointer to an Optional of an owned
+        value by copying.
 
-# ===----------------------------------------------------------------------===#
+        If `self` is an empty `Optional`, the returned `Optional` will be empty
+        as well.
+
+        Parameters:
+            mut: Mutability of the pointee origin.
+            origin: Origin of the contained `Pointer`.
+            T: Type of the owned result value.
+
+        Returns:
+            An Optional containing an owned copy of the pointee value.
+
+        # Examples
+
+        Copy the value of an `Optional[Pointer[_]]`
+
+        ```mojo
+        from collections import Optional
+
+        var data = String("foo")
+
+        var opt = Optional(Pointer.address_of(data))
+
+        # TODO(MOCO-1522): Drop `[T=String]` after fixing param inference issue.
+        var opt_owned: Optional[String] = opt.copied[T=String]()
+        ```
+        .
+        """
+        if self:
+            # SAFETY: We just checked that `self` is populated.
+            # Perform an implicit copy
+            return self.unsafe_value()[]
+        else:
+            return None
+
+
+# ===-----------------------------------------------------------------------===#
 # OptionalReg
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @register_passable("trivial")
@@ -404,11 +455,12 @@ struct OptionalReg[T: AnyTrivialRegType](Boolable):
     # Life cycle methods
     # ===-------------------------------------------------------------------===#
 
-    fn __init__(inout self):
+    fn __init__(out self):
         """Create an optional with a value of None."""
         self = Self(None)
 
-    fn __init__(inout self, value: T):
+    @implicit
+    fn __init__(out self, value: T):
         """Create an optional with a value.
 
         Args:
@@ -422,7 +474,8 @@ struct OptionalReg[T: AnyTrivialRegType](Boolable):
     #   This initializer should not be necessary, we should need
     #   only the initilaizer from a `NoneType`.
     @doc_private
-    fn __init__(inout self, value: NoneType._mlir_type):
+    @implicit
+    fn __init__(out self, value: NoneType._mlir_type):
         """Construct an empty Optional.
 
         Args:
@@ -430,7 +483,8 @@ struct OptionalReg[T: AnyTrivialRegType](Boolable):
         """
         self = Self(value=NoneType(value))
 
-    fn __init__(inout self, value: NoneType):
+    @implicit
+    fn __init__(out self, value: NoneType):
         """Create an optional without a value from a None literal.
 
         Args:

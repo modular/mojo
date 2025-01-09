@@ -10,7 +10,7 @@ Mojo is designed to solve a variety of AI development challenges that no other
 language can, because Mojo is the first programming language built from the
 ground-up with [MLIR](https://mlir.llvm.org/) (a compiler infrastructure that's
 ideal for heterogeneous hardware, from CPUs and GPUs, to various AI ASICs). We
-also designed Mojo as a superset of Python because we love Python and its
+also designed Mojo as the best way to extend Python because we love Python and its
 community, but we couldn't realistically enhance Python to do all the things we
 wanted. For a longer discussion on this topic, read [Why
 Mojo](/mojo/why-mojo).
@@ -29,11 +29,13 @@ feedback](https://www.modular.com/community).
 
 - **Language basics**
 
-  - [Introduction to Mojo](/mojo/manual/basics)
+  - [Overview](/mojo/manual/basics)
   - [Functions](/mojo/manual/functions)
   - [Variables](/mojo/manual/variables)
   - [Types](/mojo/manual/types)
+  - [Operators and expressions](/mojo/manual/operators)
   - [Control flow](/mojo/manual/control-flow)
+  - [Errors and context managers](/mojo/manual/errors)
   - [Structs](/mojo/manual/structs)
   - [Modules and packages](/mojo/manual/packages)
 
@@ -41,7 +43,8 @@ feedback](https://www.modular.com/community).
 
   - [Intro to value ownership](/mojo/manual/values/)
   - [Value semantics](/mojo/manual/values/value-semantics)
-  - [Ownership and borrowing](/mojo/manual/values/ownership)
+  - [Ownership](/mojo/manual/values/ownership)
+  - [Lifetimes, origins, and references](/mojo/manual/values/lifetimes)
 
 - **Value lifecycle**
 
@@ -56,7 +59,8 @@ feedback](https://www.modular.com/community).
 
 - **Pointers**
 
-  - [Unsafe pointers](/mojo/manual/pointers)
+  - [Intro to pointers](/mojo/manual/pointers/)
+  - [Unsafe pointers](/mojo/manual/pointers/unsafe-pointers)
 
 - **Python**
 

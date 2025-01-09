@@ -175,14 +175,17 @@ fn max(x: UInt, y: UInt, /) -> UInt:
 
 
 @always_inline("nodebug")
-fn max(x: SIMD, y: __type_of(x), /) -> __type_of(x):
+fn max[dtype: DType, //](x: SIMD[dtype, _], y: __type_of(x), /) -> __type_of(x):
     """Performs elementwise maximum of x and y.
 
     An element of the result SIMD vector will be the maximum of the
     corresponding elements in x and y.
 
     Constraints:
-        The type of the inputs must be numeric.
+        The type of the inputs must be numeric or boolean.
+
+    Parameters:
+        dtype: The data type of the SIMD vector.
 
     Args:
         x: First SIMD vector.
@@ -191,8 +194,16 @@ fn max(x: SIMD, y: __type_of(x), /) -> __type_of(x):
     Returns:
         A SIMD vector containing the elementwise maximum of x and y.
     """
-    constrained[x.type.is_numeric(), "the SIMD type must be numeric"]()
-    return __mlir_op.`pop.max`(x.value, y.value)
+
+    @parameter
+    if x.type is DType.bool:
+        return max(x.cast[DType.uint8](), y.cast[DType.uint8]()).cast[x.type]()
+    else:
+        constrained[
+            x.type.is_numeric(), "the SIMD type must be numeric or boolean"
+        ]()
+
+        return __mlir_op.`pop.max`(x.value, y.value)
 
 
 # ===----------------------------------------------------------------------=== #
@@ -229,14 +240,17 @@ fn min(x: UInt, y: UInt, /) -> UInt:
 
 
 @always_inline("nodebug")
-fn min(x: SIMD, y: __type_of(x), /) -> __type_of(x):
+fn min[dtype: DType, //](x: SIMD[dtype, _], y: __type_of(x), /) -> __type_of(x):
     """Gets the elementwise minimum of x and y.
 
     An element of the result SIMD vector will be the minimum of the
     corresponding elements in x and y.
 
     Constraints:
-        The type of the inputs must be numeric.
+        The type of the inputs must be numeric or boolean.
+
+    Parameters:
+        dtype: The data type of the SIMD vector.
 
     Args:
         x: First SIMD vector.
@@ -245,8 +259,16 @@ fn min(x: SIMD, y: __type_of(x), /) -> __type_of(x):
     Returns:
         A SIMD vector containing the elementwise minimum of x and y.
     """
-    constrained[x.type.is_numeric(), "the SIMD type must be numeric"]()
-    return __mlir_op.`pop.min`(x.value, y.value)
+
+    @parameter
+    if x.type is DType.bool:
+        return min(x.cast[DType.uint8](), y.cast[DType.uint8]()).cast[x.type]()
+    else:
+        constrained[
+            x.type.is_numeric(), "the SIMD type must be numeric or boolean"
+        ]()
+
+        return __mlir_op.`pop.min`(x.value, y.value)
 
 
 # ===----------------------------------------------------------------------=== #
@@ -269,7 +291,7 @@ trait Powable:
         var numerator: Float64
         var denominator: Float64
 
-        fn __init__(inout self, numerator: Float64, denominator: Float64):
+        fn __init__(out self, numerator: Float64, denominator: Float64):
             self.numerator = numerator
             self.denominator = denominator
 

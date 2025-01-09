@@ -33,18 +33,28 @@ struct NoneType(
     var _value: Self._mlir_type
 
     @always_inline
-    fn __init__(inout self):
+    fn __init__(out self):
         """Construct an instance of the `None` type."""
         self._value = None
 
     @always_inline
-    fn __init__(inout self, *, other: Self):
-        """Explicit copy constructor.
+    @implicit
+    fn __init__(out self, value: Self._mlir_type):
+        """Construct an instance of the `None` type.
 
         Args:
-            other: Another `NoneType` instance to copy.
+            value: The MLIR none type to construct from.
         """
-        self._value = None
+        self._value = value
+
+    @always_inline
+    fn copy(self) -> Self:
+        """Explicit copy constructor.
+
+        Returns:
+            A copy of the value.
+        """
+        return Self(None)
 
     @no_inline
     fn __str__(self) -> String:
@@ -65,7 +75,7 @@ struct NoneType(
         return "None"
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """Write `None` to a writer stream.
 
         Parameters:

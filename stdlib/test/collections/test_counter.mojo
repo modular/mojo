@@ -12,8 +12,8 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from collections.counter import Counter
 from collections import Optional
+from collections.counter import Counter
 
 from testing import assert_equal, assert_false, assert_raises, assert_true
 
@@ -75,7 +75,7 @@ def test_copy():
     c["a"] = 1
     c["b"] = 2
 
-    var copy = Counter[String](other=c)
+    var copy = c.copy()
 
     assert_equal(copy["a"], 1)
     assert_equal(copy["b"], 2)

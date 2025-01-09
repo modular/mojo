@@ -11,32 +11,34 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo-no-debug %s -t
+# NOTE: to test changes on the current branch using run-benchmarks.sh, remove
+# the -t flag. Remember to replace it again before pushing any code.
 
-from random import *
-
-from benchmark import Bench, BenchConfig, Bencher, BenchId, Unit, keep, run
-from sys import sizeof
-from bit import bit_ceil
-from math import ceil
 from collections import Dict, Optional
 from collections.dict import DictEntry
+from math import ceil
+from random import *
+from sys import sizeof
+
+from benchmark import Bench, BenchConfig, Bencher, BenchId, Unit, keep, run
+from bit import next_power_of_two
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Data
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 fn make_dict[size: Int]() -> Dict[Int, Int]:
     var d = Dict[Int, Int]()
     for i in range(0, size):
-        d[i] = random.random_si64(0, size).value
+        d[i] = int(random.random_si64(0, size))
     return d
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict init
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 @parameter
-fn bench_dict_init(inout b: Bencher) raises:
+fn bench_dict_init(mut b: Bencher) raises:
     @always_inline
     @parameter
     fn call_fn():
@@ -48,11 +50,11 @@ fn bench_dict_init(inout b: Bencher) raises:
     b.iter[call_fn]()
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict Insert
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 @parameter
-fn bench_dict_insert[size: Int](inout b: Bencher) raises:
+fn bench_dict_insert[size: Int](mut b: Bencher) raises:
     """Insert 100 new items."""
     var items = make_dict[size]()
 
@@ -60,21 +62,22 @@ fn bench_dict_insert[size: Int](inout b: Bencher) raises:
     @parameter
     fn call_fn() raises:
         for key in range(size, size + 100):
-            items[key] = random.random_si64(0, size).value
+            items[key] = int(random.random_si64(0, size))
 
     b.iter[call_fn]()
     keep(bool(items))
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict Lookup
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 @parameter
-fn bench_dict_lookup[size: Int](inout b: Bencher) raises:
+fn bench_dict_lookup[size: Int](mut b: Bencher) raises:
     """Lookup 100 items."""
     var items = make_dict[size]()
     var closest_divisor = ceil(100 / size)
 
+    @__copy_capture(closest_divisor)
     @always_inline
     @parameter
     fn call_fn() raises:
@@ -93,9 +96,9 @@ fn bench_dict_lookup[size: Int](inout b: Bencher) raises:
     keep(bool(items))
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict Memory Footprint
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn total_bytes_used(items: Dict[Int, Int]) -> Int:
@@ -118,61 +121,14 @@ fn total_bytes_used(items: Dict[Int, Int]) -> Int:
     return amnt_bytes
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Main
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 def main():
     seed()
     var m = Bench(BenchConfig(num_repetitions=1))
     m.bench_function[bench_dict_init](BenchId("bench_dict_init"))
-    alias sizes = (
-        10,
-        20,
-        30,
-        40,
-        50,
-        60,
-        70,
-        80,
-        90,
-        100,
-        200,
-        300,
-        400,
-        500,
-        600,
-        700,
-        800,
-        900,
-        1000,
-        2000,
-        3000,
-        4000,
-        5000,
-        6000,
-        7000,
-        8000,
-        9000,
-        10_000,
-        20_000,
-        30_000,
-        40_000,
-        50_000,
-        60_000,
-        70_000,
-        80_000,
-        90_000,
-        100_000,
-        200_000,
-        300_000,
-        400_000,
-        500_000,
-        600_000,
-        700_000,
-        800_000,
-        900_000,
-        1_000_000,
-    )
+    alias sizes = (10, 30, 50, 100, 1000, 10_000, 100_000, 1_000_000)
 
     @parameter
     for i in range(len(sizes)):

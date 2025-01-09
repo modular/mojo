@@ -24,10 +24,10 @@ trait Movable:
 
     ```mojo
     struct Foo(Movable):
-        fn __init__(inout self):
+        fn __init__(out self):
             pass
 
-        fn __moveinit__(inout self, owned existing: Self):
+        fn __moveinit__(out self, owned existing: Self):
             print("moving")
     ```
 
@@ -47,7 +47,7 @@ trait Movable:
     ```
     """
 
-    fn __moveinit__(inout self, owned existing: Self, /):
+    fn __moveinit__(out self, owned existing: Self, /):
         """Create a new instance of the value by moving the value of another.
 
         Args:
@@ -66,10 +66,11 @@ trait Copyable:
     struct Foo(Copyable):
         var s: String
 
-        fn __init__(inout self, s: String):
+        @implicit
+        fn __init__(out self, s: String):
             self.s = s
 
-        fn __copyinit__(inout self, other: Self):
+        fn __copyinit__(out self, other: Self):
             print("copying value")
             self.s = other.s
     ```
@@ -90,7 +91,7 @@ trait Copyable:
     ```
     """
 
-    fn __copyinit__(inout self, existing: Self, /):
+    fn __copyinit__(out self, existing: Self, /):
         """Create a new instance of the value by copying an existing one.
 
         Args:
@@ -108,28 +109,29 @@ trait ExplicitlyCopyable:
     initializer is called intentionally by the programmer.
 
     An explicit copy initializer is just a normal `__init__` method that takes
-    a `borrowed` argument of `Self`.
+    a `read-only` argument of `Self`.
 
     Example implementing the `ExplicitlyCopyable` trait on `Foo` which requires
-    the `__init__(.., Self)` method:
+    the `fn(self) -> Self` method:
 
     ```mojo
     struct Foo(ExplicitlyCopyable):
         var s: String
 
-        fn __init__(inout self, s: String):
+        @implicit
+        fn __init__(out self, s: String):
             self.s = s
 
-        fn __init__(inout self, copy: Self):
+        fn copy(self) -> Self:
             print("explicitly copying value")
-            self.s = copy.s
+            return Foo(self.s)
     ```
 
     You can now copy objects inside a generic function:
 
     ```mojo
     fn copy_return[T: ExplicitlyCopyable](foo: T) -> T:
-        var copy = T(foo)
+        var copy = foo.copy()
         return copy
 
     var foo = Foo("test")
@@ -141,15 +143,11 @@ trait ExplicitlyCopyable:
     ```
     """
 
-    # Note:
-    #   `other` is a required named argument for the time being to minimize
-    #   implicit conversion overload ambiguity errors, particularly
-    #   with SIMD and Int.
-    fn __init__(inout self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly construct a deep copy of the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
         ...
 
@@ -164,7 +162,7 @@ trait Defaultable:
     struct Foo(Defaultable):
         var s: String
 
-        fn __init__(inout self):
+        fn __init__(out self):
             self.s = "default"
     ```
 
@@ -183,7 +181,7 @@ trait Defaultable:
     ```
     """
 
-    fn __init__(inout self):
+    fn __init__(out self):
         """Create a default instance of the value."""
         ...
 

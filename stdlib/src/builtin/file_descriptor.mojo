@@ -23,11 +23,11 @@ f.close()
 ```
 
 """
-from utils import Span
+from sys.ffi import external_call
+from sys.info import is_gpu
+
 from builtin.io import _printf
-from sys.ffi import external_call, OpaquePointer
-from sys.info import triple_is_nvidia_cuda
-from memory import UnsafePointer
+from memory import UnsafePointer, Span
 
 
 @value
@@ -38,7 +38,8 @@ struct FileDescriptor(Writer):
     var value: Int
     """The underlying value of the file descriptor."""
 
-    fn __init__(inout self, value: Int = 1):
+    @implicit
+    fn __init__(out self, value: Int = 1):
         """Constructs the file descriptor from an integer.
 
         Args:
@@ -46,7 +47,8 @@ struct FileDescriptor(Writer):
         """
         self.value = value
 
-    fn __init__(inout self, f: FileHandle):
+    @implicit
+    fn __init__(out self, f: FileHandle):
         """Constructs the file descriptor from a file handle.
 
         Args:
@@ -55,7 +57,7 @@ struct FileDescriptor(Writer):
         self.value = f._get_raw_fd()
 
     @always_inline
-    fn write_bytes(inout self, bytes: Span[Byte, _]):
+    fn write_bytes(mut self, bytes: Span[Byte, _]):
         """
         Write a span of bytes to the file.
 
@@ -65,7 +67,7 @@ struct FileDescriptor(Writer):
         var len_bytes = len(bytes)
 
         @parameter
-        if triple_is_nvidia_cuda():
+        if is_gpu():
             _printf["%*s"](len_bytes, bytes.unsafe_ptr())
         else:
             written = external_call["write", Int32](
@@ -79,7 +81,7 @@ struct FileDescriptor(Writer):
                 written,
             )
 
-    fn write[*Ts: Writable](inout self, *args: *Ts):
+    fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.
 
         Parameters:

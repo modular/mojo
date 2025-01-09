@@ -15,14 +15,14 @@
 
 import os
 from collections import List
+from collections.string import StringSlice
+from hashlib._hasher import _HashableWithHasher, _Hasher
 from os import PathLike, listdir, stat_result
-from sys import os_is_windows, external_call
+from sys import external_call, os_is_windows
 from sys.ffi import c_char
 
 from builtin._location import __call_location, _SourceLocation
-from memory import stack_allocation, UnsafePointer
-
-from hashlib._hasher import _HashableWithHasher, _Hasher
+from memory import UnsafePointer, stack_allocation
 
 from utils import StringRef
 
@@ -46,7 +46,7 @@ fn cwd() raises -> Path:
     if res == UnsafePointer[c_char]():
         raise Error("unable to query the current directory")
 
-    return String(StringRef(buf))
+    return String(StringRef(ptr=buf))
 
 
 @always_inline
@@ -80,11 +80,21 @@ struct Path(
     var path: String
     """The underlying path string representation."""
 
-    fn __init__(inout self) raises:
+    fn __init__(out self) raises:
         """Initializes a path with the current directory."""
         self = cwd()
 
-    fn __init__(inout self, path: String):
+    # Note: Not @implicit so that allocation is not implicit.
+    fn __init__(out self, path: StringSlice):
+        """Initializes a path with the provided path.
+
+        Args:
+          path: The file system path.
+        """
+        self.path = String(path)
+
+    @implicit
+    fn __init__(out self, path: String):
         """Initializes a path with the provided path.
 
         Args:
@@ -92,13 +102,13 @@ struct Path(
         """
         self.path = path
 
-    fn __init__(inout self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.path = String(other=other.path)
+        return Self(self.path)
 
     fn __truediv__(self, suffix: Self) -> Self:
         """Joins two paths using the system-defined path separator.
@@ -124,7 +134,7 @@ struct Path(
         res /= suffix
         return res
 
-    fn __itruediv__(inout self, suffix: String):
+    fn __itruediv__(mut self, suffix: String):
         """Joins two paths using the system-defined path separator.
 
         Args:
@@ -153,7 +163,7 @@ struct Path(
         """
         return self.path.byte_length() > 0
 
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats this path to the provided Writer.
 
@@ -225,7 +235,7 @@ struct Path(
 
         return hash(self.path)
 
-    fn __hash__[H: _Hasher](self, inout hasher: H):
+    fn __hash__[H: _Hasher](self, mut hasher: H):
         """Updates hasher with the path string value.
 
         Parameters:
@@ -264,7 +274,7 @@ struct Path(
         return os.path.exists(self)
 
     fn expanduser(self) raises -> Path:
-        """Expands a prefixed `~` with $HOME on posix or $USERPROFILE on
+        """Expands a prefixed `~` with `$HOME` on posix or `$USERPROFILE` on
         windows. If environment variables are not set or the `path` is not
         prefixed with `~`, returns the `path` unmodified.
 
@@ -275,7 +285,7 @@ struct Path(
 
     @staticmethod
     fn home() raises -> Path:
-        """Returns $HOME on posix or $USERPROFILE on windows. If environment
+        """Returns `$HOME` on posix or `$USERPROFILE` on windows. If environment
         variables are not set it returns `~`.
 
         Returns:

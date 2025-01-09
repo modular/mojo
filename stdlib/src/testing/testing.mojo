@@ -32,9 +32,9 @@ def main():
 """
 from collections import Optional
 from math import isclose
-
+from memory import memcmp
 from builtin._location import __call_location, _SourceLocation
-
+from utils import StringSlice
 
 # ===----------------------------------------------------------------------=== #
 # Assertions
@@ -229,6 +229,87 @@ fn assert_equal[
         An Error with the provided message if assert fails and `None` otherwise.
     """
     if lhs != rhs:
+        raise _assert_cmp_error["`left == right` comparison"](
+            lhs.__str__(),
+            rhs.__str__(),
+            msg=msg,
+            loc=location.or_else(__call_location()),
+        )
+
+
+# TODO(MSTDL-1071):
+#   Once Mojo supports parametric traits, implement EqualityComparable for
+#   StringSlice such that string slices with different origin types can be
+#   compared, then drop this overload.
+@always_inline
+fn assert_equal[
+    O1: ImmutableOrigin,
+    O2: ImmutableOrigin,
+](
+    lhs: List[StringSlice[O1]],
+    rhs: List[StringSlice[O2]],
+    msg: String = "",
+    *,
+    location: Optional[_SourceLocation] = None,
+) raises:
+    """Asserts that two lists are equal.
+
+    Parameters:
+        O1: The origin of lhs.
+        O2: The origin of rhs.
+
+    Args:
+        lhs: The left-hand side list.
+        rhs: The right-hand side list.
+        msg: The message to be printed if the assertion fails.
+        location: The location of the error (default to the `__call_location`).
+
+    Raises:
+        An Error with the provided message if assert fails and `None` otherwise.
+    """
+
+    # Cast `rhs` to have the same origin as `lhs`, so that we can delegate to
+    # `List.__ne__`.
+    var rhs_origin_casted = rebind[List[StringSlice[O1]]](rhs)
+
+    if lhs != rhs_origin_casted:
+        raise _assert_cmp_error["`left == right` comparison"](
+            lhs.__str__(),
+            rhs.__str__(),
+            msg=msg,
+            loc=location.or_else(__call_location()),
+        )
+
+
+@always_inline
+fn assert_equal[
+    D: DType
+](
+    lhs: List[Scalar[D]],
+    rhs: List[Scalar[D]],
+    msg: String = "",
+    *,
+    location: Optional[_SourceLocation] = None,
+) raises:
+    """Asserts that two lists are equal.
+
+    Parameters:
+        D: A DType.
+
+    Args:
+        lhs: The left-hand side list.
+        rhs: The right-hand side list.
+        msg: The message to be printed if the assertion fails.
+        location: The location of the error (default to the `__call_location`).
+
+    Raises:
+        An Error with the provided message if assert fails and `None` otherwise.
+    """
+    var length = len(lhs)
+    if (
+        length != len(rhs)
+        or memcmp(lhs.unsafe_ptr(), rhs.unsafe_ptr(), length) != 0
+    ):
         raise _assert_cmp_error["`left == right` comparison"](
             lhs.__str__(),
             rhs.__str__(),
@@ -526,7 +607,7 @@ struct assert_raises:
     """Assigned the value returned by __call_locations() at Self.__init__."""
 
     @always_inline
-    fn __init__(inout self, *, location: Optional[_SourceLocation] = None):
+    fn __init__(out self, *, location: Optional[_SourceLocation] = None):
         """Construct a context manager with no message pattern.
 
         Args:
@@ -537,7 +618,7 @@ struct assert_raises:
 
     @always_inline
     fn __init__(
-        inout self,
+        mut self,
         *,
         contains: String,
         location: Optional[_SourceLocation] = None,

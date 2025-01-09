@@ -10,29 +10,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-
 # RUN: %mojo-no-debug %s -t
+# NOTE: to test changes on the current branch using run-benchmarks.sh, remove
+# the -t flag. Remember to replace it again before pushing any code.
 
-from benchmark import Bench, Bencher, BenchId, keep, BenchConfig, Unit, run
-from memory import UnsafePointer
 from random import *
+
+from benchmark import Bench, BenchConfig, Bencher, BenchId, Unit, keep, run
+from memory import UnsafePointer
 from stdlib.builtin.sort import (
-    sort,
-    _small_sort,
-    _insertion_sort,
     _heap_sort,
+    _insertion_sort,
+    _small_sort,
     _SortWrapper,
+    sort,
 )
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Utils
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
 fn randomize_list[
     dt: DType
-](inout list: List[Scalar[dt]], size: Int, max: Scalar[dt] = Scalar[dt].MAX):
+](mut list: List[Scalar[dt]], size: Int, max: Scalar[dt] = Scalar[dt].MAX):
     @parameter
     if dt.is_integral():
         randint(list.data, size, 0, int(max))
@@ -44,7 +46,7 @@ fn randomize_list[
 
 
 @always_inline
-fn insertion_sort[type: DType](inout list: List[Scalar[type]]):
+fn insertion_sort[type: DType](mut list: List[Scalar[type]]):
     @parameter
     fn _less_than(
         lhs: _SortWrapper[Scalar[type]], rhs: _SortWrapper[Scalar[type]]
@@ -55,7 +57,7 @@ fn insertion_sort[type: DType](inout list: List[Scalar[type]]):
 
 
 @always_inline
-fn small_sort[size: Int, type: DType](inout list: List[Scalar[type]]):
+fn small_sort[size: Int, type: DType](mut list: List[Scalar[type]]):
     @parameter
     fn _less_than(
         lhs: _SortWrapper[Scalar[type]], rhs: _SortWrapper[Scalar[type]]
@@ -66,7 +68,7 @@ fn small_sort[size: Int, type: DType](inout list: List[Scalar[type]]):
 
 
 @always_inline
-fn heap_sort[type: DType](inout list: List[Scalar[type]]):
+fn heap_sort[type: DType](mut list: List[Scalar[type]]):
     @parameter
     fn _less_than(
         lhs: _SortWrapper[Scalar[type]], rhs: _SortWrapper[Scalar[type]]
@@ -76,24 +78,22 @@ fn heap_sort[type: DType](inout list: List[Scalar[type]]):
     _heap_sort[_less_than](list)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark sort functions with a tiny list size
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
-fn bench_tiny_list_sort[type: DType](inout m: Bench) raises:
+fn bench_tiny_list_sort[type: DType](mut m: Bench) raises:
     alias small_list_size = 5
 
     @parameter
     for count in range(2, small_list_size + 1):
 
         @parameter
-        fn bench_sort_list(inout b: Bencher) raises:
+        fn bench_sort_list(mut b: Bencher) raises:
             seed(1)
             var ptr = UnsafePointer[Scalar[type]].alloc(count)
-            var list = List[Scalar[type]](
-                unsafe_pointer=ptr, size=count, capacity=count
-            )
+            var list = List[Scalar[type]](ptr=ptr, length=count, capacity=count)
 
             @always_inline
             @parameter
@@ -109,12 +109,10 @@ fn bench_tiny_list_sort[type: DType](inout m: Bench) raises:
             _ = list^
 
         @parameter
-        fn bench_small_sort(inout b: Bencher) raises:
+        fn bench_small_sort(mut b: Bencher) raises:
             seed(1)
             var ptr = UnsafePointer[Scalar[type]].alloc(count)
-            var list = List[Scalar[type]](
-                unsafe_pointer=ptr, size=count, capacity=count
-            )
+            var list = List[Scalar[type]](ptr=ptr, length=count, capacity=count)
 
             @always_inline
             @parameter
@@ -130,12 +128,10 @@ fn bench_tiny_list_sort[type: DType](inout m: Bench) raises:
             _ = list^
 
         @parameter
-        fn bench_insertion_sort(inout b: Bencher) raises:
+        fn bench_insertion_sort(mut b: Bencher) raises:
             seed(1)
             var ptr = UnsafePointer[Scalar[type]].alloc(count)
-            var list = List[Scalar[type]](
-                unsafe_pointer=ptr, size=count, capacity=count
-            )
+            var list = List[Scalar[type]](ptr=ptr, length=count, capacity=count)
 
             @always_inline
             @parameter
@@ -161,19 +157,17 @@ fn bench_tiny_list_sort[type: DType](inout m: Bench) raises:
         )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark sort functions with a small list size
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
-fn bench_small_list_sort[type: DType](inout m: Bench, count: Int) raises:
+fn bench_small_list_sort[type: DType](mut m: Bench, count: Int) raises:
     @parameter
-    fn bench_sort_list(inout b: Bencher) raises:
+    fn bench_sort_list(mut b: Bencher) raises:
         seed(1)
         var ptr = UnsafePointer[Scalar[type]].alloc(count)
-        var list = List[Scalar[type]](
-            unsafe_pointer=ptr, size=count, capacity=count
-        )
+        var list = List[Scalar[type]](ptr=ptr, length=count, capacity=count)
 
         @always_inline
         @parameter
@@ -189,12 +183,10 @@ fn bench_small_list_sort[type: DType](inout m: Bench, count: Int) raises:
         _ = list^
 
     @parameter
-    fn bench_insertion_sort(inout b: Bencher) raises:
+    fn bench_insertion_sort(mut b: Bencher) raises:
         seed(1)
         var ptr = UnsafePointer[Scalar[type]].alloc(count)
-        var list = List[Scalar[type]](
-            unsafe_pointer=ptr, size=count, capacity=count
-        )
+        var list = List[Scalar[type]](ptr=ptr, length=count, capacity=count)
 
         @always_inline
         @parameter
@@ -217,19 +209,17 @@ fn bench_small_list_sort[type: DType](inout m: Bench, count: Int) raises:
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark sort functions with a large list size
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
-fn bench_large_list_sort[type: DType](inout m: Bench, count: Int) raises:
+fn bench_large_list_sort[type: DType](mut m: Bench, count: Int) raises:
     @parameter
-    fn bench_sort_list(inout b: Bencher) raises:
+    fn bench_sort_list(mut b: Bencher) raises:
         seed(1)
         var ptr = UnsafePointer[Scalar[type]].alloc(count)
-        var list = List[Scalar[type]](
-            unsafe_pointer=ptr, size=count, capacity=count
-        )
+        var list = List[Scalar[type]](ptr=ptr, length=count, capacity=count)
 
         @always_inline
         @parameter
@@ -245,12 +235,10 @@ fn bench_large_list_sort[type: DType](inout m: Bench, count: Int) raises:
         _ = list^
 
     @parameter
-    fn bench_heap_sort(inout b: Bencher) raises:
+    fn bench_heap_sort(mut b: Bencher) raises:
         seed(1)
         var ptr = UnsafePointer[Scalar[type]].alloc(count)
-        var list = List[Scalar[type]](
-            unsafe_pointer=ptr, size=count, capacity=count
-        )
+        var list = List[Scalar[type]](ptr=ptr, length=count, capacity=count)
 
         @always_inline
         @parameter
@@ -274,19 +262,17 @@ fn bench_large_list_sort[type: DType](inout m: Bench, count: Int) raises:
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark sort functions with low delta lists
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
-fn bench_low_cardinality_list_sort(
-    inout m: Bench, count: Int, delta: Int
-) raises:
+fn bench_low_cardinality_list_sort(mut m: Bench, count: Int, delta: Int) raises:
     @parameter
-    fn bench_sort_list(inout b: Bencher) raises:
+    fn bench_sort_list(mut b: Bencher) raises:
         seed(1)
         var ptr = UnsafePointer[UInt8].alloc(count)
-        var list = List[UInt8](unsafe_pointer=ptr, size=count, capacity=count)
+        var list = List[UInt8](ptr=ptr, length=count, capacity=count)
 
         @always_inline
         @parameter
@@ -302,10 +288,10 @@ fn bench_low_cardinality_list_sort(
         _ = list^
 
     @parameter
-    fn bench_heap_sort(inout b: Bencher) raises:
+    fn bench_heap_sort(mut b: Bencher) raises:
         seed(1)
         var ptr = UnsafePointer[UInt8].alloc(count)
-        var list = List[UInt8](unsafe_pointer=ptr, size=count, capacity=count)
+        var list = List[UInt8](ptr=ptr, length=count, capacity=count)
 
         @always_inline
         @parameter
@@ -328,9 +314,9 @@ fn bench_low_cardinality_list_sort(
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Main
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 def main():
