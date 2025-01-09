@@ -93,6 +93,47 @@ what we publish.
   a `StringSlice` from a buffer containing UTF-8 encoded data. This method will
   raise if the buffer contents are not valid UTF-8.
 
+- Several standard library functions have been changed to take `StringSlice`
+  instead of `String`. This generalizes them to be used for any appropriately
+  encoded string in memory, without requiring that the string be heap allocated.
+
+  - `atol()`
+  - `atof()`
+  - `ord()`
+  - `ascii()`
+  - `b64encode()`
+    - Additionally, the `b64encode()` overload that previously took `List` has
+      been changed to
+      take a `Span`.
+  - `b64decode()`
+  - `b16encode()`
+  - `b16decode()`
+
+- Various functionality has moved from `String` and `StringRef` to the more
+  general `StringSlice` type.
+
+  - `StringSlice` now implements `Representable`, and that implementation is now
+    used by `String.__repr__()` and `StringRef.__repr__()`.
+
+- `StringSlice` now implements `EqualityComparable`.
+
+  Up until now, `StringSlice` has implemented a more general `__eq__` and
+  `__ne__` comparision with `StringSlice` types that had arbitrary other
+  origins. However, to satisfy `EqualityComparable`, `StringSlice` now also
+  has narrower comparison methods that support comparing only with
+  `StringSlice`'s with the exact same origin.
+
+- Removed `@implicit` decorator from some standard library initializer methods
+  that perform allocation. This reduces places where Mojo code could implicitly
+  allocate where the user may not be aware.
+
+  Remove `@implicit` from:
+
+  - `String.__init__(out self, StringRef)`
+  - `String.__init__(out self, StringSlice)`
+  - `List.__init__(out self, owned *values: T)`
+  - `List.__init__(out self, span: Span[T])`
+
 - The `ExplicitlyCopyable` trait has changed to require a
   `fn copy(self) -> Self` method. Previously, an initializer with the signature
   `fn __init__(out self, *, other: Self)` had been required by
@@ -117,7 +158,9 @@ what we publish.
 
 - `StringRef` is being deprecated. Use `StringSlice` instead.
   - Changed `sys.argv()` to return list of `StringSlice`.
+  - Added `Path` explicit constructor from `StringSlice`.
   - removed `StringRef.startswith()` and `StringRef.endswith()`
+  - removed `StringRef.strip()`
 
 ### 🛠️ Fixed
 
@@ -131,6 +174,9 @@ what we publish.
 
 - [Issue #3540](https://github.com/modularml/mojo/issues/3540) - Using named
   output slot breaks trait conformance
+
+- [Issue #3617](https://github.com/modularml/mojo/issues/3617) - Can't generate
+  the constructors for a type wrapping `!lit.ref`
 
 - The Mojo Language Server doesn't crash anymore on empty **init**.mojo files.
   [Issue #3826](https://github.com/modularml/mojo/issues/3826).

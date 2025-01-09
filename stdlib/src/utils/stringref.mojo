@@ -14,7 +14,7 @@
 """
 
 from collections.string import StringSlice
-from collections.string.string import _atol, _isspace
+from collections.string.string import _isspace
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from sys import simdwidthof
 from sys.ffi import c_char
@@ -380,7 +380,7 @@ struct StringRef(
         var str_slice = StringSlice[ImmutableAnyOrigin](
             unsafe_from_utf8_strref=self
         )
-        return _atol(str_slice)
+        return atol(str_slice)
 
     @always_inline
     fn __len__(self) -> Int:
@@ -595,24 +595,6 @@ struct StringRef(
         var length = self_len - abs_start
 
         return StringRef(data, length)
-
-    fn strip(self) -> StringRef:
-        """Gets a StringRef with leading and trailing whitespaces removed.
-        This only takes C spaces into account: " \\t\\n\\v\\f\\r".
-
-        For example, `"  mojo  "` returns `"mojo"`.
-
-        Returns:
-            A StringRef with leading and trailing whitespaces removed.
-        """
-        var start: Int = 0
-        var end: Int = len(self)
-        var ptr = self.unsafe_ptr()
-        while start < end and _isspace(ptr[start]):
-            start += 1
-        while end > start and _isspace(ptr[end - 1]):
-            end -= 1
-        return StringRef(ptr + start, end - start)
 
     fn split(self, delimiter: StringRef) raises -> List[StringRef]:
         """Split the StringRef by a delimiter.
