@@ -17,11 +17,16 @@ These are Mojo built-ins, so you don't need to import them.
 
 from collections import List
 from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
-from collections.string.string_slice import _StringSliceIter, _to_string_list
+from collections.string.string_slice import (
+    StringSlice,
+    StaticString,
+    _StringSliceIter,
+    _to_string_list,
+)
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from memory import UnsafePointer, memcpy, Span
 from sys.ffi import c_char
-from utils import StaticString, StringRef, StringSlice, Writable, Writer
+from utils import Writable, Writer
 from utils._visualizers import lldb_formatter_wrapping_type
 
 
@@ -240,7 +245,7 @@ struct StringLiteral(
         Returns:
             True if they are not equal.
         """
-        return StringRef(self) != StringRef(rhs)
+        return self.as_string_slice() != rhs.as_string_slice()
 
     @always_inline("nodebug")
     fn __eq__(self, rhs: StringSlice) -> Bool:
@@ -276,7 +281,7 @@ struct StringLiteral(
         Returns:
             True if this StringLiteral is strictly less than the RHS StringLiteral and False otherwise.
         """
-        return StringRef(self) < StringRef(rhs)
+        return self.as_string_slice() < rhs.as_string_slice()
 
     @always_inline("nodebug")
     fn __le__(self, rhs: StringLiteral) -> Bool:
@@ -323,7 +328,7 @@ struct StringLiteral(
         Returns:
           True if the string contains the substring.
         """
-        return substr in StringRef(self)
+        return substr in self.as_string_slice()
 
     # ===-------------------------------------------------------------------===#
     # Trait implementations
@@ -358,7 +363,7 @@ struct StringLiteral(
         Returns:
             An integer value that represents the string, or otherwise raises.
         """
-        return int(self.as_string_slice())
+        return Int(self.as_string_slice())
 
     @always_inline
     fn __float__(self) raises -> Float64:
@@ -402,7 +407,7 @@ struct StringLiteral(
         Returns:
             A new representation of the string.
         """
-        return self.__str__().__repr__()
+        return repr(self.as_string_slice())
 
     fn __hash__(self) -> UInt:
         """Hash the underlying buffer using builtin hash.
@@ -440,7 +445,7 @@ struct StringLiteral(
             An iterator over the string.
         """
         return _StringSliceIter[StaticConstantOrigin](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __reversed__(self) -> _StringSliceIter[StaticConstantOrigin, False]:
@@ -450,7 +455,7 @@ struct StringLiteral(
             A reversed iterator over the string.
         """
         return _StringSliceIter[StaticConstantOrigin, False](
-            unsafe_pointer=self.unsafe_ptr(), length=self.byte_length()
+            ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __getitem__[IndexerType: Indexer](self, idx: IndexerType) -> String:
@@ -603,7 +608,7 @@ struct StringLiteral(
         Returns:
           The offset of `substr` relative to the beginning of the string.
         """
-        return StringRef(self).find(substr, start=start)
+        return self.as_string_slice().find(substr, start=start)
 
     fn rfind(self, substr: StringLiteral, start: Int = 0) -> Int:
         """Finds the offset of the last occurrence of `substr` starting at
@@ -616,7 +621,7 @@ struct StringLiteral(
         Returns:
           The offset of `substr` relative to the beginning of the string.
         """
-        return StringRef(self).rfind(substr, start=start)
+        return self.as_string_slice().rfind(substr, start=start)
 
     fn replace(self, old: StringLiteral, new: StringLiteral) -> StringLiteral:
         """Return a copy of the string with all occurrences of substring `old`
@@ -689,7 +694,7 @@ struct StringLiteral(
         elems.each[add_elt]()
         return result
 
-    fn split(self, sep: String, maxsplit: Int = -1) raises -> List[String]:
+    fn split(self, sep: StringSlice, maxsplit: Int = -1) raises -> List[String]:
         """Split the string literal by a separator.
 
         Args:
@@ -756,7 +761,7 @@ struct StringLiteral(
         """
         return _to_string_list(self.as_string_slice().splitlines(keepends))
 
-    fn count(self, substr: String) -> Int:
+    fn count(self, substr: StringSlice) -> Int:
         """Return the number of non-overlapping occurrences of substring
         `substr` in the string literal.
 
@@ -827,33 +832,37 @@ struct StringLiteral(
         """
         return str(self).center(width, fillchar)
 
-    fn startswith(self, prefix: String, start: Int = 0, end: Int = -1) -> Bool:
-        """Checks if the string literal starts with the specified prefix between start
-        and end positions. Returns True if found and False otherwise.
+    fn startswith(
+        self, prefix: StringSlice, start: Int = 0, end: Int = -1
+    ) -> Bool:
+        """Checks if the string literal starts with the specified prefix between
+        start and end positions. Returns True if found and False otherwise.
 
         Args:
-          prefix: The prefix to check.
-          start: The start offset from which to check.
-          end: The end offset from which to check.
+            prefix: The prefix to check.
+            start: The start offset from which to check.
+            end: The end offset from which to check.
 
         Returns:
-          True if the self[start:end] is prefixed by the input prefix.
+            True if the `self[start:end]` is prefixed by the input prefix.
         """
-        return str(self).startswith(prefix, start, end)
+        return self.as_string_slice().startswith(prefix, start, end)
 
-    fn endswith(self, suffix: String, start: Int = 0, end: Int = -1) -> Bool:
-        """Checks if the string literal end with the specified suffix between start
-        and end positions. Returns True if found and False otherwise.
+    fn endswith(
+        self, suffix: StringSlice, start: Int = 0, end: Int = -1
+    ) -> Bool:
+        """Checks if the string literal end with the specified suffix between
+        start and end positions. Returns True if found and False otherwise.
 
         Args:
-          suffix: The suffix to check.
-          start: The start offset from which to check.
-          end: The end offset from which to check.
+            suffix: The suffix to check.
+            start: The start offset from which to check.
+            end: The end offset from which to check.
 
         Returns:
-          True if the self[start:end] is suffixed by the input suffix.
+            True if the `self[start:end]` is suffixed by the input suffix.
         """
-        return str(self).endswith(suffix, start, end)
+        return self.as_string_slice().endswith(suffix, start, end)
 
     fn isdigit(self) -> Bool:
         """Returns True if all characters in the string literal are digits.
@@ -897,9 +906,9 @@ struct StringLiteral(
         Returns:
             A string with no leading or trailing whitespaces.
         """
-        return self.lstrip().rstrip()
+        return String(self.lstrip().rstrip())
 
-    fn strip(self, chars: String) -> String:
+    fn strip(self, chars: StringSlice) -> String:
         """Return a copy of the string literal with leading and trailing characters
         removed.
 
@@ -910,9 +919,9 @@ struct StringLiteral(
             A string with no leading or trailing characters.
         """
 
-        return self.lstrip(chars).rstrip(chars)
+        return String(self.lstrip(chars).rstrip(chars))
 
-    fn rstrip(self, chars: String) -> String:
+    fn rstrip(self, chars: StringSlice) -> String:
         """Return a copy of the string literal with trailing characters removed.
 
         Args:
@@ -921,7 +930,7 @@ struct StringLiteral(
         Returns:
             A string with no trailing characters.
         """
-        return str(self).rstrip(chars)
+        return String(str(self).rstrip(chars))
 
     fn rstrip(self) -> String:
         """Return a copy of the string with trailing whitespaces removed. This
@@ -931,9 +940,9 @@ struct StringLiteral(
         Returns:
             A copy of the string with no trailing whitespaces.
         """
-        return str(self).rstrip()
+        return String(self.as_string_slice().rstrip())
 
-    fn lstrip(self, chars: String) -> String:
+    fn lstrip(self, chars: StringSlice) -> String:
         """Return a copy of the string with leading characters removed.
 
         Args:
@@ -942,7 +951,7 @@ struct StringLiteral(
         Returns:
             A copy of the string with no leading characters.
         """
-        return str(self).lstrip(chars)
+        return String(self.as_string_slice().lstrip(chars))
 
     fn lstrip(self) -> String:
         """Return a copy of the string with leading whitespaces removed. This
@@ -952,4 +961,4 @@ struct StringLiteral(
         Returns:
             A copy of the string with no leading whitespaces.
         """
-        return str(self).lstrip()
+        return String(str(self).lstrip())

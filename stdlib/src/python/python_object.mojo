@@ -20,6 +20,7 @@ from python import PythonObject
 """
 
 from collections import Dict
+from collections.string import StringSlice
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from sys.ffi import c_ssize_t
 from sys.intrinsics import _type_is_eq
@@ -199,14 +200,16 @@ struct TypedPythonObject[type_hint: StringLiteral](
     # 'Tuple' Operations
     # ===-------------------------------------------------------------------===#
 
-    fn __getitem__(
-        self: TypedPythonObject["Tuple"],
-        pos: Int,
-    ) raises -> PythonObject:
+    fn __getitem__[
+        I: Indexer
+    ](self: TypedPythonObject["Tuple"], pos: I,) raises -> PythonObject:
         """Get an element from this tuple.
 
         Args:
             pos: The tuple element position to retrieve.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Returns:
             The value of the tuple element at the specified position.
@@ -215,7 +218,7 @@ struct TypedPythonObject[type_hint: StringLiteral](
 
         var item: PyObjectPtr = cpython.PyTuple_GetItem(
             self.unsafe_as_py_object_ptr(),
-            pos,
+            index(pos),
         )
 
         if item.is_null():
@@ -229,8 +232,8 @@ struct TypedPythonObject[type_hint: StringLiteral](
 @register_passable
 struct PythonObject(
     ImplicitlyBoolable,
+    ImplicitlyIntable,
     Indexer,
-    Intable,
     KeyElement,
     SizedRaising,
     Stringable,
@@ -361,7 +364,7 @@ struct PythonObject(
             value: The boolean value.
         """
         cpython = _get_global_python_itf().cpython()
-        self.py_object = cpython.PyBool_FromLong(int(value))
+        self.py_object = cpython.PyBool_FromLong(Int(value))
 
     @implicit
     fn __init__(out self, integer: Int):
@@ -389,7 +392,7 @@ struct PythonObject(
 
         @parameter
         if dt is DType.bool:
-            self.py_object = cpython.PyBool_FromLong(int(value))
+            self.py_object = cpython.PyBool_FromLong(Int(value))
         elif dt.is_integral():
             int_val = value.cast[DType.index]().value
             self.py_object = cpython.PyLong_FromSsize_t(int_val)
@@ -404,27 +407,26 @@ struct PythonObject(
         Args:
             value: The string value.
         """
-        self = PythonObject(str(value))
+        self = PythonObject(value.as_string_slice())
 
     @implicit
-    fn __init__(out self, strref: StringRef):
-        """Initialize the object from a string reference.
+    fn __init__(out self, value: String):
+        """Initialize the object from a string.
 
         Args:
-            strref: The string reference.
+            value: The string value.
         """
-        cpython = _get_global_python_itf().cpython()
-        self.py_object = cpython.PyUnicode_DecodeUTF8(strref)
+        self = PythonObject(value.as_string_slice())
 
     @implicit
-    fn __init__(out self, string: String):
+    fn __init__(out self, string: StringSlice):
         """Initialize the object from a string.
 
         Args:
             string: The string value.
         """
         cpython = _get_global_python_itf().cpython()
-        self.py_object = cpython.PyUnicode_DecodeUTF8(string.as_string_slice())
+        self.py_object = cpython.PyUnicode_DecodeUTF8(string)
 
     @implicit
     fn __init__[*Ts: CollectionElement](mut self, value: ListLiteral[*Ts]):
@@ -457,7 +459,11 @@ struct PythonObject(
             elif _type_is_eq[T, Bool]():
                 obj = PythonObject(value.get[i, Bool]())
             elif _type_is_eq[T, StringRef]():
-                obj = PythonObject(value.get[i, StringRef]())
+                obj = PythonObject(
+                    StringSlice[MutableAnyOrigin](
+                        unsafe_from_utf8_strref=value.get[i, StringRef]()
+                    )
+                )
             elif _type_is_eq[T, StringLiteral]():
                 obj = PythonObject(value.get[i, StringLiteral]())
             else:
@@ -493,17 +499,21 @@ struct PythonObject(
 
             @parameter
             if _type_is_eq[T, PythonObject]():
-                obj = value.get[i, PythonObject]()
+                obj = rebind[PythonObject](value[i])
             elif _type_is_eq[T, Int]():
-                obj = PythonObject(value.get[i, Int]())
+                obj = PythonObject(rebind[Int](value[i]))
             elif _type_is_eq[T, Float64]():
-                obj = PythonObject(value.get[i, Float64]())
+                obj = PythonObject(rebind[Float64](value[i]))
             elif _type_is_eq[T, Bool]():
-                obj = PythonObject(value.get[i, Bool]())
+                obj = PythonObject(rebind[Bool](value[i]))
             elif _type_is_eq[T, StringRef]():
-                obj = PythonObject(value.get[i, StringRef]())
+                obj = PythonObject(
+                    StringSlice[MutableAnyOrigin](
+                        unsafe_from_utf8_strref=rebind[StringRef](value[i])
+                    )
+                )
             elif _type_is_eq[T, StringLiteral]():
-                obj = PythonObject(value.get[i, StringLiteral]())
+                obj = PythonObject(rebind[StringLiteral](value[i]))
             else:
                 obj = PythonObject(0)
                 constrained[
@@ -1448,13 +1458,13 @@ struct PythonObject(
         debug_assert(result != -1, "object is not hashable")
         hasher.update(result)
 
-    fn __index__(self) -> Int:
+    fn __index__(self) -> __mlir_type.index:
         """Returns an index representation of the object.
 
         Returns:
             An index value that represents this object.
         """
-        return self.__int__()
+        return self.__int__().value
 
     fn __int__(self) -> Int:
         """Returns an integral representation of the object.
@@ -1464,6 +1474,14 @@ struct PythonObject(
         """
         cpython = _get_global_python_itf().cpython()
         return cpython.PyLong_AsSsize_t(self.py_object)
+
+    fn __as_int__(self) -> Int:
+        """Implicitly convert to an Int.
+
+        Returns:
+            An integral value that represents this object.
+        """
+        return self.__int__()
 
     fn __float__(self) -> Float64:
         """Returns a float representation of the object.
@@ -1555,7 +1573,7 @@ struct PythonObject(
         Returns:
             An `UnsafePointer` for the underlying Python data.
         """
-        var tmp = int(self)
+        var tmp = Int(self)
         var result = UnsafePointer.address_of(tmp).bitcast[
             UnsafePointer[Scalar[type]]
         ]()[]

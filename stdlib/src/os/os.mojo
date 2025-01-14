@@ -110,7 +110,7 @@ struct _DirHandle:
             raise "the directory '" + path + "' does not exist"
 
         self._handle = external_call["opendir", OpaquePointer](
-            path.unsafe_ptr()
+            path.unsafe_cstr_ptr()
         )
 
         if not self._handle:
@@ -154,7 +154,7 @@ struct _DirHandle:
             )
             if name_str == "." or name_str == "..":
                 continue
-            res.append(name_str)
+            res.append(String(name_str))
             _ = name^
 
         return res
@@ -180,7 +180,7 @@ struct _DirHandle:
             )
             if name_str == "." or name_str == "..":
                 continue
-            res.append(name_str)
+            res.append(String(name_str))
             _ = name^
 
         return res
@@ -201,7 +201,7 @@ fn getuid() -> Int:
     constrained[
         not os_is_windows(), "operating system must be Linux or macOS"
     ]()
-    return int(external_call["getuid", UInt32]())
+    return Int(external_call["getuid", UInt32]())
 
 
 # ===----------------------------------------------------------------------=== #

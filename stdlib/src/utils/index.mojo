@@ -390,11 +390,14 @@ struct IndexList[
         Returns:
             The tuple element value.
         """
-        return int(self.data.__getitem__[idx]())
+        return Int(self.data.__getitem__[idx]())
 
     @always_inline("nodebug")
-    fn __getitem__(self, idx: Int) -> Int:
+    fn __getitem__[I: Indexer](self, idx: I) -> Int:
         """Gets an element from the tuple by index.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Args:
             idx: The element index.
@@ -402,31 +405,31 @@ struct IndexList[
         Returns:
             The tuple element value.
         """
-        return int(self.data[idx])
+        return Int(self.data[idx])
 
     @always_inline("nodebug")
-    fn __setitem__[index: Int](mut self, val: Int):
+    fn __setitem__[idx: Int](mut self, val: Int):
         """Sets an element in the tuple at the given static index.
 
         Parameters:
-            index: The element index.
+            idx: The element index.
 
         Args:
             val: The value to store.
         """
-        self.data.__setitem__[index](val)
+        self.data.__setitem__[idx](val)
 
     @always_inline("nodebug")
-    fn __setitem__[index: Int](mut self, val: Self._int_type):
+    fn __setitem__[idx: Int](mut self, val: Self._int_type):
         """Sets an element in the tuple at the given static index.
 
         Parameters:
-            index: The element index.
+            idx: The element index.
 
         Args:
             val: The value to store.
         """
-        self.data.__setitem__[index](val)
+        self.data.__setitem__[idx](val)
 
     @always_inline("nodebug")
     fn __setitem__(mut self, idx: Int, val: Int):
@@ -449,7 +452,7 @@ struct IndexList[
 
         @parameter
         for i in range(size):
-            res[i] = int(self.__getitem__[i]())
+            res[i] = Int(self.__getitem__[i]())
         return res
 
     @always_inline("nodebug")
@@ -514,9 +517,7 @@ struct IndexList[
             The resulting index tuple.
         """
 
-        # FIXME(#53331) - nodebug is required otherwise we crash in debug
-        # information generation.
-        @always_inline("nodebug")
+        @always_inline
         fn apply_fn[
             type: DType
         ](a: Scalar[type], b: Scalar[type]) -> Scalar[type]:
@@ -874,7 +875,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x))
+    return __type_of(result)(Int(x))
 
 
 @always_inline
@@ -898,7 +899,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x))
+    return __type_of(result)(Int(x))
 
 
 @always_inline
@@ -930,7 +931,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y))
+    return __type_of(result)(Int(x), Int(y))
 
 
 @always_inline
@@ -956,7 +957,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y))
+    return __type_of(result)(Int(x), Int(y))
 
 
 @always_inline
@@ -992,7 +993,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y), int(z))
+    return __type_of(result)(Int(x), Int(y), Int(z))
 
 
 @always_inline
@@ -1032,7 +1033,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y), int(z), int(w))
+    return __type_of(result)(Int(x), Int(y), Int(z), Int(w))
 
 
 @always_inline
@@ -1076,7 +1077,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y), int(z), int(w), int(v))
+    return __type_of(result)(Int(x), Int(y), Int(z), Int(w), Int(v))
 
 
 # ===-----------------------------------------------------------------------===#

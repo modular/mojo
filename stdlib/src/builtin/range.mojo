@@ -74,8 +74,8 @@ struct _ZeroStartingRange(Sized, ReversibleRange, _IntIterable):
         return self.curr
 
     @always_inline
-    fn __getitem__(self, idx: Int) -> Int:
-        debug_assert(idx < self.__len__(), "index out of range")
+    fn __getitem__[I: Indexer](self, idx: I) -> Int:
+        debug_assert(Int(idx) < self.__len__(), "index out of range")
         return index(idx)
 
     @always_inline
@@ -108,8 +108,8 @@ struct _SequentialRange(Sized, ReversibleRange, _IntIterable):
         return max(0, self.end - self.start)
 
     @always_inline
-    fn __getitem__(self, idx: Int) -> Int:
-        debug_assert(idx < self.__len__(), "index out of range")
+    fn __getitem__[I: Indexer](self, idx: I) -> Int:
+        debug_assert(self.__len__() > index(idx), "index out of range")
         return self.start + index(idx)
 
     @always_inline
@@ -189,8 +189,8 @@ struct _StridedRange(Sized, ReversibleRange, _StridedIterable):
         return ceildiv(select(cnd, 0, numerator), select(cnd, 1, denominator))
 
     @always_inline
-    fn __getitem__(self, idx: Int) -> Int:
-        debug_assert(idx < self.__len__(), "index out of range")
+    fn __getitem__[I: Indexer](self, idx: I) -> Int:
+        debug_assert(self.__len__() > index(idx), "index out of range")
         return self.start + index(idx) * self.step
 
     @always_inline
@@ -215,7 +215,7 @@ fn range[type: Intable](end: type) -> _ZeroStartingRange:
     Returns:
         The constructed range.
     """
-    return _ZeroStartingRange(int(end))
+    return _ZeroStartingRange(Int(end))
 
 
 @always_inline
@@ -231,7 +231,7 @@ fn range[type: IntableRaising](end: type) raises -> _ZeroStartingRange:
     Returns:
         The constructed range.
     """
-    return _ZeroStartingRange(int(end))
+    return _ZeroStartingRange(Int(end))
 
 
 @always_inline
@@ -249,7 +249,7 @@ fn range[t0: Intable, t1: Intable](start: t0, end: t1) -> _SequentialRange:
     Returns:
         The constructed range.
     """
-    return _SequentialRange(int(start), int(end))
+    return _SequentialRange(Int(start), Int(end))
 
 
 @always_inline
@@ -269,12 +269,12 @@ fn range[
     Returns:
         The constructed range.
     """
-    return _SequentialRange(int(start), int(end))
+    return _SequentialRange(Int(start), Int(end))
 
 
 @always_inline
 fn range[
-    t0: Intable, t1: Intable, t2: Intable
+    t0: Indexer, t1: Indexer, t2: Indexer
 ](start: t0, end: t1, step: t2) -> _StridedRange:
     """Constructs a [start; end) Range with a given step.
 
@@ -291,7 +291,7 @@ fn range[
     Returns:
         The constructed range.
     """
-    return _StridedRange(int(start), int(end), int(step))
+    return _StridedRange(index(start), index(end), index(step))
 
 
 @always_inline
@@ -313,7 +313,7 @@ fn range[
     Returns:
         The constructed range.
     """
-    return _StridedRange(int(start), int(end), int(step))
+    return _StridedRange(Int(start), Int(end), Int(step))
 
 
 # ===----------------------------------------------------------------------=== #

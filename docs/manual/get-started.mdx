@@ -32,36 +32,37 @@ GitHub](https://github.com/modularml/mojo/tree/nightly/examples/life).
 
 ## 1. Create a Mojo project with `magic`
 
-We'll start by using the [`magic` CLI](/magic) to create a virtual environment
+We'll start by using the `magic` CLI to create a virtual environment
 and generate our initial project directory.
 
-<GetMagic />
+1. <GetMagic />
 
-In your terminal, go to the directory in which you want to create the project
-and execute:
+2. Navigate to the directory in which you want to create the project
+    and execute:
 
-```bash
-magic init life --format mojoproject
-```
+    ```bash
+    magic init life --format mojoproject
+    ```
 
-This creates a project directory named `life`. Let's go to the directory and
-list its contents:
+    This creates a project directory named `life`.
 
-```bash
-cd life
-```
+3. Let's go into the directory and list its contents:
 
-```bash
-ls -A
-```
+    ```bash
+    cd life
+    ```
 
-```output
-.gitattributes
-.gitignore
-.magic
-magic.lock
-mojoproject.toml
-```
+    ```bash
+    ls -A
+    ```
+
+    ```output
+    .gitattributes
+    .gitignore
+    .magic
+    magic.lock
+    mojoproject.toml
+    ```
 
 You should see that the project directory contains:
 
@@ -175,9 +176,9 @@ Hello, World!
 Let's extend this basic program by prompting the user for their name and
 including that in the greeting printed. The built-in
 [`input()`](/mojo/stdlib/builtin/io/input) function accepts an optional
-[`String`](/mojo/stdlib/collections/string/String) argument to use as a prompt,
-and returns a `String` consisting of the characters the user entered (with the
-newline character at the end stripped off).
+[`String`](/mojo/stdlib/collections/string/string/String) argument to use as a
+prompt, and returns a `String` consisting of the characters the user entered
+(with the newline character at the end stripped off).
 
 So let's declare a variable, assign the return value from `input()` to it, and
 build a customized greeting.
@@ -343,7 +344,7 @@ def main():
 ## 5. Create and use a function to print the grid
 
 Now let's create a function to generate a string representation of the game grid
-that we can print it to the terminal.
+that we can print to the terminal.
 
 There are actually two different keywords that we can use to define functions in
 Mojo: `def` and `fn`. Using `fn` gives us finer level control over the function
@@ -361,7 +362,7 @@ def grid_str(rows: Int, cols: Int, grid: List[List[Int]]) -> String:
 
     # Iterate through rows 0 through rows-1
     for row in range(rows):
-	      # Iterate through columns 0 through cols-1
+        # Iterate through columns 0 through cols-1
         for col in range(cols):
             if grid[row][col] == 1:
                 str += "*"  # If cell is populated, append an asterisk
@@ -539,7 +540,7 @@ def grid_str(grid: Grid) -> String:
 
     # Iterate through rows 0 through rows-1
     for row in range(grid.rows):
-	      # Iterate through columns 0 through cols-1
+        # Iterate through columns 0 through cols-1
         for col in range(grid.cols):
             if grid.data[row][col] == 1:
                 str += "*"  # If cell is populated, append an asterisk
@@ -786,8 +787,6 @@ struct Grid(StringableRaising):
   <summary>Click here to see the complete `gridv1.mojo` so far:</summary>
 
 ```mojo title="gridv1.mojo"
-import random
-
 @value
 struct Grid(StringableRaising):
     var rows: Int
@@ -851,7 +850,7 @@ struct Grid(StringableRaising):
             row_data = List[Int]()
             for col in range(cols):
                 # Generate a random 0 or 1 and append it to the row.
-                row_data.append(int(random.random_si64(0, 1)))
+                row_data.append(Int(random.random_si64(0, 1)))
             data.append(row_data)
 
         return Self(rows, cols, data)
@@ -877,8 +876,8 @@ respectively. This function actually returns a value of type `Int64`, which is a
 signed 64-bit integer value. As described in [Numeric
 types](/mojo/manual/types#numeric-types), this is *not* the same as the `Int`
 type whose precision is dependent on the native word size of the system.
-Therefore we're passing this value to the built-in
-[`int()`](/mojo/stdlib/builtin/int/int-function/) function, which explicitly
+Therefore we're passing this value to the
+[`Int()`](/mojo/stdlib/builtin/int/Int/#__init__) constructor, which explicitly
 converts a numeric value to an `Int`.
 
 The return type of the method is `Self`, which is an alias for the type of the

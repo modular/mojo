@@ -30,7 +30,7 @@ from bit import next_power_of_two
 fn make_dict[size: Int]() -> Dict[Int, Int]:
     var d = Dict[Int, Int]()
     for i in range(0, size):
-        d[i] = random.random_si64(0, size).value
+        d[i] = Int(random.random_si64(0, size))
     return d
 
 
@@ -62,7 +62,7 @@ fn bench_dict_insert[size: Int](mut b: Bencher) raises:
     @parameter
     fn call_fn() raises:
         for key in range(size, size + 100):
-            items[key] = random.random_si64(0, size).value
+            items[key] = Int(random.random_si64(0, size))
 
     b.iter[call_fn]()
     keep(bool(items))
@@ -84,7 +84,7 @@ fn bench_dict_lookup[size: Int](mut b: Bencher) raises:
         @parameter
         if size < 100:
             for _ in range(closest_divisor):
-                for key in range(int(100 // closest_divisor)):
+                for key in range(Int(100 // closest_divisor)):
                     var res = items[key]
                     keep(res)
         else:
@@ -132,7 +132,7 @@ def main():
 
     @parameter
     for i in range(len(sizes)):
-        alias size = sizes.get[i, Int]()
+        alias size = sizes[i]
         m.bench_function[bench_dict_insert[size]](
             BenchId("bench_dict_insert[" + str(size) + "]")
         )
@@ -144,7 +144,7 @@ def main():
 
     @parameter
     for i in range(len(sizes)):
-        alias size = sizes.get[i, Int]()
+        alias size = sizes[i]
         var mem_s = total_bytes_used(make_dict[size]())
         print(
             '"bench_dict_memory_size[' + str(size) + ']",' + str(mem_s) + ",0"

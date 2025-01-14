@@ -16,6 +16,7 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import InlineArray
+from collections.string import StringSlice
 from sys import _libc as libc
 from sys import (
     bitwidthof,
@@ -94,7 +95,7 @@ struct _fdopen[mode: StringLiteral = "a"]:
         """
         return self.read_until_delimiter("\n")
 
-    fn read_until_delimiter(self, delimiter: String) raises -> String:
+    fn read_until_delimiter(self, delimiter: StringSlice) raises -> String:
         """Reads an entire line from a stream, up to the `delimiter`.
         Does not include the delimiter in the result.
 
@@ -184,7 +185,6 @@ fn _printf[
             fmt.unsafe_cstr_ptr(), Pointer.address_of(loaded_pack)
         )
     elif is_amd_gpu():
-        # constrained[False, "_printf on AMDGPU is not implemented"]()
         pass
     else:
         with _fdopen(file) as fd:
@@ -231,7 +231,7 @@ fn _snprintf[
     var loaded_pack = args.get_loaded_kgen_pack()
 
     # FIXME: external_call should handle this
-    return int(
+    return Int(
         __mlir_op.`pop.external_call`[
             func = "snprintf".value,
             variadicType = __mlir_attr[
@@ -275,12 +275,9 @@ fn print[
         file: The output stream.
     """
 
-    # TODO(MSTDL-1027): Print on AMD GPUs is not implemented yet.
-    @parameter
-    if is_amd_gpu():
-        return
-
-    write_buffered[buffer_size=4096](file, values, sep=sep, end=end)
+    write_buffered[buffer_size = 512 if is_amd_gpu() else 4096](
+        file, values, sep=sep, end=end
+    )
 
     @parameter
     if not is_gpu():

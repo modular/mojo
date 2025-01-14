@@ -187,7 +187,7 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
         Args:
           value: The address space value.
         """
-        self._value = int(value)
+        self._value = Int(value)
 
     @always_inline("nodebug")
     fn value(self) -> Int:
@@ -208,7 +208,7 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
         return self._value
 
     @always_inline("nodebug")
-    fn __mlir_index__(self) -> __mlir_type.index:
+    fn __index__(self) -> __mlir_type.index:
         """Convert to index.
 
         Returns:

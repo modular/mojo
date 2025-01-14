@@ -23,8 +23,8 @@ def test_bool_cast_to_int():
     assert_equal(False.__int__(), 0)
     assert_equal(True.__int__(), 1)
 
-    assert_equal(int(False), 0)
-    assert_equal(int(True), 1)
+    assert_equal(Int(False), 0)
+    assert_equal(Int(True), 1)
 
 
 def test_bool_none():
@@ -113,8 +113,8 @@ def test_neg():
 
 
 def test_indexer():
-    assert_equal(1, Bool.__index__(True))
-    assert_equal(0, Bool.__index__(False))
+    assert_true(1 == index(Bool(True)))
+    assert_true(0 == index(Bool(False)))
 
 
 def test_comparisons():

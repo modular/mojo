@@ -116,7 +116,7 @@ struct Span[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __init__(out self, *, ptr: UnsafePointer[T], length: Int):
+    fn __init__(out self, *, ptr: UnsafePointer[T], length: UInt):
         """Unsafe construction from a pointer and length.
 
         Args:
@@ -147,6 +147,7 @@ struct Span[
         self._len = len(list)
 
     @always_inline
+    @implicit
     fn __init__[
         size: Int, //
     ](mut self, ref [origin]array: InlineArray[T, size]):
@@ -167,21 +168,24 @@ struct Span[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __getitem__(self, idx: Int) -> ref [origin] T:
+    fn __getitem__[I: Indexer](self, idx: I) -> ref [origin] T:
         """Get a reference to an element in the span.
 
         Args:
             idx: The index of the value to return.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Returns:
             An element reference.
         """
         # TODO: Simplify this with a UInt type.
         debug_assert(
-            -self._len <= int(idx) < self._len, "index must be within bounds"
+            -self._len <= Int(idx) < self._len, "index must be within bounds"
         )
-
-        var offset = idx
+        # TODO(MSTDL-1086): optimize away SIMD/UInt normalization check
+        var offset = Int(idx)
         if offset < 0:
             offset += len(self)
         return self._data[offset]

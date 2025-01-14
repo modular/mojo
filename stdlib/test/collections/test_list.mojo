@@ -863,7 +863,7 @@ def test_list_init_span():
 
 def test_indexing():
     var l = List[Int](1, 2, 3)
-    assert_equal(l[int(1)], 2)
+    assert_equal(l[Int(1)], 2)
     assert_equal(l[False], 1)
     assert_equal(l[True], 2)
     assert_equal(l[2], 3)
@@ -887,6 +887,9 @@ struct DtorCounter(CollectionElement):
 
     fn __copyinit__(out self, existing: Self, /):
         self.payload = existing.payload
+
+    fn copy(self) -> Self:
+        return self
 
     fn __moveinit__(out self, owned existing: Self, /):
         self.payload = existing.payload
