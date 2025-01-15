@@ -19,10 +19,6 @@ from .string import (
     atol,
     stol,
     chr,
-    isdigit,
-    islower,
-    isprintable,
-    isupper,
     ord,
 )
 from .string_slice import StringSlice, StaticString
