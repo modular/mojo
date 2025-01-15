@@ -186,11 +186,50 @@ fn ascii(value: StringSlice) -> String:
 # ===----------------------------------------------------------------------=== #
 
 
-@always_inline
-fn _stol(str_slice: StringSlice, base: Int = 10) raises -> (Int, String):
-    """Implementation of `stol` for StringSlice inputs.
+fn stol(str_slice: StringSlice, base: Int = 10) raises -> (Int, String):
+    """Convert a string to a integer and return the remaining unparsed string.
 
-    Please see its docstring for details.
+    Similar to `atol`, but `stol` parses only a portion of the string and returns
+    both the parsed integer and the remaining unparsed part. For example, `stol("32abc")` returns `(32, "abc")`.
+
+    If base is 0, the string is parsed as an [Integer literal][1], with the following considerations:
+    - '0b' or '0B' prefix indicates binary (base 2)
+    - '0o' or '0O' prefix indicates octal (base 8)
+    - '0x' or '0X' prefix indicates hexadecimal (base 16)
+    - Without a prefix, it's treated as decimal (base 10)
+    Notes:
+        This follows [Python's integer literals](\
+        https://docs.python.org/3/reference/lexical_analysis.html#integers)
+
+    Raises:
+        If the base is invalid or if the string is empty.
+
+    Args:
+        str_slice: A string to be parsed as an integer in the given base.
+        base: Base used for conversion, value must be between 2 and 36, or 0.
+
+    Returns:
+        A tuple containing:
+        - An integer value representing the parsed part of the string.
+        - The remaining unparsed part of the string.
+
+    Examples:
+        >>> stol("19abc")
+        (19, "abc")
+        >>> stol("0xFF hello", 16)
+        (255, " hello")
+        >>> stol("0x123ghi", 0)
+        (291, "ghi")
+        >>> stol("0b1010 binary", 0)
+        (10, " binary")
+        >>> stol("0o123 octal", 0)
+        (83, " octal")
+
+    See Also:
+        `atol`: A similar function that parses the entire string and returns an integer.
+
+    [1]: https://docs.python.org/3/reference/lexical_analysis.html#integers.
+
     """
     if (base != 0) and (base < 2 or base > 36):
         raise Error("Base must be >= 2 and <= 36, or 0.")
@@ -282,58 +321,6 @@ fn _stol(str_slice: StringSlice, base: Int = 10) raises -> (Int, String):
     return result, String(
         StringSlice(unsafe_from_utf8=str_slice.as_bytes()[start:])
     )
-
-
-fn stol(str: String, base: Int = 10) raises -> (Int, String):
-    """Convert a string to a integer and return the remaining unparsed string.
-
-    Similar to `atol`, but `stol` parses only a portion of the string and returns
-    both the parsed integer and the remaining unparsed part. For example, `stol("32abc")` returns `(32, "abc")`.
-
-    If base is 0, the string is parsed as an [Integer literal][1], with the following considerations:
-    - '0b' or '0B' prefix indicates binary (base 2)
-    - '0o' or '0O' prefix indicates octal (base 8)
-    - '0x' or '0X' prefix indicates hexadecimal (base 16)
-    - Without a prefix, it's treated as decimal (base 10)
-    Notes:
-        This follows [Python's integer literals](\
-        https://docs.python.org/3/reference/lexical_analysis.html#integers)
-
-    Raises:
-        If the base is invalid or if the string is empty.
-
-    Args:
-        str: A string to be parsed as an integer in the given base.
-        base: Base used for conversion, value must be between 2 and 36, or 0.
-
-    Returns:
-        A tuple containing:
-        - An integer value representing the parsed part of the string.
-        - The remaining unparsed part of the string.
-
-    Examples:
-        >>> stol("19abc")
-        (19, "abc")
-        >>> stol("0xFF hello", 16)
-        (255, " hello")
-        >>> stol("0x123ghi", 0)
-        (291, "ghi")
-        >>> stol("0b1010 binary", 0)
-        (10, " binary")
-        >>> stol("0o123 octal", 0)
-        (83, " octal")
-
-    See Also:
-        `atol`: A similar function that parses the entire string and returns an integer.
-
-    [1]: https://docs.python.org/3/reference/lexical_analysis.html#integers.
-
-    """
-    var result: Int
-    var remaining: String
-    result, remaining = _stol(str.as_string_slice(), base)
-
-    return result, remaining
 
 
 @always_inline
