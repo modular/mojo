@@ -19,10 +19,12 @@ from memory import Pointer
 ```
 """
 
+from sys import is_nvidia_gpu
 
-# ===----------------------------------------------------------------------===#
+
+# ===-----------------------------------------------------------------------===#
 # AddressSpace
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
@@ -36,12 +38,10 @@ struct _GPUAddressSpace(EqualityComparable):
     """Generic address space."""
     alias GLOBAL = AddressSpace(1)
     """Global address space."""
-    alias CONSTANT = AddressSpace(2)
-    """Constant address space."""
     alias SHARED = AddressSpace(3)
     """Shared address space."""
-    alias PARAM = AddressSpace(4)
-    """Param address space."""
+    alias CONSTANT = AddressSpace(4)
+    """Constant address space."""
     alias LOCAL = AddressSpace(5)
     """Local address space."""
 
@@ -187,7 +187,7 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
         Args:
           value: The address space value.
         """
-        self._value = int(value)
+        self._value = Int(value)
 
     @always_inline("nodebug")
     fn value(self) -> Int:
@@ -208,7 +208,7 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
         return self._value
 
     @always_inline("nodebug")
-    fn __mlir_index__(self) -> __mlir_type.index:
+    fn __index__(self) -> __mlir_type.index:
         """Convert to index.
 
         Returns:
@@ -274,7 +274,7 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
         return String.write(self)
 
     @always_inline("nodebug")
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats the address space to the provided Writer.
 
@@ -290,23 +290,26 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
             writer.write("AddressSpace(", self.value(), ")")
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Pointer
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
 @register_passable("trivial")
 struct Pointer[
-    is_mutable: Bool, //,
+    mut: Bool, //,
     type: AnyType,
-    origin: Origin[is_mutable].type,
+    origin: Origin[mut],
     address_space: AddressSpace = AddressSpace.GENERIC,
 ](CollectionElementNew, Stringable):
     """Defines a non-nullable safe pointer.
 
+    For a comparison with other pointer types, see [Intro to
+    pointers](/mojo/manual/pointers/) in the Mojo Manual.
+
     Parameters:
-        is_mutable: Whether the pointee data may be mutated through this.
+        mut: Whether the pointee data may be mutated through this.
         type: Type of the underlying data.
         origin: The origin of the pointer.
         address_space: The address space of the pointee data.
@@ -316,7 +319,7 @@ struct Pointer[
         `!lit.ref<`,
         type,
         `, `,
-        origin,
+        origin._mlir_origin,
         `, `,
         address_space._value.value,
         `>`,
@@ -352,15 +355,15 @@ struct Pointer[
         """
         return Pointer(_mlir_value=__get_mvalue_as_litref(value))
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Constructs a copy from another Pointer.
 
         Note that this does **not** copy the underlying data.
 
-        Args:
-            other: The `Pointer` to copy.
+        Returns:
+            A copy of the value.
         """
-        self._value = other._value
+        return Self(_mlir_value=self._value)
 
     # ===------------------------------------------------------------------===#
     # Operator dunders

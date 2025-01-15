@@ -25,9 +25,9 @@ from sys.intrinsics import _type_is_eq
 from memory import UnsafePointer
 from memory.maybe_uninitialized import UnsafeMaybeUninitialized
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Array
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn _inline_array_construction_checks[size: Int]():
@@ -80,10 +80,7 @@ struct InlineArray[
                 " 'unsafe_uninitialized'."
             ),
         ]()
-        self._array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
     @always_inline
     fn __init__(out self, *, unsafe_uninitialized: Bool):
@@ -106,13 +103,10 @@ struct InlineArray[
                 Always set to `True` (it's not actually used inside the constructor).
         """
         _inline_array_construction_checks[size]()
-        self._array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
     fn __init__(
-        inout self,
+        mut self,
         *,
         owned unsafe_assume_initialized: InlineArray[
             UnsafeMaybeUninitialized[Self.ElementType], Self.size
@@ -129,11 +123,7 @@ struct InlineArray[
             unsafe_assume_initialized: The array of `UnsafeMaybeUninitialized` elements.
         """
 
-        self._array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
-
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
         for i in range(Self.size):
             unsafe_assume_initialized[i].unsafe_ptr().move_pointee_into(
                 self.unsafe_ptr() + i
@@ -148,10 +138,7 @@ struct InlineArray[
             fill: The element to fill each index.
         """
         _inline_array_construction_checks[size]()
-        self._array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
         @parameter
         for i in range(size):
@@ -171,7 +158,7 @@ struct InlineArray[
 
     @always_inline
     fn __init__(
-        inout self,
+        mut self,
         *,
         owned storage: VariadicListMem[Self.ElementType, _],
     ):
@@ -183,10 +170,7 @@ struct InlineArray[
 
         debug_assert(len(storage) == size, "Elements must be of length size")
         _inline_array_construction_checks[size]()
-        self._array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
         # Move each element into the array storage.
         @parameter
@@ -194,21 +178,25 @@ struct InlineArray[
             var eltptr = UnsafePointer.address_of(self.unsafe_get(i))
             UnsafePointer.address_of(storage[i]).move_pointee_into(eltptr)
 
-        # Mark the elements as already destroyed.
-        storage._is_owned = False
+        # Do not destroy the elements when their backing storage goes away.
+        __mlir_op.`lit.ownership.mark_destroyed`(
+            __get_mvalue_as_litref(storage)
+        )
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly copy the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
 
-        self = Self(unsafe_uninitialized=True)
+        var copy = Self(unsafe_uninitialized=True)
 
         for idx in range(size):
-            var ptr = self.unsafe_ptr() + idx
-            ptr.init_pointee_copy(other[idx])
+            var ptr = copy.unsafe_ptr() + idx
+            ptr.init_pointee_copy(self[idx])
+
+        return copy^
 
     fn __copyinit__(out self, other: Self):
         """Copy construct the array.
@@ -217,7 +205,7 @@ struct InlineArray[
             other: The array to copy.
         """
 
-        self = Self(other=other)
+        self = other.copy()
 
     fn __del__(owned self):
         """Deallocate the array."""
@@ -235,8 +223,11 @@ struct InlineArray[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __getitem__(ref self, idx: Int) -> ref [self] Self.ElementType:
+    fn __getitem__[I: Indexer](ref self, idx: I) -> ref [self] Self.ElementType:
         """Get a `Pointer` to the element at the given index.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Args:
             idx: The index of the item.
@@ -244,28 +235,42 @@ struct InlineArray[
         Returns:
             A reference to the item at the given index.
         """
-        var normalized_index = normalize_index["InlineArray"](idx, self)
-        return self.unsafe_get(normalized_index)
+
+        @parameter
+        if _type_is_eq[I, UInt]():
+            return self.unsafe_get(idx)
+        else:
+            var normalized_index = normalize_index["InlineArray"](
+                Int(idx), self
+            )
+            return self.unsafe_get(normalized_index)
 
     @always_inline
-    fn __getitem__[idx: Int](ref self) -> ref [self] Self.ElementType:
+    fn __getitem__[
+        I: Indexer, //, idx: I
+    ](ref self) -> ref [self] Self.ElementType:
         """Get a `Pointer` to the element at the given index.
 
         Parameters:
+            I: A type that can be used as an index.
             idx: The index of the item.
 
         Returns:
             A reference to the item at the given index.
         """
-        constrained[-size <= idx < size, "Index must be within bounds."]()
-
-        var normalized_idx = idx
+        constrained[-size <= Int(idx) < size, "Index must be within bounds."]()
 
         @parameter
-        if idx < 0:
-            normalized_idx += size
+        if _type_is_eq[I, UInt]():
+            return self.unsafe_get(idx)
+        else:
+            var normalized_idx = Int(idx)
 
-        return self.unsafe_get(normalized_idx)
+            @parameter
+            if Int(idx) < 0:
+                normalized_idx += size
+
+            return self.unsafe_get(normalized_idx)
 
     # ===------------------------------------------------------------------=== #
     # Trait implementations
@@ -285,7 +290,7 @@ struct InlineArray[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn unsafe_get(ref self, idx: Int) -> ref [self] Self.ElementType:
+    fn unsafe_get[I: Indexer](ref self, idx: I) -> ref [self] Self.ElementType:
         """Get a reference to an element of self without checking index bounds.
 
         Users should opt for `__getitem__` instead of this method as it is
@@ -297,20 +302,23 @@ struct InlineArray[
         Args:
             idx: The index of the element to get.
 
+        Parameters:
+            I: A type that can be used as an index.
+
         Returns:
             A reference to the element at the given index.
         """
-        var idx_as_int = index(idx)
+        var i = index(idx)
         debug_assert(
-            0 <= idx_as_int < size,
+            0 <= Int(i) < size,
             " InlineArray.unsafe_get() index out of bounds: ",
-            idx_as_int,
+            Int(idx),
             " should be less than: ",
             size,
         )
         var ptr = __mlir_op.`pop.array.gep`(
             UnsafePointer.address_of(self._array).address,
-            idx_as_int.value,
+            i,
         )
         return UnsafePointer(ptr)[]
 

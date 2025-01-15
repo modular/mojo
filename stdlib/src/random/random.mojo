@@ -122,7 +122,7 @@ fn randint[
 fn rand[
     type: DType
 ](
-    ptr: UnsafePointer[Scalar[type], **_],
+    ptr: UnsafePointer[Scalar[type], mut=True, **_],
     size: Int,
     /,
     *,
@@ -224,7 +224,7 @@ fn randn[
     return
 
 
-fn shuffle[T: CollectionElement, //](inout list: List[T]):
+fn shuffle[T: CollectionElement, //](mut list: List[T]):
     """Shuffles the elements of the list randomly.
 
     Performs an in-place Fisher-Yates shuffle on the provided list.
@@ -236,5 +236,5 @@ fn shuffle[T: CollectionElement, //](inout list: List[T]):
         T: The type of element in the List.
     """
     for i in reversed(range(len(list))):
-        var j = int(random_ui64(0, i))
+        var j = Int(random_ui64(0, i))
         list.swap_elements(i, j)

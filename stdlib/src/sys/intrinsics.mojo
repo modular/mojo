@@ -22,13 +22,14 @@ from sys import PrefetchLocality
 import math
 
 from memory import AddressSpace, UnsafePointer
+from memory.pointer import _GPUAddressSpace
 
 from ._assembly import inlined_assembly
-from .info import is_nvidia_gpu, sizeof
+from .info import is_nvidia_gpu, is_amd_gpu, sizeof
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # llvm_intrinsic
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -37,25 +38,24 @@ fn llvm_intrinsic[
     type: AnyTrivialRegType,
     *types: AnyType,
     has_side_effect: Bool = True,
-](*arguments: *types) -> type:
-    """Calls an LLVM intrinsic with no arguments.
-
-    Calls an LLVM intrinsic with the name intrin and return type type.
+](*args: *types) -> type:
+    """Calls an LLVM intrinsic with the name `intrin` and return type `type`.
 
     Parameters:
-      intrin: The name of the llvm intrinsic.
-      type: The return type of the intrinsic.
-      types: The argument types for the function.
-      has_side_effect: If `True` the intrinsic will have side effects, otherwise its pure.
+        intrin: The name of the llvm intrinsic.
+        type: The return type of the intrinsic.
+        types: The argument types for the function.
+        has_side_effect: If `True` the intrinsic will have side effects,
+            otherwise its pure.
 
     Args:
-      arguments: The arguments to the function.
+        args: The arguments to the function.
 
     Returns:
-      The result of calling the llvm intrinsic with no arguments.
+        The result of calling the llvm intrinsic with no arguments.
     """
 
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
     @parameter
     if _mlirtype_is_eq[type, NoneType]():
@@ -90,9 +90,9 @@ fn llvm_intrinsic[
             ](loaded_pack)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # _gather
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 # NOTE: Converting from a scalar to a pointer is unsafe! The resulting pointer
@@ -176,9 +176,9 @@ fn gather[
     return result
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # _scatter
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -254,9 +254,9 @@ fn scatter[
     _ = base
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # prefetch
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @register_passable("trivial")
@@ -500,9 +500,9 @@ fn prefetch[
         )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # masked load
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -546,9 +546,9 @@ fn masked_load[
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # masked store
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -588,9 +588,9 @@ fn masked_store[
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # compressed store
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -628,9 +628,9 @@ fn compressed_store[
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # strided load
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -661,16 +661,16 @@ fn strided_load[
     if simd_width == 1:
         return addr.load() if mask else Scalar[type]()
 
-    var offset = int(addr) + stride * sizeof[type]() * math.iota[
+    var offset = Int(addr) + stride * sizeof[type]() * math.iota[
         DType.index, simd_width
     ]()
     var passthrough = SIMD[type, simd_width]()
     return gather(offset, mask, passthrough)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # strided store
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -702,7 +702,7 @@ fn strided_store[
             addr.store(value[0])
         return
 
-    var offset = int(addr) + stride * sizeof[type]() * math.iota[
+    var offset = Int(addr) + stride * sizeof[type]() * math.iota[
         DType.index, simd_width
     ]()
     scatter(value, offset, mask)
@@ -860,4 +860,137 @@ fn assume(val: Bool):
     Args:
       val: The input value which is assumed to be `True`.
     """
-    llvm_intrinsic["llvm.assume", NoneType](val)
+    llvm_intrinsic["llvm.assume", NoneType, has_side_effect=False](val)
+
+
+# ===-----------------------------------------------------------------------===#
+# lane_id
+# ===-----------------------------------------------------------------------===#
+
+
+@always_inline("nodebug")
+fn lane_id() -> UInt:
+    """Returns the lane ID of the current thread.
+
+    Returns:
+        The lane ID of the the current thread.
+    """
+    constrained[is_gpu(), "This function only applies to GPUs."]()
+
+    @parameter
+    if is_nvidia_gpu():
+        return UInt(
+            Int(
+                llvm_intrinsic[
+                    "llvm.nvvm.read.ptx.sreg.laneid",
+                    Int32,
+                    has_side_effect=False,
+                ]().cast[DType.uint32]()
+            )
+        )
+
+    else:
+        alias none = Scalar[DType.int32](-1)
+        alias zero = Scalar[DType.int32](0)
+        var t = llvm_intrinsic[
+            "llvm.amdgcn.mbcnt.lo", Int32, has_side_effect=False
+        ](none, zero)
+        return UInt(
+            Int(
+                llvm_intrinsic[
+                    "llvm.amdgcn.mbcnt.hi", Int32, has_side_effect=False
+                ](none, t).cast[DType.uint32]()
+            )
+        )
+
+
+# ===-----------------------------------------------------------------------===#
+# implicitarg_ptr
+# ===-----------------------------------------------------------------------===#
+
+
+@always_inline
+fn implicitarg_ptr() -> (
+    UnsafePointer[UInt8, address_space = _GPUAddressSpace.CONSTANT]
+):
+    """
+    Get a pointer to AMD's implicit arguments table.
+
+    Returns:
+        A pointer to LLVM's implicit arguments table.
+    """
+    constrained[is_amd_gpu(), "This intrinsic is only defined for AMD GPUs"]()
+    return llvm_intrinsic[
+        "llvm.amdgcn.implicitarg.ptr",
+        UnsafePointer[UInt8, address_space=4],
+    ]()
+
+
+# ===-----------------------------------------------------------------------===#
+# readfirstlane
+# ===-----------------------------------------------------------------------===#
+
+
+@always_inline
+fn readfirstlane(value: Int32) -> Int32:
+    """
+    Get the lowest acitve lane of the input operand.
+
+    Args:
+        value: The input thread.
+
+    Returns:
+        The value in the lowest active lane of the input operand.
+    """
+    constrained[is_amd_gpu(), "This intrinsic is only defined for AMD GPUs"]()
+    return llvm_intrinsic["llvm.amdgcn.readfirstlane.i32", Int32, Int32](value)
+
+
+# ===-----------------------------------------------------------------------===#
+# sendmsg
+# ===-----------------------------------------------------------------------===#
+
+
+@always_inline
+fn sendmsg(opcode: Int32, msg: Int32):
+    """
+    Send a message to fixed function hardware.
+    Refer to the specific ISA manual for the ops and messages.
+
+    Args:
+        opcode: The operation to perform.
+        msg: The message to send.
+    """
+    constrained[is_amd_gpu(), "This intrinsic is only defined for AMD GPUs"]()
+    _ = llvm_intrinsic["llvm.amdgcn.s.sendmsg", NoneType, Int32, Int32](
+        opcode, msg
+    )
+
+
+# ===-----------------------------------------------------------------------===#
+# ballot
+# ===-----------------------------------------------------------------------===#
+
+
+@always_inline
+fn ballot[dtype: DType](value: Bool) -> Scalar[dtype]:
+    """
+    Returns a bitfield(Int32 or Int64) containing the result
+    of its Bool argument in all active lanes, and zero in all inactive lanes.
+    For example, ballot(True) returns EXEC mask.
+
+    Parameters:
+        dtype: The DType of the return type.
+
+    Args:
+        value: The value to place across the mask.
+
+    Returns:
+        A bitfield(Int32 or Int64) containing the result of its Bool argument in all active lanes.
+    """
+    constrained[is_amd_gpu(), "This intrinsic is only defined for AMD GPUs"]()
+    constrained[
+        dtype == DType.int32 or dtype == DType.int64,
+        "This intrinsic is only defined for i32 or i64",
+    ]()
+    return llvm_intrinsic["llvm.amdgcn.ballot", Scalar[dtype]](value)

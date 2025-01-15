@@ -12,14 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from collections.string import (
-    _calc_initial_buffer_size_int32,
-    _calc_initial_buffer_size_int64,
-    _isspace,
-)
-
-from memory import UnsafePointer
-from python import Python
 from testing import (
     assert_equal,
     assert_false,
@@ -28,7 +20,14 @@ from testing import (
     assert_true,
 )
 
-from utils import StringRef, StringSlice
+from collections.string import StringSlice
+from collections.string.string import (
+    _calc_initial_buffer_size_int32,
+    _calc_initial_buffer_size_int64,
+)
+from memory import UnsafePointer
+from python import Python
+from utils import StringRef
 
 
 @value
@@ -42,32 +41,6 @@ def test_stringable():
     assert_equal("0", str(0))
     assert_equal("AAA", str(StringRef("AAA")))
     assert_equal("a string", str(AString()))
-
-
-def test_repr():
-    # Standard single-byte characters
-    assert_equal(String.__repr__("hello"), "'hello'")
-    assert_equal(String.__repr__(str(0)), "'0'")
-    assert_equal(String.__repr__("A"), "'A'")
-    assert_equal(String.__repr__(" "), "' '")
-    assert_equal(String.__repr__("~"), "'~'")
-
-    # Special single-byte characters
-    assert_equal(String.__repr__("\0"), r"'\x00'")
-    assert_equal(String.__repr__("\x06"), r"'\x06'")
-    assert_equal(String.__repr__("\x09"), r"'\t'")
-    assert_equal(String.__repr__("\n"), r"'\n'")
-    assert_equal(String.__repr__("\x0d"), r"'\r'")
-    assert_equal(String.__repr__("\x0e"), r"'\x0e'")
-    assert_equal(String.__repr__("\x1f"), r"'\x1f'")
-    assert_equal(String.__repr__("'"), '"\'"')
-    assert_equal(String.__repr__("\\"), r"'\\'")
-    assert_equal(String.__repr__("\x7f"), r"'\x7f'")
-
-    # Multi-byte characters
-    assert_equal(String.__repr__("Örnsköldsvik"), "'Örnsköldsvik'")  # 2-byte
-    assert_equal(String.__repr__("你好!"), "'你好!'")  # 3-byte
-    assert_equal(String.__repr__("hello 🔥!"), "'hello 🔥!'")  # 4-byte
 
 
 def test_constructors():
@@ -101,6 +74,11 @@ def test_constructors():
     # Construction with capacity
     var s4 = String(capacity=1)
     assert_equal(s4._buffer.capacity, 1)
+
+    # Construction from Char
+    var s5 = String(Char(65))
+    assert_equal(s4._buffer.capacity, 1)
+    assert_equal(s5, "A")
 
 
 def test_copy():
@@ -233,60 +211,6 @@ def test_string_join():
 
     var s6 = String(",").join(List[String]("1", "2", "3"))
     assert_equal(s6, "1,2,3")
-
-
-def test_string_literal_join():
-    var s2 = ",".join(List[UInt8](1, 2, 3))
-    assert_equal(s2, "1,2,3")
-
-    var s3 = ",".join(List[UInt8](1, 2, 3, 4, 5, 6, 7, 8, 9))
-    assert_equal(s3, "1,2,3,4,5,6,7,8,9")
-
-    var s4 = ",".join(List[UInt8]())
-    assert_equal(s4, "")
-
-    var s5 = ",".join(List[UInt8](1))
-    assert_equal(s5, "1")
-
-
-def test_stringref():
-    var a = StringRef("AAA")
-    var b = StringRef("BBB")
-    var c = StringRef("AAA")
-
-    assert_equal(3, len(a))
-    assert_equal(3, len(b))
-    assert_equal(3, len(c))
-    assert_equal(4, len("ABBA"))
-
-    # Equality operators
-    assert_not_equal(a, b)
-    assert_not_equal(b, a)
-
-    # Self equality
-    assert_equal(a, a)
-
-    # Value equality
-    assert_equal(a, c)
-
-
-def test_stringref_from_dtypepointer():
-    var a = StringRef("AAA")
-    var b = StringRef(ptr=a.data)
-    assert_equal(3, len(a))
-    assert_equal(3, len(b))
-    assert_equal(a, b)
-
-
-def test_stringref_strip():
-    var a = StringRef("  mojo rocks  ")
-    var b = StringRef("mojo  ")
-    var c = StringRef("  mojo")
-    var d = StringRef("")
-    assert_equal(a.strip(), "mojo rocks")
-    assert_equal(b.strip(), "mojo")
-    assert_equal(c.strip(), "mojo")
-    assert_equal(d.strip(), "")
 
 
 def test_ord():
@@ -523,13 +447,13 @@ def test_stol_base_0():
 
 def test_atol():
     # base 10
-    assert_equal(375, atol(String("375")))
-    assert_equal(1, atol(String("001")))
-    assert_equal(5, atol(String(" 005")))
-    assert_equal(13, atol(String(" 013  ")))
-    assert_equal(-89, atol(String("-89")))
-    assert_equal(-52, atol(String(" -52")))
-    assert_equal(-69, atol(String(" -69  ")))
+    assert_equal(375, atol("375"))
+    assert_equal(1, atol("001"))
+    assert_equal(5, atol(" 005"))
+    assert_equal(13, atol(" 013  "))
+    assert_equal(-89, atol("-89"))
+    assert_equal(-52, atol(" -52"))
+    assert_equal(-69, atol(" -69  "))
     assert_equal(1_100_200, atol(" 1_100_200"))
 
     # other bases
@@ -553,12 +477,12 @@ def test_atol():
     with assert_raises(
         contains="String is not convertible to integer with base 10: '9.03'"
     ):
-        _ = atol(String("9.03"))
+        _ = atol("9.03")
 
     with assert_raises(
         contains="String is not convertible to integer with base 10: ' 10 1'"
     ):
-        _ = atol(String(" 10 1"))
+        _ = atol(" 10 1")
 
     # start/end with underscore double underscores
     with assert_raises(
@@ -615,12 +539,12 @@ def test_atol():
     with assert_raises(
         contains="String is not convertible to integer with base 10: ''"
     ):
-        _ = atol(String(""))
+        _ = atol("")
 
     with assert_raises(
         contains="String expresses an integer too large to store in Int."
     ):
-        _ = atol(String("9223372036854775832"))
+        _ = atol("9223372036854775832")
 
 
 def test_atol_base_0():
@@ -681,63 +605,63 @@ def test_atol_base_0():
 
 
 def test_atof():
-    assert_equal(375.0, atof(String("375.f")))
-    assert_equal(1.0, atof(String("001.")))
-    assert_equal(+5.0, atof(String(" +005.")))
-    assert_equal(13.0, atof(String(" 013.f  ")))
-    assert_equal(-89, atof(String("-89")))
-    assert_equal(-0.3, atof(String(" -0.3")))
-    assert_equal(-69e3, atof(String(" -69E+3  ")))
-    assert_equal(123.2e1, atof(String(" 123.2E1  ")))
-    assert_equal(23e3, atof(String(" 23E3  ")))
-    assert_equal(989343e-13, atof(String(" 989343E-13  ")))
-    assert_equal(1.123, atof(String(" 1.123f")))
-    assert_equal(0.78, atof(String(" .78 ")))
-    assert_equal(121234.0, atof(String(" 121234.  ")))
-    assert_equal(985031234.0, atof(String(" 985031234.F  ")))
-    assert_equal(FloatLiteral.negative_zero, atof(String("-0")))
-    assert_equal(FloatLiteral.nan, atof(String("  nan")))
-    assert_equal(FloatLiteral.infinity, atof(String(" inf ")))
-    assert_equal(FloatLiteral.negative_infinity, atof(String("-inf  ")))
+    assert_equal(375.0, atof("375.f"))
+    assert_equal(1.0, atof("001."))
+    assert_equal(+5.0, atof(" +005."))
+    assert_equal(13.0, atof(" 013.f  "))
+    assert_equal(-89, atof("-89"))
+    assert_equal(-0.3, atof(" -0.3"))
+    assert_equal(-69e3, atof(" -69E+3  "))
+    assert_equal(123.2e1, atof(" 123.2E1  "))
+    assert_equal(23e3, atof(" 23E3  "))
+    assert_equal(989343e-13, atof(" 989343E-13  "))
+    assert_equal(1.123, atof(" 1.123f"))
+    assert_equal(0.78, atof(" .78 "))
+    assert_equal(121234.0, atof(" 121234.  "))
+    assert_equal(985031234.0, atof(" 985031234.F  "))
+    assert_equal(FloatLiteral.negative_zero, atof("-0"))
+    assert_equal(FloatLiteral.nan, atof("  nan"))
+    assert_equal(FloatLiteral.infinity, atof(" inf "))
+    assert_equal(FloatLiteral.negative_infinity, atof("-inf  "))
 
     # Negative cases
     with assert_raises(contains="String is not convertible to float: ''"):
-        _ = atof(String(""))
+        _ = atof("")
 
     with assert_raises(
         contains="String is not convertible to float: ' 123 asd'"
     ):
-        _ = atof(String(" 123 asd"))
+        _ = atof(" 123 asd")
 
     with assert_raises(
         contains="String is not convertible to float: ' f.9123 '"
     ):
-        _ = atof(String(" f.9123 "))
+        _ = atof(" f.9123 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' 989343E-1A3 '"
     ):
-        _ = atof(String(" 989343E-1A3 "))
+        _ = atof(" 989343E-1A3 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' 124124124_2134124124 '"
     ):
-        _ = atof(String(" 124124124_2134124124 "))
+        _ = atof(" 124124124_2134124124 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' 123.2E '"
     ):
-        _ = atof(String(" 123.2E "))
+        _ = atof(" 123.2E ")
 
     with assert_raises(
         contains="String is not convertible to float: ' --958.23 '"
     ):
-        _ = atof(String(" --958.23 "))
+        _ = atof(" --958.23 ")
 
     with assert_raises(
         contains="String is not convertible to float: ' ++94. '"
     ):
-        _ = atof(String(" ++94. "))
+        _ = atof(" ++94. ")
 
 
 def test_calc_initial_buffer_size_int32():
@@ -798,20 +722,6 @@ def test_find():
     assert_equal(7, str.find("o", -5))
 
     assert_equal(-1, String("abc").find("abcd"))
-
-
-def test_count():
-    var str = String("Hello world")
-
-    assert_equal(12, str.count(""))
-    assert_equal(1, str.count("Hell"))
-    assert_equal(3, str.count("l"))
-    assert_equal(1, str.count("ll"))
-    assert_equal(1, str.count("ld"))
-    assert_equal(0, str.count("universe"))
-
-    assert_equal(String("aaaaa").count("a"), 5)
-    assert_equal(String("aaaaaa").count("aa"), 3)
 
 
 def test_replace():
@@ -1126,26 +1036,6 @@ def test_upper():
 
 
 def test_isspace():
-    # checking true cases
-    assert_true(_isspace(ord(" ")))
-    assert_true(_isspace(ord("\n")))
-    assert_true(_isspace("\n"))
-    assert_true(_isspace(ord("\t")))
-    assert_true(_isspace(ord("\r")))
-    assert_true(_isspace(ord("\v")))
-    assert_true(_isspace(ord("\f")))
-
-    # Checking false cases
-    assert_false(_isspace(ord("a")))
-    assert_false(_isspace("a"))
-    assert_false(_isspace(ord("u")))
-    assert_false(_isspace(ord("s")))
-    assert_false(_isspace(ord("t")))
-    assert_false(_isspace(ord("i")))
-    assert_false(_isspace(ord("n")))
-    assert_false(_isspace(ord("z")))
-    assert_false(_isspace(ord(".")))
-
     # test all utf8 and unicode separators
     # 0 is to build a String with null terminator
     alias next_line = List[UInt8](0xC2, 0x85, 0)
@@ -1385,11 +1275,11 @@ def test_removesuffix():
 
 
 def test_intable():
-    assert_equal(int(String("123")), 123)
-    assert_equal(int(String("10"), base=8), 8)
+    assert_equal(Int(String("123")), 123)
+    assert_equal(Int(String("10"), base=8), 8)
 
     with assert_raises():
-        _ = int(String("hi"))
+        _ = Int(String("hi"))
 
 
 def test_string_mul():
@@ -1401,7 +1291,7 @@ def test_string_mul():
 def test_indexing():
     a = String("abc")
     assert_equal(a[False], "a")
-    assert_equal(a[int(1)], "b")
+    assert_equal(a[Int(1)], "b")
     assert_equal(a[2], "c")
 
 
@@ -1423,7 +1313,7 @@ def test_string_iter():
     assert_equal(321, atol(concat))
 
     for v in vs:
-        v.unsafe_ptr()[] = ord("1")
+        v.unsafe_ptr().origin_cast[mut=True]()[] = ord("1")
 
     # Borrow immutably
     for v in vs:
@@ -1433,19 +1323,23 @@ def test_string_iter():
 
     var idx = -1
     vs = String("mojo🔥")
-    for item in vs:
-        idx += 1
-        if idx == 0:
-            assert_equal("m", item)
-        elif idx == 1:
-            assert_equal("o", item)
-        elif idx == 2:
-            assert_equal("j", item)
-        elif idx == 3:
-            assert_equal("o", item)
-        elif idx == 4:
-            assert_equal("🔥", item)
-    assert_equal(4, idx)
+    var iterator = vs.__iter__()
+    assert_equal(5, len(iterator))
+    var item = iterator.__next__()
+    assert_equal(String("m"), String(item))
+    assert_equal(4, len(iterator))
+    item = iterator.__next__()
+    assert_equal(String("o"), String(item))
+    assert_equal(3, len(iterator))
+    item = iterator.__next__()
+    assert_equal(String("j"), String(item))
+    assert_equal(2, len(iterator))
+    item = iterator.__next__()
+    assert_equal(String("o"), String(item))
+    assert_equal(1, len(iterator))
+    item = iterator.__next__()
+    assert_equal(String("🔥"), String(item))
+    assert_equal(0, len(iterator))
 
     var items = List[String](
         "mojo🔥",
@@ -1757,12 +1651,7 @@ def main():
     test_add()
     test_add_string_slice()
     test_stringable()
-    test_repr()
     test_string_join()
-    test_string_literal_join()
-    test_stringref()
-    test_stringref_from_dtypepointer()
-    test_stringref_strip()
     test_ord()
     test_chr()
     test_string_indexing()
@@ -1775,7 +1664,6 @@ def main():
     test_calc_initial_buffer_size_int64()
     test_contains()
     test_find()
-    test_count()
     test_replace()
     test_rfind()
     test_split()

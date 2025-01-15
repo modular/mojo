@@ -24,7 +24,8 @@ from pwd import getpwuid
 from stat import S_ISDIR, S_ISLNK, S_ISREG
 from sys import has_neon, os_is_linux, os_is_macos, os_is_windows
 
-from utils import Span, StringSlice
+from memory import Span
+from utils import StringSlice
 
 from .. import PathLike
 from .._linux_aarch64 import _lstat as _lstat_linux_arm
@@ -51,22 +52,22 @@ fn _constrain_unix():
 fn _get_stat_st_mode(path: String) raises -> Int:
     @parameter
     if os_is_macos():
-        return int(_stat_macos(path).st_mode)
+        return Int(_stat_macos(path).st_mode)
     elif has_neon():
-        return int(_stat_linux_arm(path).st_mode)
+        return Int(_stat_linux_arm(path).st_mode)
     else:
-        return int(_stat_linux_x86(path).st_mode)
+        return Int(_stat_linux_x86(path).st_mode)
 
 
 @always_inline
 fn _get_lstat_st_mode(path: String) raises -> Int:
     @parameter
     if os_is_macos():
-        return int(_lstat_macos(path).st_mode)
+        return Int(_lstat_macos(path).st_mode)
     elif has_neon():
-        return int(_lstat_linux_arm(path).st_mode)
+        return Int(_lstat_linux_arm(path).st_mode)
     else:
-        return int(_lstat_linux_x86(path).st_mode)
+        return Int(_lstat_linux_x86(path).st_mode)
 
 
 # ===----------------------------------------------------------------------=== #
@@ -229,11 +230,10 @@ fn dirname[PathLike: os.PathLike, //](path: PathLike) -> String:
         The directory component of a pathname.
     """
     var fspath = path.__fspath__()
-    alias sep = str(os.sep)
-    var i = fspath.rfind(sep) + 1
+    var i = fspath.rfind(os.sep) + 1
     var head = fspath[:i]
-    if head and head != sep * len(head):
-        return head.rstrip(sep)
+    if head and head != os.sep * len(head):
+        return String(head.rstrip(String(os.sep)))
     return head
 
 
@@ -312,7 +312,10 @@ fn getsize[PathLike: os.PathLike, //](path: PathLike) raises -> Int:
 # ===----------------------------------------------------------------------=== #
 
 
-fn join(path: String, *paths: String) -> String:
+# TODO(MOCO-1532):
+#   Use StringSlice here once param inference bug for empty variadic
+#   list of parameterized types is fixed.
+fn join(owned path: String, *paths: String) -> String:
     """Join two or more pathname components, inserting '/' as needed.
     If any component is an absolute path, all previous path components
     will be discarded.  An empty last part will result in a path that
@@ -335,7 +338,7 @@ fn join(path: String, *paths: String) -> String:
         else:
             joined_path += sep + cur_path[]
 
-    return joined_path
+    return joined_path^
 
 
 # ===----------------------------------------------------------------------=== #
@@ -365,7 +368,7 @@ def split[PathLike: os.PathLike, //](path: PathLike) -> (String, String):
     i = fspath.rfind(os.sep) + 1
     head, tail = fspath[:i], fspath[i:]
     if head and head != str(os.sep) * len(head):
-        head = head.rstrip(sep)
+        head = str(head.rstrip(sep))
     return head, tail
 
 
@@ -386,11 +389,10 @@ fn basename[PathLike: os.PathLike, //](path: PathLike) -> String:
         The basename from the path.
     """
     var fspath = path.__fspath__()
-    alias sep = str(os.sep)
-    var i = fspath.rfind(sep) + 1
+    var i = fspath.rfind(os.sep) + 1
     var head = fspath[i:]
-    if head and head != sep * len(head):
-        return head.rstrip(sep)
+    if head and head != os.sep * len(head):
+        return String(head.rstrip(String(os.sep)))
     return head
 
 
@@ -487,7 +489,7 @@ fn _is_shell_special_variable(byte: Byte) -> Bool:
         ord("8"),
         ord("9"),
     )
-    return int(byte) in shell_variables
+    return Int(byte) in shell_variables
 
 
 fn _is_alphanumeric(byte: Byte) -> Bool:
@@ -499,7 +501,7 @@ fn _is_alphanumeric(byte: Byte) -> Bool:
     Returns:
         True if the byte is an ASCII letter, number, or underscore and False otherwise.
     """
-    var b = int(byte)
+    var b = Int(byte)
     return (
         b == ord("_")
         or ord("0") <= b

@@ -44,9 +44,9 @@ fn _align_down(value: Int, alignment: Int) -> Int:
     return value._positive_div(alignment) * alignment
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # memcmp
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -79,7 +79,7 @@ fn _memcmp_impl_unconstrained[
         var s2i = s2.load[width=simd_width](i)
         var diff = s1i != s2i
         if any(diff):
-            var index = int(
+            var index = Int(
                 diff.select(
                     iota, SIMD[DType.uint8, simd_width](255)
                 ).reduce_min()
@@ -90,7 +90,7 @@ fn _memcmp_impl_unconstrained[
     var s2i = s2.load[width=simd_width](last)
     var diff = s1i != s2i
     if any(diff):
-        var index = int(
+        var index = Int(
             diff.select(iota, SIMD[DType.uint8, simd_width](255)).reduce_min()
         )
         return -1 if s1i[index] < s2i[index] else 1
@@ -146,14 +146,16 @@ fn memcmp[
     return _memcmp_impl(s1.bitcast[Byte](), s2.bitcast[Byte](), byte_count)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # memcpy
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
 fn _memcpy_impl(
-    dest_data: UnsafePointer[Byte, **_], src_data: __type_of(dest_data), n: Int
+    dest_data: UnsafePointer[Byte, mut=True, **_],
+    src_data: __type_of(dest_data),
+    n: Int,
 ):
     """Copies a memory area.
 
@@ -253,15 +255,15 @@ fn memcpy[
     """
     var n = count * sizeof[dest.type]()
     _memcpy_impl(
-        dest.bitcast[Byte, origin=MutableAnyOrigin](),
-        src.bitcast[Byte, origin=MutableAnyOrigin](),
+        dest.bitcast[Byte]().origin_cast[origin=MutableAnyOrigin](),
+        src.bitcast[Byte]().origin_cast[origin=MutableAnyOrigin](),
         n,
     )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # memset
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline("nodebug")
@@ -304,9 +306,9 @@ fn memset[
     _memset_impl(ptr.bitcast[Byte](), value, count * sizeof[type]())
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # memset_zero
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -356,9 +358,9 @@ fn memset_zero[
         ptr.store(i, 0)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # stack_allocation
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -412,9 +414,12 @@ fn stack_allocation[
 
     @parameter
     if is_gpu():
-        # On NVGPU, SHARED and PARAM address spaces lower to global memory.
+        # On NVGPU, SHARED and CONSTANT address spaces lower to global memory.
         @parameter
-        if address_space in (_GPUAddressSpace.SHARED, _GPUAddressSpace.PARAM):
+        if address_space in (
+            _GPUAddressSpace.SHARED,
+            _GPUAddressSpace.CONSTANT,
+        ):
             alias global_name = name.value() if name else "_global_alloc"
             return __mlir_op.`pop.global_alloc`[
                 name = global_name.value,
@@ -447,9 +452,9 @@ fn stack_allocation[
     ]()
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # malloc
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -475,9 +480,9 @@ fn _malloc[
         ](alignment.value, size.value)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # aligned_free
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline

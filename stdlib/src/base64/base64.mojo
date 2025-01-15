@@ -20,19 +20,21 @@ from base64 import b64encode
 """
 
 from collections import List
+from collections.string import StringSlice
+from memory import Span
 from sys import simdwidthof
 
 import bit
 
 from ._b64encode import b64encode_with_buffers as _b64encode_with_buffers
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Utilities
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
-fn _ascii_to_value(char: String) -> Int:
+fn _ascii_to_value(char: StringSlice) -> Int:
     """Converts an ASCII character to its integer value for base64 decoding.
 
     Args:
@@ -59,13 +61,12 @@ fn _ascii_to_value(char: String) -> Int:
         return -1
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # b64encode
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
-# TODO: Use Span instead of List as input when Span is easier to use
-fn b64encode(input_bytes: List[UInt8, _], inout result: List[UInt8, _]):
+fn b64encode(input_bytes: Span[Byte, _], mut result: List[Byte, _]):
     """Performs base64 encoding on the input string.
 
     Args:
@@ -76,7 +77,7 @@ fn b64encode(input_bytes: List[UInt8, _], inout result: List[UInt8, _]):
 
 
 # For a nicer API, we provide those overloads:
-fn b64encode(input_string: String) -> String:
+fn b64encode(input_string: StringSlice) -> String:
     """Performs base64 encoding on the input string.
 
     Args:
@@ -85,11 +86,10 @@ fn b64encode(input_string: String) -> String:
     Returns:
         The ASCII base64 encoded string.
     """
-    # Slicing triggers a copy, but it should work with Span later on.
-    return b64encode(input_string._buffer[:-1])
+    return b64encode(input_string.as_bytes())
 
 
-fn b64encode(input_bytes: List[UInt8, _]) -> String:
+fn b64encode(input_bytes: Span[Byte, _]) -> String:
     """Performs base64 encoding on the input string.
 
     Args:
@@ -99,20 +99,20 @@ fn b64encode(input_bytes: List[UInt8, _]) -> String:
         The ASCII base64 encoded string.
     """
     # +1 for the null terminator and +1 to be sure
-    var result = List[UInt8, True](capacity=int(len(input_bytes) * (4 / 3)) + 2)
+    var result = List[UInt8, True](capacity=Int(len(input_bytes) * (4 / 3)) + 2)
     b64encode(input_bytes, result)
     # null-terminate the result
     result.append(0)
     return String(result^)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # b64decode
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
-fn b64decode(str: String) -> String:
+fn b64decode(str: StringSlice) -> String:
     """Performs base64 decoding on the input string.
 
     Args:
@@ -150,19 +150,20 @@ fn b64decode(str: String) -> String:
         p.append(((c & 0x03) << 6) | d)
 
     p.append(0)
-    return p
+
+    return String(p^)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # b16encode
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
-fn b16encode(str: String) -> String:
-    """Performs base16 encoding on the input string.
+fn b16encode(str: StringSlice) -> String:
+    """Performs base16 encoding on the input string slice.
 
     Args:
-      str: The input string.
+      str: The input string slice.
 
     Returns:
       Base16 encoding of the input string.
@@ -176,27 +177,27 @@ fn b16encode(str: String) -> String:
     @parameter
     @always_inline
     fn str_bytes(idx: UInt8) -> UInt8:
-        return str._buffer[int(idx)]
+        return str._slice[Int(idx)]
 
     for i in range(length):
         var str_byte = str_bytes(i)
         var hi = str_byte >> 4
         var lo = str_byte & 0b1111
-        out.append(b16chars[int(hi)])
-        out.append(b16chars[int(lo)])
+        out.append(b16chars[Int(hi)])
+        out.append(b16chars[Int(lo)])
 
     out.append(0)
 
     return String(out^)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # b16decode
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
-fn b16decode(str: String) -> String:
+fn b16decode(str: StringSlice) -> String:
     """Performs base16 decoding on the input string.
 
     Args:
@@ -209,7 +210,7 @@ fn b16decode(str: String) -> String:
     # TODO: Replace with dict literal when possible
     @parameter
     @always_inline
-    fn decode(c: String) -> Int:
+    fn decode(c: StringSlice) -> Int:
         var char_val = ord(c)
 
         if ord("A") <= char_val <= ord("Z"):
@@ -232,4 +233,4 @@ fn b16decode(str: String) -> String:
         p.append(decode(hi) << 4 | decode(lo))
 
     p.append(0)
-    return p
+    return String(p^)

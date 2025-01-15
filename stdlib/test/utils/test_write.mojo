@@ -15,7 +15,7 @@
 from testing import assert_equal
 
 from utils import Writable, Writer
-from utils.inline_string import _FixedString
+from collections.string.inline_string import _FixedString
 
 
 fn main() raises:
@@ -34,7 +34,7 @@ struct Point(Writable, Stringable):
     var y: Int
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         writer.write("Point(", self.x, ", ", self.y, ")")
 
     @no_inline

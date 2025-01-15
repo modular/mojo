@@ -24,9 +24,9 @@ from utils import StaticString, StringSlice
 alias _DEFAULT_DIGIT_CHARS = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # bin
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn bin(num: Scalar, /, *, prefix: StaticString = "0b") -> String:
@@ -66,11 +66,11 @@ fn bin(b: Scalar[DType.bool], /, *, prefix: StaticString = "0b") -> String:
     return bin(b.cast[DType.int8](), prefix=prefix)
 
 
-fn bin[T: Indexer, //](num: T, /, *, prefix: StaticString = "0b") -> String:
+fn bin[T: Intable, //](num: T, /, *, prefix: StaticString = "0b") -> String:
     """Returns the binary representation of an indexer type.
 
     Parameters:
-        T: The Indexer type.
+        T: The Intable type.
 
     Args:
         num: An indexer value.
@@ -79,12 +79,12 @@ fn bin[T: Indexer, //](num: T, /, *, prefix: StaticString = "0b") -> String:
     Returns:
         The binary string representation of num.
     """
-    return bin(Scalar[DType.index](index(num)), prefix=prefix)
+    return bin(Scalar[DType.index](Int(num)), prefix=prefix)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # hex
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn hex(value: Scalar, /, *, prefix: StaticString = "0x") -> String:
@@ -105,7 +105,7 @@ fn hex(value: Scalar, /, *, prefix: StaticString = "0x") -> String:
     return _try_format_int(value, 16, prefix=prefix)
 
 
-fn hex[T: Indexer, //](value: T, /, *, prefix: StaticString = "0x") -> String:
+fn hex[T: Intable, //](value: T, /, *, prefix: StaticString = "0x") -> String:
     """Returns the hex string representation of the given integer.
 
     The hexadecimal representation is a base-16 encoding of the integer value.
@@ -123,7 +123,7 @@ fn hex[T: Indexer, //](value: T, /, *, prefix: StaticString = "0x") -> String:
     Returns:
         A string containing the hex representation of the given integer.
     """
-    return hex(Scalar[DType.index](index(value)), prefix=prefix)
+    return hex(Scalar[DType.index](Int(value)), prefix=prefix)
 
 
 fn hex(value: Scalar[DType.bool], /, *, prefix: StaticString = "0x") -> String:
@@ -144,9 +144,9 @@ fn hex(value: Scalar[DType.bool], /, *, prefix: StaticString = "0x") -> String:
     return hex(value.cast[DType.int8](), prefix=prefix)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # oct
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn oct(value: Scalar, /, *, prefix: StaticString = "0o") -> String:
@@ -167,7 +167,7 @@ fn oct(value: Scalar, /, *, prefix: StaticString = "0o") -> String:
     return _try_format_int(value, 8, prefix=prefix)
 
 
-fn oct[T: Indexer, //](value: T, /, *, prefix: StaticString = "0o") -> String:
+fn oct[T: Intable, //](value: T, /, *, prefix: StaticString = "0o") -> String:
     """Returns the octal string representation of the given integer.
 
     The octal representation is a base-8 encoding of the integer value.
@@ -176,7 +176,7 @@ fn oct[T: Indexer, //](value: T, /, *, prefix: StaticString = "0o") -> String:
     subsequent digits are octal.
 
     Parameters:
-        T: The indexer type to represent in octal.
+        T: The intable type to represent in octal.
 
     Args:
         value: The integer value to format.
@@ -185,7 +185,7 @@ fn oct[T: Indexer, //](value: T, /, *, prefix: StaticString = "0o") -> String:
     Returns:
         A string containing the octal representation of the given integer.
     """
-    return oct(Scalar[DType.index](index(value)), prefix=prefix)
+    return oct(Scalar[DType.index](Int(value)), prefix=prefix)
 
 
 fn oct(value: Scalar[DType.bool], /, *, prefix: StaticString = "0o") -> String:
@@ -206,9 +206,9 @@ fn oct(value: Scalar[DType.bool], /, *, prefix: StaticString = "0o") -> String:
     return oct(value.cast[DType.int8](), prefix=prefix)
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Integer formatting utilities
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn _try_format_int(
@@ -249,7 +249,7 @@ fn _write_int[
     type: DType,
     W: Writer,
 ](
-    inout writer: W,
+    mut writer: W,
     value: Scalar[type],
     /,
     radix: Int = 10,
@@ -268,7 +268,7 @@ fn _try_write_int[
     type: DType,
     W: Writer,
 ](
-    inout writer: W,
+    mut writer: W,
     value: Scalar[type],
     /,
     radix: Int = 10,
@@ -366,7 +366,7 @@ fn _try_write_int[
             # Write the char representing the value of the least significant
             # digit.
             buf.unsafe_ptr().offset(offset).init_pointee_copy(
-                digit_chars_array[int(digit_value)]
+                digit_chars_array[Int(digit_value)]
             )
 
             # Position the offset to write the next digit.

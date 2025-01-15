@@ -12,11 +12,36 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from testing import assert_equal, assert_false, assert_true
+from testing import assert_equal, assert_false, assert_true, assert_raises
 
-from utils import Span, StringSlice
-from utils._utf8_validation import _is_valid_utf8
-from utils.string_slice import _count_utf8_continuation_bytes
+from collections.string.string_slice import (
+    StringSlice,
+    _count_utf8_continuation_bytes,
+)
+from collections.string._utf8_validation import _is_valid_utf8
+from memory import Span, UnsafePointer
+
+from sys.info import sizeof, alignof
+
+
+fn test_string_slice_layout() raises:
+    # Test that the layout of `StringSlice` is the same as `llvm::StringRef`.
+    # This is necessary for `StringSlice` to be validly bitcasted to and from
+    # `llvm::StringRef`
+
+    # StringSlice should be two words in size.
+    assert_equal(sizeof[StringSlice[MutableAnyOrigin]](), 2 * sizeof[Int]())
+
+    var str_slice = StringSlice("")
+
+    var base_ptr = Int(UnsafePointer.address_of(str_slice))
+    var first_word_ptr = Int(UnsafePointer.address_of(str_slice._slice._data))
+    var second_word_ptr = Int(UnsafePointer.address_of(str_slice._slice._len))
+
+    # 1st field should be at 0-byte offset from base ptr
+    assert_equal(first_word_ptr - base_ptr, 0)
+    # 2nd field should at 1-word offset from base ptr
+    assert_equal(second_word_ptr - base_ptr, sizeof[Int]())
 
 
 fn test_string_literal_byte_span() raises:
@@ -88,7 +113,7 @@ fn test_string_byte_span() raises:
     assert_equal(len(sub5), 0)
 
     # Empty slices still have a pointer value
-    assert_equal(int(sub5.unsafe_ptr()) - int(sub4.unsafe_ptr()), 2)
+    assert_equal(Int(sub5.unsafe_ptr()) - Int(sub4.unsafe_ptr()), 2)
 
     # ----------------------------------
     # Test invalid slicing
@@ -175,6 +200,34 @@ fn test_slice_bool() raises:
     assert_true(str1.as_string_slice().__bool__())
     var str2: String = ""
     assert_true(not str2.as_string_slice().__bool__())
+
+
+def test_slice_repr():
+    # Standard single-byte characters
+    assert_equal(StringSlice.__repr__("hello"), "'hello'")
+    assert_equal(StringSlice.__repr__(str(0)), "'0'")
+    assert_equal(StringSlice.__repr__("A"), "'A'")
+    assert_equal(StringSlice.__repr__(" "), "' '")
+    assert_equal(StringSlice.__repr__("~"), "'~'")
+
+    # Special single-byte characters
+    assert_equal(StringSlice.__repr__("\0"), r"'\x00'")
+    assert_equal(StringSlice.__repr__("\x06"), r"'\x06'")
+    assert_equal(StringSlice.__repr__("\x09"), r"'\t'")
+    assert_equal(StringSlice.__repr__("\n"), r"'\n'")
+    assert_equal(StringSlice.__repr__("\x0d"), r"'\r'")
+    assert_equal(StringSlice.__repr__("\x0e"), r"'\x0e'")
+    assert_equal(StringSlice.__repr__("\x1f"), r"'\x1f'")
+    assert_equal(StringSlice.__repr__("'"), '"\'"')
+    assert_equal(StringSlice.__repr__("\\"), r"'\\'")
+    assert_equal(StringSlice.__repr__("\x7f"), r"'\x7f'")
+
+    # Multi-byte characters
+    assert_equal(
+        StringSlice.__repr__("Örnsköldsvik"), "'Örnsköldsvik'"
+    )  # 2-byte
+    assert_equal(StringSlice.__repr__("你好!"), "'你好!'")  # 3-byte
+    assert_equal(StringSlice.__repr__("hello 🔥!"), "'hello 🔥!'")  # 4-byte
 
 
 fn test_utf8_validation() raises:
@@ -334,7 +387,7 @@ alias BAD_SEQUENCES = List[String](
 )
 
 
-fn validate_utf8(slice: String) -> Bool:
+fn validate_utf8(slice: StringSlice) -> Bool:
     return _is_valid_utf8(slice.as_bytes())
 
 
@@ -346,6 +399,17 @@ def test_good_utf8_sequences():
 def test_bad_utf8_sequences():
     for sequence in BAD_SEQUENCES:
         assert_false(validate_utf8(sequence[]))
+
+
+def test_stringslice_from_utf8():
+    for sequence in GOOD_SEQUENCES:
+        var bytes = sequence[].as_bytes()
+        _ = StringSlice.from_utf8(bytes)
+
+    for sequence in BAD_SEQUENCES:
+        with assert_raises(contains="buffer is not valid UTF-8"):
+            var bytes = sequence[].as_bytes()
+            _ = StringSlice.from_utf8(bytes)
 
 
 def test_combination_good_utf8_sequences():
@@ -421,14 +485,6 @@ def test_splitlines():
 
     # FIXME: remove once StringSlice conforms to TestableCollectionElement
     fn _assert_equal[
-        O1: ImmutableOrigin, O2: ImmutableOrigin
-    ](l1: List[StringSlice[O1]], l2: List[StringSlice[O2]]) raises:
-        assert_equal(len(l1), len(l2))
-        for i in range(len(l1)):
-            assert_equal(str(l1[i]), str(l2[i]))
-
-    # FIXME: remove once StringSlice conforms to TestableCollectionElement
-    fn _assert_equal[
         O1: ImmutableOrigin
     ](l1: List[StringSlice[O1]], l2: List[String]) raises:
         assert_equal(len(l1), len(l2))
@@ -436,36 +492,36 @@ def test_splitlines():
             assert_equal(str(l1[i]), l2[i])
 
     # Test with no line breaks
-    _assert_equal(S("hello world").splitlines(), L("hello world"))
+    assert_equal(S("hello world").splitlines(), L("hello world"))
 
     # Test with line breaks
-    _assert_equal(S("hello\nworld").splitlines(), L("hello", "world"))
-    _assert_equal(S("hello\rworld").splitlines(), L("hello", "world"))
-    _assert_equal(S("hello\r\nworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\nworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\rworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\r\nworld").splitlines(), L("hello", "world"))
 
     # Test with multiple different line breaks
     s1 = S("hello\nworld\r\nmojo\rlanguage\r\n")
     hello_mojo = L("hello", "world", "mojo", "language")
-    _assert_equal(s1.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s1.splitlines(), hello_mojo)
+    assert_equal(
         s1.splitlines(keepends=True),
         L("hello\n", "world\r\n", "mojo\r", "language\r\n"),
     )
 
     # Test with an empty string
-    _assert_equal(S("").splitlines(), L())
+    assert_equal(S("").splitlines(), L())
     # test \v \f \x1c \x1d
     s2 = S("hello\vworld\fmojo\x1clanguage\x1d")
-    _assert_equal(s2.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s2.splitlines(), hello_mojo)
+    assert_equal(
         s2.splitlines(keepends=True),
         L("hello\v", "world\f", "mojo\x1c", "language\x1d"),
     )
 
     # test \x1c \x1d \x1e
     s3 = S("hello\x1cworld\x1dmojo\x1elanguage\x1e")
-    _assert_equal(s3.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s3.splitlines(), hello_mojo)
+    assert_equal(
         s3.splitlines(keepends=True),
         L("hello\x1c", "world\x1d", "mojo\x1e", "language\x1e"),
     )
@@ -482,26 +538,185 @@ def test_splitlines():
         u = i[]
         item = String("").join("hello", u, "world", u, "mojo", u, "language", u)
         s = StringSlice(item)
-        _assert_equal(s.splitlines(), hello_mojo)
+        assert_equal(s.splitlines(), hello_mojo)
         items = List("hello" + u, "world" + u, "mojo" + u, "language" + u)
         _assert_equal(s.splitlines(keepends=True), items)
 
 
-fn main() raises:
+def test_rstrip():
+    # with default rstrip chars
+    var empty_string = "".as_string_slice()
+    assert_true(empty_string.rstrip() == "")
+
+    var space_string = " \t\n\r\v\f  ".as_string_slice()
+    assert_true(space_string.rstrip() == "")
+
+    var str0 = "     n ".as_string_slice()
+    assert_true(str0.rstrip() == "     n")
+
+    var str1 = "string".as_string_slice()
+    assert_true(str1.rstrip() == "string")
+
+    var str2 = "something \t\n\t\v\f".as_string_slice()
+    assert_true(str2.rstrip() == "something")
+
+    # with custom chars for rstrip
+    var str3 = "mississippi".as_string_slice()
+    assert_true(str3.rstrip("sip") == "m")
+
+    var str4 = "mississippimississippi \n ".as_string_slice()
+    assert_true(str4.rstrip("sip ") == "mississippimississippi \n")
+    assert_true(str4.rstrip("sip \n") == "mississippim")
+
+
+def test_lstrip():
+    # with default lstrip chars
+    var empty_string = "".as_string_slice()
+    assert_true(empty_string.lstrip() == "")
+
+    var space_string = " \t\n\r\v\f  ".as_string_slice()
+    assert_true(space_string.lstrip() == "")
+
+    var str0 = "     n ".as_string_slice()
+    assert_true(str0.lstrip() == "n ")
+
+    var str1 = "string".as_string_slice()
+    assert_true(str1.lstrip() == "string")
+
+    var str2 = " \t\n\t\v\fsomething".as_string_slice()
+    assert_true(str2.lstrip() == "something")
+
+    # with custom chars for lstrip
+    var str3 = "mississippi".as_string_slice()
+    assert_true(str3.lstrip("mis") == "ppi")
+
+    var str4 = " \n mississippimississippi".as_string_slice()
+    assert_true(str4.lstrip("mis ") == "\n mississippimississippi")
+    assert_true(str4.lstrip("mis \n") == "ppimississippi")
+
+
+def test_strip():
+    # with default strip chars
+    var empty_string = "".as_string_slice()
+    assert_true(empty_string.strip() == "")
+    alias comp_empty_string_stripped = "".as_string_slice().strip()
+    assert_true(comp_empty_string_stripped == "")
+
+    var space_string = " \t\n\r\v\f  ".as_string_slice()
+    assert_true(space_string.strip() == "")
+    alias comp_space_string_stripped = " \t\n\r\v\f  ".as_string_slice().strip()
+    assert_true(comp_space_string_stripped == "")
+
+    var str0 = "     n ".as_string_slice()
+    assert_true(str0.strip() == "n")
+    alias comp_str0_stripped = "     n ".as_string_slice().strip()
+    assert_true(comp_str0_stripped == "n")
+
+    var str1 = "string".as_string_slice()
+    assert_true(str1.strip() == "string")
+    alias comp_str1_stripped = ("string").strip()
+    assert_true(comp_str1_stripped == "string")
+
+    var str2 = " \t\n\t\v\fsomething \t\n\t\v\f".as_string_slice()
+    alias comp_str2_stripped = (" \t\n\t\v\fsomething \t\n\t\v\f").strip()
+    assert_true(str2.strip() == "something")
+    assert_true(comp_str2_stripped == "something")
+
+    # with custom strip chars
+    var str3 = "mississippi".as_string_slice()
+    assert_true(str3.strip("mips") == "")
+    assert_true(str3.strip("mip") == "ssiss")
+    alias comp_str3_stripped = "mississippi".as_string_slice().strip("mips")
+    assert_true(comp_str3_stripped == "")
+
+    var str4 = " \n mississippimississippi \n ".as_string_slice()
+    assert_true(str4.strip(" ") == "\n mississippimississippi \n")
+    assert_true(str4.strip("\nmip ") == "ssissippimississ")
+
+    alias comp_str4_stripped = (
+        " \n mississippimississippi \n ".as_string_slice().strip(" ")
+    )
+    assert_true(comp_str4_stripped == "\n mississippimississippi \n")
+
+
+def test_startswith():
+    var empty = StringSlice("")
+    assert_true(empty.startswith(""))
+    assert_false(empty.startswith("a"))
+    assert_false(empty.startswith("ab"))
+
+    var a = StringSlice("a")
+    assert_true(a.startswith(""))
+    assert_true(a.startswith("a"))
+    assert_false(a.startswith("ab"))
+
+    var ab = StringSlice("ab")
+    assert_true(ab.startswith(""))
+    assert_true(ab.startswith("a"))
+    assert_false(ab.startswith("b"))
+    assert_true(ab.startswith("b", start=1))
+    assert_true(ab.startswith("a", end=1))
+    assert_true(ab.startswith("ab"))
+
+
+def test_endswith():
+    var empty = StringSlice("")
+    assert_true(empty.endswith(""))
+    assert_false(empty.endswith("a"))
+    assert_false(empty.endswith("ab"))
+
+    var a = StringSlice("a")
+    assert_true(a.endswith(""))
+    assert_true(a.endswith("a"))
+    assert_false(a.endswith("ab"))
+
+    var ab = StringSlice("ab")
+    assert_true(ab.endswith(""))
+    assert_false(ab.endswith("a"))
+    assert_true(ab.endswith("b"))
+    assert_true(ab.endswith("b", start=1))
+    assert_true(ab.endswith("a", end=1))
+    assert_true(ab.endswith("ab"))
+
+
+def test_count():
+    var str = StringSlice("Hello world")
+
+    assert_equal(12, str.count(""))
+    assert_equal(1, str.count("Hell"))
+    assert_equal(3, str.count("l"))
+    assert_equal(1, str.count("ll"))
+    assert_equal(1, str.count("ld"))
+    assert_equal(0, str.count("universe"))
+
+    assert_equal(StringSlice("aaaaa").count("a"), 5)
+    assert_equal(StringSlice("aaaaaa").count("aa"), 3)
+
+
+def main():
+    test_string_slice_layout()
     test_string_literal_byte_span()
     test_string_byte_span()
     test_heap_string_from_string_slice()
     test_slice_len()
     test_slice_eq()
     test_slice_bool()
+    test_slice_repr()
     test_utf8_validation()
     test_find()
     test_good_utf8_sequences()
     test_bad_utf8_sequences()
+    test_stringslice_from_utf8()
     test_combination_good_utf8_sequences()
     test_combination_bad_utf8_sequences()
     test_combination_good_bad_utf8_sequences()
     test_combination_10_good_utf8_sequences()
     test_combination_10_good_10_bad_utf8_sequences()
     test_count_utf8_continuation_bytes()
+    test_count()
     test_splitlines()
+    test_rstrip()
+    test_lstrip()
+    test_strip()
+    test_startswith()
+    test_endswith()

@@ -15,6 +15,7 @@
 
 import os
 from collections import List
+from collections.string import StringSlice
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from os import PathLike, listdir, stat_result
 from sys import external_call, os_is_windows
@@ -83,6 +84,15 @@ struct Path(
         """Initializes a path with the current directory."""
         self = cwd()
 
+    # Note: Not @implicit so that allocation is not implicit.
+    fn __init__(out self, path: StringSlice):
+        """Initializes a path with the provided path.
+
+        Args:
+          path: The file system path.
+        """
+        self.path = String(path)
+
     @implicit
     fn __init__(out self, path: String):
         """Initializes a path with the provided path.
@@ -92,13 +102,13 @@ struct Path(
         """
         self.path = path
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.path = String(other=other.path)
+        return Self(self.path)
 
     fn __truediv__(self, suffix: Self) -> Self:
         """Joins two paths using the system-defined path separator.
@@ -109,9 +119,9 @@ struct Path(
         Returns:
           A new path with the suffix appended to the current path.
         """
-        return self.__truediv__(suffix.path)
+        return self.__truediv__(StringSlice(suffix.path))
 
-    fn __truediv__(self, suffix: String) -> Self:
+    fn __truediv__(self, suffix: StringSlice) -> Self:
         """Joins two paths using the system-defined path separator.
 
         Args:
@@ -124,7 +134,7 @@ struct Path(
         res /= suffix
         return res
 
-    fn __itruediv__(inout self, suffix: String):
+    fn __itruediv__(mut self, suffix: StringSlice):
         """Joins two paths using the system-defined path separator.
 
         Args:
@@ -133,7 +143,8 @@ struct Path(
         if self.path.endswith(DIR_SEPARATOR):
             self.path += suffix
         else:
-            self.path += DIR_SEPARATOR + suffix
+            self.path += DIR_SEPARATOR
+            self.path += suffix
 
     @no_inline
     fn __str__(self) -> String:
@@ -153,7 +164,7 @@ struct Path(
         """
         return self.path.byte_length() > 0
 
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats this path to the provided Writer.
 
@@ -194,7 +205,7 @@ struct Path(
         """
         return str(self) == str(other)
 
-    fn __eq__(self, other: String) -> Bool:
+    fn __eq__(self, other: StringSlice) -> Bool:
         """Returns True if the two paths are equal.
 
         Args:
@@ -203,7 +214,7 @@ struct Path(
         Returns:
           True if the String and Path are equal, and False otherwise.
         """
-        return self.path == other
+        return self.path.as_string_slice() == other
 
     fn __ne__(self, other: Self) -> Bool:
         """Returns True if the two paths are not equal.
@@ -225,7 +236,7 @@ struct Path(
 
         return hash(self.path)
 
-    fn __hash__[H: _Hasher](self, inout hasher: H):
+    fn __hash__[H: _Hasher](self, mut hasher: H):
         """Updates hasher with the path string value.
 
         Parameters:
@@ -264,7 +275,7 @@ struct Path(
         return os.path.exists(self)
 
     fn expanduser(self) raises -> Path:
-        """Expands a prefixed `~` with $HOME on posix or $USERPROFILE on
+        """Expands a prefixed `~` with `$HOME` on posix or `$USERPROFILE` on
         windows. If environment variables are not set or the `path` is not
         prefixed with `~`, returns the `path` unmodified.
 
@@ -275,7 +286,7 @@ struct Path(
 
     @staticmethod
     fn home() raises -> Path:
-        """Returns $HOME on posix or $USERPROFILE on windows. If environment
+        """Returns `$HOME` on posix or `$USERPROFILE` on windows. If environment
         variables are not set it returns `~`.
 
         Returns:
@@ -348,6 +359,9 @@ struct Path(
 
         return ""
 
+    # TODO(MOCO-1532):
+    #   Use StringSlice here once param inference bug for empty variadic
+    #   list of parameterized types is fixed.
     fn joinpath(self, *pathsegments: String) -> Path:
         """Joins the Path using the pathsegments.
 

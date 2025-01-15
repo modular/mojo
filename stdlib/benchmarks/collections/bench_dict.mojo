@@ -21,24 +21,24 @@ from random import *
 from sys import sizeof
 
 from benchmark import Bench, BenchConfig, Bencher, BenchId, Unit, keep, run
-from bit import bit_ceil
+from bit import next_power_of_two
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Data
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 fn make_dict[size: Int]() -> Dict[Int, Int]:
     var d = Dict[Int, Int]()
     for i in range(0, size):
-        d[i] = random.random_si64(0, size).value
+        d[i] = Int(random.random_si64(0, size))
     return d
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict init
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 @parameter
-fn bench_dict_init(inout b: Bencher) raises:
+fn bench_dict_init(mut b: Bencher) raises:
     @always_inline
     @parameter
     fn call_fn():
@@ -50,11 +50,11 @@ fn bench_dict_init(inout b: Bencher) raises:
     b.iter[call_fn]()
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict Insert
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 @parameter
-fn bench_dict_insert[size: Int](inout b: Bencher) raises:
+fn bench_dict_insert[size: Int](mut b: Bencher) raises:
     """Insert 100 new items."""
     var items = make_dict[size]()
 
@@ -62,17 +62,17 @@ fn bench_dict_insert[size: Int](inout b: Bencher) raises:
     @parameter
     fn call_fn() raises:
         for key in range(size, size + 100):
-            items[key] = random.random_si64(0, size).value
+            items[key] = Int(random.random_si64(0, size))
 
     b.iter[call_fn]()
     keep(bool(items))
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict Lookup
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 @parameter
-fn bench_dict_lookup[size: Int](inout b: Bencher) raises:
+fn bench_dict_lookup[size: Int](mut b: Bencher) raises:
     """Lookup 100 items."""
     var items = make_dict[size]()
     var closest_divisor = ceil(100 / size)
@@ -84,7 +84,7 @@ fn bench_dict_lookup[size: Int](inout b: Bencher) raises:
         @parameter
         if size < 100:
             for _ in range(closest_divisor):
-                for key in range(int(100 // closest_divisor)):
+                for key in range(Int(100 // closest_divisor)):
                     var res = items[key]
                     keep(res)
         else:
@@ -96,9 +96,9 @@ fn bench_dict_lookup[size: Int](inout b: Bencher) raises:
     keep(bool(items))
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Dict Memory Footprint
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 fn total_bytes_used(items: Dict[Int, Int]) -> Int:
@@ -121,9 +121,9 @@ fn total_bytes_used(items: Dict[Int, Int]) -> Int:
     return amnt_bytes
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Benchmark Main
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 def main():
     seed()
     var m = Bench(BenchConfig(num_repetitions=1))
@@ -132,7 +132,7 @@ def main():
 
     @parameter
     for i in range(len(sizes)):
-        alias size = sizes.get[i, Int]()
+        alias size = sizes[i]
         m.bench_function[bench_dict_insert[size]](
             BenchId("bench_dict_insert[" + str(size) + "]")
         )
@@ -144,7 +144,7 @@ def main():
 
     @parameter
     for i in range(len(sizes)):
-        alias size = sizes.get[i, Int]()
+        alias size = sizes[i]
         var mem_s = total_bytes_used(make_dict[size]())
         print(
             '"bench_dict_memory_size[' + str(size) + ']",' + str(mem_s) + ",0"

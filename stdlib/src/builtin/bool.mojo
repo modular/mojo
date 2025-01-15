@@ -19,6 +19,7 @@ from collections import List, Set
 
 from utils._select import _select_register_value
 from utils._visualizers import lldb_formatter_wrapping_type
+from hashlib._hasher import _Hasher
 
 # ===----------------------------------------------------------------------=== #
 #  Boolable
@@ -103,8 +104,8 @@ struct Bool(
     ComparableCollectionElement,
     Defaultable,
     ImplicitlyBoolable,
+    ImplicitlyIntable,
     Indexer,
-    Intable,
     Representable,
     Stringable,
     Writable,
@@ -121,13 +122,13 @@ struct Bool(
         self = False
 
     @always_inline("nodebug")
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly construct a deep copy of the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.value = other.value
+        return self
 
     @doc_private
     @always_inline("nodebug")
@@ -155,7 +156,7 @@ struct Bool(
 
     @always_inline("nodebug")
     @implicit
-    fn __init__[T: ImplicitlyBoolable, //](inout self, value: T):
+    fn __init__[T: ImplicitlyBoolable, //](mut self, value: T):
         """Convert an ImplicitlyBoolable value to a Bool.
 
         Parameters:
@@ -226,7 +227,7 @@ struct Bool(
         return String.write(self)
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats this boolean to the provided Writer.
 
@@ -259,6 +260,16 @@ struct Bool(
         return _select_register_value(self, Int(1), Int(0))
 
     @always_inline("nodebug")
+    fn __as_int__(self) -> Int:
+        """Implicitly convert to an integral representation of the value,
+        wherever an `Int` is expected.
+
+        Returns:
+            The integral representation of the value.
+        """
+        return self.__int__()
+
+    @always_inline("nodebug")
     fn __float__(self) -> Float64:
         """Convert this Bool to a float.
 
@@ -268,13 +279,13 @@ struct Bool(
         return _select_register_value(self, Float64(1.0), Float64(0.0))
 
     @always_inline("nodebug")
-    fn __index__(self) -> Int:
-        """Convert this Bool to an integer for indexing purposes.
+    fn __index__(self) -> __mlir_type.index:
+        """Convert to index.
 
         Returns:
             1 if the Bool is True, 0 otherwise.
         """
-        return self.__int__()
+        return Int(self).value
 
     @always_inline("nodebug")
     fn __eq__(self, rhs: Bool) -> Bool:
@@ -404,7 +415,7 @@ struct Bool(
         return __mlir_op.`pop.and`(self.value, rhs.value)
 
     @always_inline("nodebug")
-    fn __iand__(inout self, rhs: Bool):
+    fn __iand__(mut self, rhs: Bool):
         """Computes `self & rhs` and store the result in `self`.
 
         Args:
@@ -440,7 +451,7 @@ struct Bool(
         return __mlir_op.`pop.or`(self.value, rhs.value)
 
     @always_inline("nodebug")
-    fn __ior__(inout self, rhs: Bool):
+    fn __ior__(mut self, rhs: Bool):
         """Computes `self | rhs` and store the result in `self`.
 
         Args:
@@ -476,7 +487,7 @@ struct Bool(
         return __mlir_op.`pop.xor`(self.value, rhs.value)
 
     @always_inline("nodebug")
-    fn __ixor__(inout self, rhs: Bool):
+    fn __ixor__(mut self, rhs: Bool):
         """Computes `self ^ rhs` and stores the result in `self`.
 
         Args:
@@ -504,6 +515,17 @@ struct Bool(
             0 for -False and -1 for -True.
         """
         return __mlir_op.`index.casts`[_type = __mlir_type.index](self.value)
+
+    fn __hash__[H: _Hasher](self, mut hasher: H):
+        """Updates hasher with the underlying bytes.
+
+        Parameters:
+            H: The hasher type.
+
+        Args:
+            hasher: The hasher instance.
+        """
+        hasher._update_with_simd(Scalar[DType.bool](self))
 
 
 # ===----------------------------------------------------------------------=== #

@@ -13,28 +13,31 @@
 
 from builtin.range import _StridedRangeIterator, _UIntStridedRangeIterator
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # __MLIRType
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @register_passable("trivial")
-struct __MLIRType[T: AnyTrivialRegType](Movable, Copyable):
+struct __MLIRType[T: AnyTrivialRegType](Movable, Copyable, ExplicitlyCopyable):
     var value: T
 
+    fn copy(self) -> Self:
+        return self
 
-# ===----------------------------------------------------------------------===#
+
+# ===-----------------------------------------------------------------------===#
 # parameter_for
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 trait _IntNext(Copyable):
-    fn __next__(inout self) -> Int:
+    fn __next__(mut self) -> Int:
         ...
 
 
 trait _UIntNext(Copyable):
-    fn __next__(inout self) -> UInt:
+    fn __next__(mut self) -> UInt:
         ...
 
 
@@ -95,12 +98,11 @@ fn parameter_for_generator[
 fn _generator[
     IteratorT: _IntIter
 ](it: IteratorT) -> _ParamForIterator[IteratorT]:
-    if it.__len__() == 0:
-        return _ParamForIterator[IteratorT](
-            __mlir_attr[`#kgen.unknown : !kgen.paramref<`, IteratorT, `>`],
-            0,
-            True,
-        )
-    var next_it = it
-    var value = next_it.__next__()
-    return _ParamForIterator(next_it, value, False)
+    if it.__len__() != 0:
+        var next_it = it
+        var value = next_it.__next__()
+        return _ParamForIterator(next_it, value, False)
+
+    var value: IteratorT
+    __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(value))
+    return _ParamForIterator(value^, 0, True)

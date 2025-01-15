@@ -45,7 +45,7 @@ fn random_numbers[
     return result
 
 
-# fn assert_sorted[dtype: DType](inout list: List[Scalar[dtype]]) raises:
+# fn assert_sorted[dtype: DType](mut list: List[Scalar[dtype]]) raises:
 #     sort[dtype](list)
 #     for i in range(1, len(list)):
 #         assert_true(
@@ -53,7 +53,7 @@ fn random_numbers[
 #         )
 
 
-fn assert_sorted_string(inout list: List[String]) raises:
+fn assert_sorted_string(mut list: List[String]) raises:
     for i in range(1, len(list)):
         assert_true(
             list[i] >= list[i - 1], str(list[i - 1]) + " > " + str(list[i])
@@ -62,7 +62,7 @@ fn assert_sorted_string(inout list: List[String]) raises:
 
 fn assert_sorted[
     type: ComparableCollectionElement
-](inout list: List[type]) raises:
+](mut list: List[type]) raises:
     for i in range(1, len(list)):
         assert_true(list[i] >= list[i - 1], "error at index: " + str(i))
 
@@ -460,7 +460,7 @@ fn test_sort_stress() raises:
     ](length: Int) raises:
         var list = List[Int](capacity=length)
         for _ in range(length):
-            list.append(int(random_si64(-length, length)))
+            list.append(Int(random_si64(-length, length)))
 
         _quicksort[cmp_fn](list)
 
@@ -522,7 +522,7 @@ def test_sort_string_small_list():
     var list = random_numbers[DType.int32](10)
     var string_list = List[String]()
     for n in list:
-        string_list.append(str(int(n[])))
+        string_list.append(str(Int(n[])))
     sort(string_list)
     assert_sorted_string(string_list)
 
@@ -531,7 +531,7 @@ def test_sort_string_big_list():
     var list = random_numbers[DType.int32](1000)
     var string_list = List[String]()
     for n in list:
-        string_list.append(str(int(n[])))
+        string_list.append(str(Int(n[])))
     sort(string_list)
     assert_sorted_string(string_list)
 
@@ -551,7 +551,7 @@ struct Person(ComparableCollectionElement):
     var age: Int
 
     fn __init__(out self, *, other: Self):
-        self.name = String(other=other.name)
+        self.name = other.name.copy()
         self.age = other.age
 
     fn __lt__(self, other: Self) -> Bool:
@@ -586,8 +586,8 @@ def test_sort_comparamble_elements_list():
         var ages = random_numbers[DType.uint8](count)
         var names = List[String]("Maxim", "Max", "Alex", "Bob", "Joe")
         for age in ages:
-            var name = names[int(age[]) % len(names)]
-            list.append(Person(name, int(age[])))
+            var name = names[Int(age[]) % len(names)]
+            list.append(Person(name, Int(age[])))
 
     gen_list(10)
     sort(list)
@@ -627,7 +627,7 @@ def test_stable_sort_stress():
         var list = List[IntPair](capacity=length)
         for i in range(length):
             # make the range smaller so we can get more repeats
-            list.append(IntPair(int(random_si64(0, 100)), i))
+            list.append(IntPair(Int(random_si64(0, 100)), i))
 
         sort[cmp_fn, stable=True](list)
 

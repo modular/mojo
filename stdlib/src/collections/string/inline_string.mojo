@@ -16,16 +16,16 @@
 """
 
 from collections import InlineArray, Optional
+from collections.string import StringSlice
+from memory import UnsafePointer, memcpy, Span
 from os import abort
 from sys import sizeof
+from utils import Variant, StringRef
 
-from memory import UnsafePointer, memcpy
 
-from utils import StringSlice, Variant
-
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # InlineString
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
@@ -91,35 +91,19 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
         """
         self._storage = Self.Layout(heap_string^)
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other
+        return self
 
     # ===------------------------------------------------------------------=== #
     # Operator dunders
     # ===------------------------------------------------------------------=== #
 
-    fn __iadd__(inout self, literal: StringLiteral):
-        """Appends another string to this string.
-
-        Args:
-            literal: The string to append.
-        """
-        self.__iadd__(StringRef(literal))
-
-    fn __iadd__(inout self, string: String):
-        """Appends another string to this string.
-
-        Args:
-            string: The string to append.
-        """
-        self.__iadd__(string.as_string_slice())
-
-    fn __iadd__(inout self, str_slice: StringSlice[_]):
+    fn __iadd__(mut self, str_slice: StringSlice):
         """Appends another string to this string.
 
         Args:
@@ -147,31 +131,18 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
             # Begin by heap allocating enough space to store the combined
             # string.
             var buffer = List[UInt8](capacity=total_len)
-
             # Copy the bytes from the current small string layout
-            memcpy(
-                dest=buffer.unsafe_ptr(),
-                src=self._storage[_FixedString[Self.SMALL_CAP]].unsafe_ptr(),
-                count=len(self),
+            var span_self = Span[Byte, __origin_of(self)](
+                ptr=self._storage[_FixedString[Self.SMALL_CAP]].unsafe_ptr(),
+                length=len(self),
             )
-
+            buffer.extend(span_self)
             # Copy the bytes from the additional string.
-            memcpy(
-                dest=buffer.unsafe_ptr() + len(self),
-                src=str_slice.unsafe_ptr(),
-                count=str_slice.byte_length(),
-            )
-
-            # Record that we've initialized `total_len` count of elements
-            # in `buffer`
-            buffer.size = total_len
-
-            # Add the NUL byte
-            buffer.append(0)
-
+            buffer.extend(str_slice.as_bytes())
+            buffer.append(0)  # Add the NUL byte
             self._storage = Self.Layout(String(buffer^))
 
-    fn __add__(self, other: StringLiteral) -> Self:
+    fn __add__(self, other: StringSlice) -> Self:
         """Construct a string by appending another string at the end of this string.
 
         Args:
@@ -182,22 +153,8 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
         """
 
         var string = self
-        string += StringRef(other)
-        return string
-
-    fn __add__(self, other: String) -> Self:
-        """Construct a string by appending another string at the end of this string.
-
-        Args:
-            other: The string to append.
-
-        Returns:
-            A new string containing the concatenation of `self` and `other`.
-        """
-
-        var string = self
-        string += other.as_string_slice()
-        return string
+        string += other
+        return string^
 
     fn __add__(self, other: InlineString) -> Self:
         """Construct a string by appending another string at the end of this string.
@@ -296,9 +253,9 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
         )
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # __FixedString
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
@@ -333,13 +290,9 @@ struct _FixedString[CAP: Int](
         self.buffer = InlineArray[UInt8, CAP](unsafe_uninitialized=True)
         self.size = 0
 
-    fn __init__(out self, *, other: Self):
-        """Copy the object.
-
-        Args:
-            other: The value to copy.
-        """
-        self = other
+    fn copy(self) -> Self:
+        """Copy the object."""
+        return self
 
     fn __init__(out self, literal: StringLiteral) raises:
         """Constructs a FixedString value given a string literal.
@@ -395,24 +348,8 @@ struct _FixedString[CAP: Int](
     # Operator dunders
     # ===------------------------------------------------------------------=== #
 
-    fn __iadd__(inout self, literal: StringLiteral) raises:
-        """Appends another string to this string.
-
-        Args:
-            literal: The string to append.
-        """
-        self.__iadd__(literal.as_string_slice())
-
-    fn __iadd__(inout self, string: String) raises:
-        """Appends another string to this string.
-
-        Args:
-            string: The string to append.
-        """
-        self.__iadd__(string.as_string_slice())
-
     @always_inline
-    fn __iadd__(inout self, str_slice: StringSlice[_]) raises:
+    fn __iadd__(mut self, str_slice: StringSlice) raises:
         """Appends another string to this string.
 
         Args:
@@ -438,7 +375,7 @@ struct _FixedString[CAP: Int](
     # ===------------------------------------------------------------------=== #
 
     fn _iadd_non_raising(
-        inout self,
+        mut self,
         bytes: Span[Byte, _],
     ) -> Optional[Error]:
         var total_len = len(self) + len(bytes)
@@ -467,11 +404,11 @@ struct _FixedString[CAP: Int](
 
         return None
 
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         writer.write_bytes(self.as_bytes())
 
     @always_inline
-    fn write_bytes(inout self, bytes: Span[Byte, _]):
+    fn write_bytes(mut self, bytes: Span[Byte, _]):
         """
         Write a byte span to this String.
 
@@ -481,7 +418,7 @@ struct _FixedString[CAP: Int](
         """
         _ = self._iadd_non_raising(bytes)
 
-    fn write[*Ts: Writable](inout self, *args: *Ts):
+    fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.
 
         Parameters:

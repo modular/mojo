@@ -66,7 +66,7 @@ struct Slice(
 
     @always_inline
     fn __init__(
-        inout self,
+        mut self,
         start: Optional[Int],
         end: Optional[Int],
         step: Optional[Int],
@@ -82,13 +82,13 @@ struct Slice(
         self.end = end
         self.step = step
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Creates a deep copy of the Slice.
 
-        Args:
-            other: The slice to copy.
+        Returns:
+            A copy of the value.
         """
-        self.__init__(start=other.start, end=other.end, step=other.step)
+        return self
 
     # ===-------------------------------------------------------------------===#
     # Trait implementations
@@ -115,7 +115,7 @@ struct Slice(
         return self.__str__()
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """Write Slice string representation to a `Writer`.
 
         Parameters:
@@ -206,6 +206,7 @@ struct Slice(
 
         var start = self.start
         var end = self.end
+
         var positive_step = step > 0
 
         if not start:

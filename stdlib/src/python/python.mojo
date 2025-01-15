@@ -20,6 +20,7 @@ from python import Python
 """
 
 from collections import Dict
+from collections.string import StringSlice
 from os import abort, getenv
 from sys import external_call, sizeof
 from sys.ffi import _Global
@@ -47,10 +48,10 @@ fn _init_python_global() -> _PythonGlobal:
 struct _PythonGlobal:
     var cpython: CPython
 
-    fn __moveinit__(inout self, owned other: Self):
+    fn __moveinit__(mut self, owned other: Self):
         self.cpython = other.cpython^
 
-    fn __init__(inout self):
+    fn __init__(mut self):
         self.cpython = CPython()
 
     fn __del__(owned self):
@@ -99,7 +100,7 @@ struct Python:
         """
         self.impl = existing.impl
 
-    fn eval(inout self, code: StringRef) -> Bool:
+    fn eval(mut self, code: StringRef) -> Bool:
         """Executes the given Python code.
 
         Args:
@@ -127,7 +128,7 @@ struct Python:
             `PythonObject` containing the result of the evaluation.
         """
         var cpython = _get_global_python_itf().cpython()
-        # PyImport_AddModule returns a borrowed reference.
+        # PyImport_AddModule returns a read-only reference.
         var module = PythonObject.from_borrowed_ptr(
             cpython.PyImport_AddModule(name)
         )
@@ -172,7 +173,7 @@ struct Python:
             return PythonObject(result)
 
     @staticmethod
-    fn add_to_path(dir_path: String) raises:
+    fn add_to_path(dir_path: StringSlice) raises:
         """Adds a directory to the Python path.
 
         This might be necessary to import a Python module via `import_module()`.
@@ -194,6 +195,7 @@ struct Python:
         var cpython = _get_global_python_itf().cpython()
         var sys = Python.import_module("sys")
         var directory: PythonObject = dir_path
+
         _ = sys.path.append(directory)
 
     # ===-------------------------------------------------------------------===#
@@ -265,7 +267,7 @@ struct Python:
 
     @staticmethod
     fn add_functions(
-        inout module: TypedPythonObject["Module"],
+        mut module: TypedPythonObject["Module"],
         owned functions: List[PyMethodDef],
     ) raises:
         """Adds functions to a PyModule object.
@@ -287,7 +289,7 @@ struct Python:
 
     @staticmethod
     fn unsafe_add_methods(
-        inout module: TypedPythonObject["Module"],
+        mut module: TypedPythonObject["Module"],
         functions: UnsafePointer[PyMethodDef],
     ) raises:
         """Adds methods to a PyModule object.
@@ -314,7 +316,7 @@ struct Python:
 
     @staticmethod
     fn add_object(
-        inout module: TypedPythonObject["Module"],
+        mut module: TypedPythonObject["Module"],
         name: StringLiteral,
         value: PythonObject,
     ) raises:
@@ -366,7 +368,7 @@ struct Python:
         return PythonObject([])
 
     @no_inline
-    fn __str__(inout self, str_obj: PythonObject) -> StringRef:
+    fn __str__(mut self, str_obj: PythonObject) -> StringRef:
         """Return a string representing the given Python object.
 
         Args:
@@ -379,7 +381,7 @@ struct Python:
         return cpython.PyUnicode_AsUTF8AndSize(str_obj.py_object)
 
     @staticmethod
-    fn throw_python_exception_if_error_state(inout cpython: CPython) raises:
+    fn throw_python_exception_if_error_state(mut cpython: CPython) raises:
         """Raise an exception if CPython interpreter is in an error state.
 
         Args:
@@ -389,7 +391,7 @@ struct Python:
             raise Python.unsafe_get_python_exception(cpython)
 
     @staticmethod
-    fn unsafe_get_python_exception(inout cpython: CPython) -> Error:
+    fn unsafe_get_python_exception(mut cpython: CPython) -> Error:
         """Get the `Error` object corresponding to the current CPython
         interpreter error state.
 

@@ -167,7 +167,7 @@ def test_range_reversed():
 def test_indexing():
     var r = range(10)
     assert_equal(r[True], 1)
-    assert_equal(r[int(4)], 4)
+    assert_equal(r[Int(4)], 4)
     assert_equal(r[3], 3)
 
 
@@ -193,7 +193,7 @@ def test_scalar_range():
     assert_equal(r.end, 16)
     assert_equal(r.step, 4)
 
-    fn append_many(inout list: List, *values: list.T):
+    fn append_many(mut list: List, *values: list.T):
         for value in values:
             list.append(value[])
 

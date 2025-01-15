@@ -13,17 +13,16 @@
 """Implements the StringRef class.
 """
 
-from collections.string import _atol, _isspace
+from collections.string import StringSlice
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from sys import simdwidthof
 from sys.ffi import c_char
 
 from bit import count_trailing_zeros
 from builtin.dtype import _uint_type_of_width
-from memory import UnsafePointer, memcmp, pack_bits
+from memory import UnsafePointer, memcmp, pack_bits, Span
 from memory.memory import _memcmp_impl_unconstrained
 
-from utils import StringSlice
 
 # ===----------------------------------------------------------------------=== #
 # Utilities
@@ -35,9 +34,9 @@ fn _align_down(value: Int, alignment: Int) -> Int:
     return value._positive_div(alignment) * alignment
 
 
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # StringRef
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
@@ -77,14 +76,13 @@ struct StringRef(
         self = StringRef(UnsafePointer[UInt8](), 0)
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self.data = other.data
-        self.length = other.length
+        return StringRef(self.data, self.length)
 
     @always_inline
     @implicit
@@ -230,16 +228,19 @@ struct StringRef(
     # ===-------------------------------------------------------------------===#
 
     @always_inline("nodebug")
-    fn __getitem__(self, idx: Int) -> StringRef:
+    fn __getitem__[I: Indexer](self, idx: I) -> StringRef:
         """Get the string value at the specified position.
 
         Args:
           idx: The index position.
 
+        Parameters:
+            I: A type that can be used as an index.
+
         Returns:
           The character at the specified position.
         """
-        return StringRef {data: self.data + idx, length: 1}
+        return StringRef {data: self.data + Int(idx), length: 1}
 
     @always_inline
     fn __eq__(self, rhs: StringRef) -> Bool:
@@ -291,7 +292,7 @@ struct StringRef(
         """
         var len1 = len(self)
         var len2 = len(rhs)
-        return int(len1 < len2) > _memcmp_impl_unconstrained(
+        return Int(len1 < len2) > _memcmp_impl_unconstrained(
             self.data, rhs.data, min(len1, len2)
         )
 
@@ -357,7 +358,7 @@ struct StringRef(
         """
         return hash(self.data, self.length)
 
-    fn __hash__[H: _Hasher](self, inout hasher: H):
+    fn __hash__[H: _Hasher](self, mut hasher: H):
         """Updates hasher with the underlying bytes.
 
         Parameters:
@@ -371,8 +372,8 @@ struct StringRef(
     fn __int__(self) raises -> Int:
         """Parses the given string as a base-10 integer and returns that value.
 
-        For example, `int("19")` returns `19`. If the given string cannot be parsed
-        as an integer value, an error is raised. For example, `int("hi")` raises an
+        For example, `Int("19")` returns `19`. If the given string cannot be parsed
+        as an integer value, an error is raised. For example, `Int("hi")` raises an
         error.
 
         Returns:
@@ -381,7 +382,7 @@ struct StringRef(
         var str_slice = StringSlice[ImmutableAnyOrigin](
             unsafe_from_utf8_strref=self
         )
-        return _atol(str_slice)
+        return atol(str_slice)
 
     @always_inline
     fn __len__(self) -> Int:
@@ -411,7 +412,7 @@ struct StringRef(
         return String.write("StringRef(", repr(str(self)), ")")
 
     @no_inline
-    fn write_to[W: Writer](self, inout writer: W):
+    fn write_to[W: Writer](self, mut writer: W):
         """
         Formats this StringRef to the provided Writer.
 
@@ -521,7 +522,7 @@ struct StringRef(
         if not loc:
             return -1
 
-        return int(loc) - int(self.unsafe_ptr())
+        return Int(loc) - Int(self.unsafe_ptr())
 
     fn rfind(self, substr: StringRef, start: Int = 0) -> Int:
         """Finds the offset of the last occurrence of `substr` starting at
@@ -554,7 +555,7 @@ struct StringRef(
         if not loc:
             return -1
 
-        return int(loc) - int(self.unsafe_ptr())
+        return Int(loc) - Int(self.unsafe_ptr())
 
     fn _from_start(self, start: Int) -> StringRef:
         """Gets the StringRef pointing to the substring after the specified slice start position.
@@ -597,24 +598,6 @@ struct StringRef(
 
         return StringRef(data, length)
 
-    fn strip(self) -> StringRef:
-        """Gets a StringRef with leading and trailing whitespaces removed.
-        This only takes C spaces into account: " \\t\\n\\v\\f\\r".
-
-        For example, `"  mojo  "` returns `"mojo"`.
-
-        Returns:
-            A StringRef with leading and trailing whitespaces removed.
-        """
-        var start: Int = 0
-        var end: Int = len(self)
-        var ptr = self.unsafe_ptr()
-        while start < end and _isspace(ptr[start]):
-            start += 1
-        while end > start and _isspace(ptr[end - 1]):
-            end -= 1
-        return StringRef(ptr + start, end - start)
-
     fn split(self, delimiter: StringRef) raises -> List[StringRef]:
         """Split the StringRef by a delimiter.
 
@@ -650,50 +633,10 @@ struct StringRef(
             current_offset = loc + len(delimiter)
         return output
 
-    fn startswith(
-        self, prefix: StringRef, start: Int = 0, end: Int = -1
-    ) -> Bool:
-        """Checks if the StringRef starts with the specified prefix between start
-        and end positions. Returns True if found and False otherwise.
 
-        Args:
-          prefix: The prefix to check.
-          start: The start offset from which to check.
-          end: The end offset from which to check.
-
-        Returns:
-          True if the self[start:end] is prefixed by the input prefix.
-        """
-        if end == -1:
-            return self.find(prefix, start) == start
-        return StringRef(self.unsafe_ptr() + start, end - start).startswith(
-            prefix
-        )
-
-    fn endswith(self, suffix: StringRef, start: Int = 0, end: Int = -1) -> Bool:
-        """Checks if the StringRef end with the specified suffix between start
-        and end positions. Returns True if found and False otherwise.
-
-        Args:
-          suffix: The suffix to check.
-          start: The start offset from which to check.
-          end: The end offset from which to check.
-
-        Returns:
-          True if the self[start:end] is suffixed by the input suffix.
-        """
-        if len(suffix) > len(self):
-            return False
-        if end == -1:
-            return self.rfind(suffix, start) + len(suffix) == len(self)
-        return StringRef(self.unsafe_ptr() + start, end - start).endswith(
-            suffix
-        )
-
-
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 # Utilities
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @always_inline
@@ -712,7 +655,7 @@ fn _memchr[
         var bool_mask = source.load[width=bool_mask_width](i) == first_needle
         var mask = pack_bits(bool_mask)
         if mask:
-            return source + int(i + count_trailing_zeros(mask))
+            return source + Int(i + count_trailing_zeros(mask))
 
     for i in range(vectorized_end, len):
         if source[i] == char:
@@ -757,7 +700,7 @@ fn _memmem[
         var mask = pack_bits(bool_mask)
 
         while mask:
-            var offset = int(i + count_trailing_zeros(mask))
+            var offset = Int(i + count_trailing_zeros(mask))
             if memcmp(haystack + offset + 1, needle + 1, needle_len - 1) == 0:
                 return haystack + offset
             mask = mask & (mask - 1)

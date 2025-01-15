@@ -22,9 +22,11 @@ from tempfile import gettempdir
 import os
 import sys
 from collections import List, Optional
+from collections.string import StringSlice
 from pathlib import Path
 
-from utils import Span, write_buffered
+from memory import Span
+from utils import write_buffered
 
 alias TMP_MAX = 10_000
 
@@ -33,7 +35,7 @@ fn _get_random_name(size: Int = 8) -> String:
     alias characters = String("abcdefghijklmnopqrstuvwxyz0123456789_")
     var name_list = List[UInt8](capacity=size + 1)
     for _ in range(size):
-        var rand_index = int(
+        var rand_index = Int(
             random.random_ui64(0, characters.byte_length() - 1)
         )
         name_list.append(ord(characters[rand_index]))
@@ -88,7 +90,7 @@ fn _get_default_tempdir() raises -> String:
     raise Error("No usable temporary directory found")
 
 
-fn _try_to_create_file(dir: String) -> Bool:
+fn _try_to_create_file(dir: StringSlice) -> Bool:
     for _ in range(TMP_MAX):
         var name = _get_random_name()
         # TODO use os.join when it exists
@@ -212,7 +214,7 @@ struct TemporaryDirectory:
     """Whether to ignore cleanup errors."""
 
     fn __init__(
-        inout self,
+        mut self,
         suffix: String = "",
         prefix: String = "tmp",
         dir: Optional[String] = None,
@@ -290,7 +292,7 @@ struct NamedTemporaryFile:
     """Name of the file."""
 
     fn __init__(
-        inout self,
+        mut self,
         mode: String = "w",
         name: Optional[String] = None,
         suffix: String = "",
@@ -345,7 +347,7 @@ struct NamedTemporaryFile:
         except:
             pass
 
-    fn close(inout self) raises:
+    fn close(mut self) raises:
         """Closes the file handle."""
         self._file_handle.close()
         if self._delete:
@@ -403,7 +405,7 @@ struct NamedTemporaryFile:
         """
         return self._file_handle.seek(offset, whence)
 
-    fn write[*Ts: Writable](inout self, *args: *Ts):
+    fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.
 
         Parameters:
@@ -416,7 +418,7 @@ struct NamedTemporaryFile:
         write_buffered[buffer_size=4096](file, args)
 
     @always_inline
-    fn write_bytes(inout self, bytes: Span[Byte, _]):
+    fn write_bytes(mut self, bytes: Span[Byte, _]):
         """
         Write a span of bytes to the file.
 

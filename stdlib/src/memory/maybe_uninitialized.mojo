@@ -36,33 +36,32 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
     @always_inline
     fn __init__(out self):
         """The memory is now considered uninitialized."""
-        self._array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
     @doc_private
     @always_inline
-    fn __init__(out self, *, other: Self):
-        """It is not possible to call this method.
+    fn copy(self) -> Self:
+        """This method is not intended to be called.
 
         Trying to call this method will abort.
+
+        Returns:
+            Nothing, this method always aborts.
         """
-        abort(
-            "You should never call the explicit copy constructor of"
+        return abort[Self](
+            "You should never call the copy() method of"
             " UnsafeMaybeUninitialized because it's ambiguous to copy"
             " possibly uninitialized memory. Use"
             " `UnsafeMaybeUninitialized.copy_from()` instead if you want to"
             " trigger an explicit copy of the content of"
             " UnsafeMaybeUninitialized. It has very specific semantics."
         )
-        self = Self()
 
     @always_inline
     fn __init__[
         MovableType: Movable
     ](
-        inout self: UnsafeMaybeUninitialized[MovableType],
+        mut self: UnsafeMaybeUninitialized[MovableType],
         owned value: MovableType,
     ):
         """The memory is now considered initialized.
@@ -98,7 +97,7 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
     fn copy_from[
         CopyableType: ExplicitlyCopyable
     ](
-        inout self: UnsafeMaybeUninitialized[CopyableType],
+        mut self: UnsafeMaybeUninitialized[CopyableType],
         other: UnsafeMaybeUninitialized[CopyableType],
     ):
         """Copy another object.
@@ -117,7 +116,7 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
     @always_inline
     fn copy_from[
         CopyableType: ExplicitlyCopyable
-    ](inout self: UnsafeMaybeUninitialized[CopyableType], other: CopyableType):
+    ](mut self: UnsafeMaybeUninitialized[CopyableType], other: CopyableType):
         """Copy another object.
 
         This function assumes that the current memory is uninitialized.
@@ -152,8 +151,8 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
     fn move_from[
         MovableType: Movable
     ](
-        inout self: UnsafeMaybeUninitialized[MovableType],
-        inout other: UnsafeMaybeUninitialized[MovableType],
+        mut self: UnsafeMaybeUninitialized[MovableType],
+        mut other: UnsafeMaybeUninitialized[MovableType],
     ):
         """Move another object.
 
@@ -174,7 +173,7 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
     fn move_from[
         MovableType: Movable
     ](
-        inout self: UnsafeMaybeUninitialized[MovableType],
+        mut self: UnsafeMaybeUninitialized[MovableType],
         other: UnsafePointer[MovableType],
     ):
         """Move another object.
@@ -196,7 +195,7 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
     fn write[
         MovableType: Movable
     ](
-        inout self: UnsafeMaybeUninitialized[MovableType],
+        mut self: UnsafeMaybeUninitialized[MovableType],
         owned value: MovableType,
     ):
         """Write a value into an uninitialized memory location.
@@ -235,7 +234,7 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
         return UnsafePointer.address_of(self._array).bitcast[Self.ElementType]()
 
     @always_inline
-    fn assume_initialized_destroy(inout self):
+    fn assume_initialized_destroy(mut self):
         """Runs the destructor of the internal value.
 
         Calling this method assumes that the memory is initialized.

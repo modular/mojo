@@ -16,6 +16,7 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import InlineArray
+from collections.string import StringSlice
 from sys import _libc as libc
 from sys import (
     bitwidthof,
@@ -26,17 +27,15 @@ from sys import (
     stdout,
 )
 from sys._libc import dup, fclose, fdopen, fflush
-from sys.ffi import OpaquePointer
+from sys.ffi import OpaquePointer, c_char
 
 from builtin.dtype import _get_dtype_printf_format
 from builtin.file_descriptor import FileDescriptor
 from memory import UnsafePointer, memcpy
 
 from utils import (
-    Span,
     StaticString,
     StringRef,
-    StringSlice,
     write_args,
     write_buffered,
 )
@@ -96,7 +95,7 @@ struct _fdopen[mode: StringLiteral = "a"]:
         """
         return self.read_until_delimiter("\n")
 
-    fn read_until_delimiter(self, delimiter: String) -> String:
+    fn read_until_delimiter(self, delimiter: StringSlice) -> String:
         """Reads an entire line from a stream, up to the `delimiter`.
         Does not include the delimiter in the result.
 
@@ -167,11 +166,11 @@ fn _flush(file: FileDescriptor = stdout):
 @no_inline
 fn _printf[
     fmt: StringLiteral, *types: AnyType
-](*arguments: *types, file: FileDescriptor = stdout):
+](*args: *types, file: FileDescriptor = stdout):
     # The argument pack will contain references for each value in the pack,
     # but we want to pass their values directly into the C printf call. Load
     # all the members of the pack.
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
     @parameter
     if is_nvidia_gpu():
@@ -179,10 +178,10 @@ fn _printf[
             fmt.unsafe_cstr_ptr(), Pointer.address_of(loaded_pack)
         )
     elif is_amd_gpu():
-        # constrained[False, "_printf on AMDGPU is not implemented"]()
         pass
     else:
         with _fdopen(file) as fd:
+            # FIXME: external_call should handle this
             _ = __mlir_op.`pop.external_call`[
                 func = "KGEN_CompilerRT_fprintf".value,
                 variadicType = __mlir_attr[
@@ -203,7 +202,7 @@ fn _printf[
 @no_inline
 fn _snprintf[
     fmt: StringLiteral, *types: AnyType
-](str: UnsafePointer[UInt8], size: Int, *arguments: *types) -> Int:
+](str: UnsafePointer[UInt8], size: Int, *args: *types) -> Int:
     """Writes a format string into an output pointer.
 
     Parameters:
@@ -213,17 +212,19 @@ fn _snprintf[
     Args:
         str: A pointer into which the format string is written.
         size: At most, `size - 1` bytes are written into the output string.
-        arguments: Arguments interpolated into the format string.
+        args: Arguments interpolated into the format string.
 
     Returns:
         The number of bytes written into the output string.
     """
+
     # The argument pack will contain references for each value in the pack,
     # but we want to pass their values directly into the C snprintf call. Load
     # all the members of the pack.
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
-    return int(
+    # FIXME: external_call should handle this
+    return Int(
         __mlir_op.`pop.external_call`[
             func = "snprintf".value,
             variadicType = __mlir_attr[
@@ -266,7 +267,10 @@ fn print[
         flush: If set to true, then the stream is forcibly flushed.
         file: The output stream.
     """
-    write_buffered[buffer_size=4096](file, values, sep=sep, end=end)
+
+    write_buffered[buffer_size = 512 if is_amd_gpu() else 4096](
+        file, values, sep=sep, end=end
+    )
 
     @parameter
     if not is_gpu():

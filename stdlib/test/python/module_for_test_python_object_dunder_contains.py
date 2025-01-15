@@ -10,35 +10,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-# RUN: %mojo -debug-level full %s
-
-import sys
-
-from utils import Writable, Writer
 
 
-fn main() raises:
-    test_write_to_stdout()
+class Class_no_iterable_no_contains:
+    x = 1
 
 
-@value
-struct Point(Writable):
-    var x: Int
-    var y: Int
+class Class_no_iterable_but_contains:
+    x = 123
 
-    fn write_to[W: Writer](self, inout writer: W):
-        writer.write("Point(", self.x, ", ", self.y, ")")
+    def __contains__(self, rhs):
+        return rhs == self.x
 
 
-# CHECK-LABEL: test_write_to_stdout
-fn test_write_to_stdout():
-    print("== test_write_to_stdout")
+class Class_iterable_no_contains:
+    def __init__(self):
+        self.data = [123, 456]
 
-    var stdout = sys.stdout
+    def __iter__(self):
+        self.i = 0
+        return self
 
-    # CHECK: Hello, World!
-    stdout.write("Hello, World!")
-
-    # CHECK: point = Point(1, 1)
-    var point = Point(1, 1)
-    stdout.write("point = ", point)
+    def __next__(self):
+        if self.i >= len(self.data):
+            raise StopIteration
+        else:
+            tmp = self.data[self.i]
+            self.i += 1
+            return tmp

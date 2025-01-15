@@ -42,10 +42,16 @@ struct _NoneType(CollectionElement, CollectionElementNew):
     fn __init__(out self, *, other: Self):
         pass
 
+    fn __copyinit__(out self, other: Self):
+        pass
 
-# ===----------------------------------------------------------------------===#
+    fn copy(self) -> Self:
+        return _NoneType()
+
+
+# ===-----------------------------------------------------------------------===#
 # Optional
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @value
@@ -124,13 +130,13 @@ struct Optional[T: CollectionElement](
         """
         self = Self()
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy construct an Optional.
 
-        Args:
-            other: The Optional to copy.
+        Returns:
+            A copy of the value.
         """
-        self.__copyinit__(other)
+        return self
 
     # ===-------------------------------------------------------------------===#
     # Operator dunders
@@ -281,7 +287,7 @@ struct Optional[T: CollectionElement](
 
     fn write_to[
         W: Writer, U: RepresentableCollectionElement, //
-    ](self: Optional[U], inout writer: W):
+    ](self: Optional[U], mut writer: W):
         """Write Optional string representation to a `Writer`.
 
         Parameters:
@@ -333,7 +339,7 @@ struct Optional[T: CollectionElement](
         debug_assert(self.__bool__(), ".value() on empty Optional")
         return self._value.unsafe_get[T]()
 
-    fn take(inout self) -> T:
+    fn take(mut self) -> T:
         """Move the value out of the Optional.
 
         The caller takes ownership over the new value, which is moved
@@ -351,7 +357,7 @@ struct Optional[T: CollectionElement](
             abort(".take() on empty Optional")
         return self.unsafe_take()
 
-    fn unsafe_take(inout self) -> T:
+    fn unsafe_take(mut self) -> T:
         """Unsafely move the value out of the Optional.
 
         The caller takes ownership over the new value, which is moved
@@ -382,10 +388,52 @@ struct Optional[T: CollectionElement](
             return self._value[T]
         return default
 
+    fn copied[
+        mut: Bool,
+        origin: Origin[mut], //,
+        T: CollectionElement,
+    ](self: Optional[Pointer[T, origin]]) -> Optional[T]:
+        """Converts an Optional containing a Pointer to an Optional of an owned
+        value by copying.
 
-# ===----------------------------------------------------------------------===#
+        If `self` is an empty `Optional`, the returned `Optional` will be empty
+        as well.
+
+        Parameters:
+            mut: Mutability of the pointee origin.
+            origin: Origin of the contained `Pointer`.
+            T: Type of the owned result value.
+
+        Returns:
+            An Optional containing an owned copy of the pointee value.
+
+        # Examples
+
+        Copy the value of an `Optional[Pointer[_]]`
+
+        ```mojo
+        from collections import Optional
+
+        var data = String("foo")
+
+        var opt = Optional(Pointer.address_of(data))
+
+        # TODO(MOCO-1522): Drop `[T=String]` after fixing param inference issue.
+        var opt_owned: Optional[String] = opt.copied[T=String]()
+        ```
+        .
+        """
+        if self:
+            # SAFETY: We just checked that `self` is populated.
+            # Perform an implicit copy
+            return self.unsafe_value()[]
+        else:
+            return None
+
+
+# ===-----------------------------------------------------------------------===#
 # OptionalReg
-# ===----------------------------------------------------------------------===#
+# ===-----------------------------------------------------------------------===#
 
 
 @register_passable("trivial")

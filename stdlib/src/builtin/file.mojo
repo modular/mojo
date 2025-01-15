@@ -35,9 +35,9 @@ from os import PathLike, abort
 from sys import external_call, sizeof
 from sys.ffi import OpaquePointer
 
-from memory import AddressSpace, UnsafePointer
+from memory import AddressSpace, UnsafePointer, Span
 
-from utils import Span, StringRef, StringSlice, write_buffered
+from utils import StringRef, StringSlice, write_buffered
 
 
 @register_passable
@@ -78,17 +78,8 @@ struct FileHandle:
         """Default constructor."""
         self.handle = OpaquePointer()
 
-    fn __init__(out self, path: String, mode: String) raises:
-        """Construct the FileHandle using the file path and mode.
-
-        Args:
-          path: The file path.
-          mode: The mode to open the file in (the mode can be "r" or "w" or "rw").
-        """
-        self.__init__(path.as_string_slice(), mode.as_string_slice())
-
     fn __init__(out self, path: StringSlice, mode: StringSlice) raises:
-        """Construct the FileHandle using the file path and string.
+        """Construct the FileHandle using the file path and mode.
 
         Args:
           path: The file path.
@@ -112,7 +103,7 @@ struct FileHandle:
         except:
             pass
 
-    fn close(inout self) raises:
+    fn close(mut self) raises:
         """Closes the file handle."""
         if not self.handle:
             return
@@ -202,7 +193,7 @@ struct FileHandle:
         if err_msg:
             raise err_msg^.consume_as_error()
 
-        return String(ptr=buf, length=int(size_copy) + 1)
+        return String(ptr=buf, length=Int(size_copy) + 1)
 
     fn read[
         type: DType
@@ -346,7 +337,7 @@ struct FileHandle:
             raise (err_msg^).consume_as_error()
 
         var list = List[UInt8](
-            ptr=buf, length=int(size_copy), capacity=int(size_copy)
+            ptr=buf, length=Int(size_copy), capacity=Int(size_copy)
         )
 
         return list
@@ -405,7 +396,7 @@ struct FileHandle:
         return pos
 
     @always_inline
-    fn write_bytes(inout self, bytes: Span[Byte, _]):
+    fn write_bytes(mut self, bytes: Span[Byte, _]):
         """
         Write a span of bytes to the file.
 
@@ -423,7 +414,7 @@ struct FileHandle:
         if err_msg:
             abort(err_msg^.consume_as_error())
 
-    fn write[*Ts: Writable](inout self, *args: *Ts):
+    fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.
 
         Parameters:
@@ -472,16 +463,17 @@ struct FileHandle:
         return self^
 
     fn _get_raw_fd(self) -> Int:
-        var i64_res = external_call[
-            "KGEN_CompilerRT_IO_GetFD",
-            Int64,
-        ](self.handle)
-        return Int(i64_res.value)
+        return Int(
+            external_call[
+                "KGEN_CompilerRT_IO_GetFD",
+                Int64,
+            ](self.handle)
+        )
 
 
 fn open[
     PathLike: os.PathLike
-](path: PathLike, mode: String) raises -> FileHandle:
+](path: PathLike, mode: StringSlice) raises -> FileHandle:
     """Opens the file specified by path using the mode provided, returning a
     FileHandle.
 

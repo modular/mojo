@@ -15,14 +15,11 @@
 from hashlib._ahash import AHasher
 from hashlib._hasher import _hash_with_hasher as hash
 from hashlib.hash import hash as old_hash
-from time import now
 
 from bit import pop_count
 from builtin._location import __call_location
-from memory import memset_zero, stack_allocation
+from memory import memset_zero, stack_allocation, Span
 from testing import assert_equal, assert_not_equal, assert_true
-
-from utils import Span
 
 # Source: https://www.101languages.net/arabic/most-common-arabic-words/
 alias words_ar = """
@@ -580,7 +577,7 @@ fn gen_word_pairs[words: String = words_en]() -> List[String]:
     try:
         var list = words.split(", ")
         for w in list:
-            var w1 = w[].strip()
+            var w1 = str(w[].strip())
             for w in list:
                 var w2 = w[].strip()
                 result.append(w1 + " " + w2)
@@ -590,7 +587,7 @@ fn gen_word_pairs[words: String = words_en]() -> List[String]:
 
 
 def dif_bits(i1: UInt64, i2: UInt64) -> Int:
-    return int(pop_count(i1 ^ i2))
+    return Int(pop_count(i1 ^ i2))
 
 
 @always_inline
@@ -699,7 +696,7 @@ def assert_fill_factor[
     var buckets = List[Int](0) * num_buckets
     for w in words:
         var h = hash[HasherType=hasher0](w[])
-        buckets[int(h) % num_buckets] += 1
+        buckets[Int(h) % num_buckets] += 1
     var unfilled = 0
     for v in buckets:
         if v[] == 0:
