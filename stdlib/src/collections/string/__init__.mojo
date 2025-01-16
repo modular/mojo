@@ -17,6 +17,7 @@ from .string import (
     ascii,
     atof,
     atol,
+    stol,
     chr,
     ord,
 )
