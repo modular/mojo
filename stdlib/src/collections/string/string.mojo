@@ -267,7 +267,7 @@ fn stol(str_slice: StringSlice, base: Int = 10) raises -> (Int, String):
         real_base = base
 
     if real_base <= 10:
-        ord_num_max = ord(str(real_base - 1))
+        ord_num_max = ord(String(real_base - 1))
     else:
         ord_num_max = ord("9")
         ord_letter_max = (
