@@ -250,28 +250,21 @@ fn stol(str_slice: StringSlice, base: Int = 10) raises -> (Int, String):
     if start == str_len or not _is_valid_digit(Int(buff[start]), base):
         return 0, String(str_slice)
 
-    if base == 0:
-        var real_base_new_start = _identify_base(str_slice, start)
-        real_base = real_base_new_start[0]
+    var ord_num_max: Int
+    alias ord_0 = ord("0")
+    var ord_letter_max = (-1, -1)
+    alias ord_letter_min = (ord("a"), ord("A"))
+    alias ord_underscore = ord("_")
 
-        # If identify_base returns error but starts with 0, treat as base 10
-        if real_base == -1 and buff[start] == ord("0"):
-            real_base = 10
-            # Keep original start position for base 10
-        else:
-            # For valid prefixes, use the new start position
-            start = real_base_new_start[1]
+    if base == 0:
+        real_base, start = _identify_base(str_slice, start)
+        if real_base == -1:
+            return 0, String(str_slice)
 
         has_prefix = real_base != 10
     else:
         start, has_prefix = _handle_base_prefix(start, str_slice, str_len, base)
         real_base = base
-
-    var ord_num_max: Int
-    var ord_letter_max = (-1, -1)
-    alias ord_0 = ord("0")
-    var ord_letter_min = (ord("a"), ord("A"))
-    alias ord_underscore = ord("_")
 
     if real_base <= 10:
         ord_num_max = ord(str(real_base - 1))
@@ -286,7 +279,7 @@ fn stol(str_slice: StringSlice, base: Int = 10) raises -> (Int, String):
     for pos in range(start, str_len):
         var ord_current = Int(buff[pos])
         if ord_current == ord_underscore and was_last_digit_underscore:
-            break  # Break out as apposed to raising exception
+            break  # Break out as opposed to raising exception as in `atol`
         if ord_current == ord_underscore:
             was_last_digit_underscore = True
             continue
