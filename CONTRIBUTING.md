@@ -222,7 +222,7 @@ for more details.
 
 #### Fork and clone the repo
 
-Go to the [Mojo repo](https://github.com/modularml/mojo) and click the fork
+Go to the [Mojo repo](https://github.com/modular/mojo) and click the fork
 button:
 
 ![Create Fork](stdlib/docs/images/create-fork.png)
@@ -237,7 +237,7 @@ cd mojo
 Add the upstream remote and fetch it:
 
 ```bash
-git remote add upstream git@github.com:modularml/mojo.git
+git remote add upstream git@github.com:modular/mojo.git
 git fetch upstream
 ```
 

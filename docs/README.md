@@ -17,7 +17,7 @@ Be aware that we don't provide tools to generate a preview of the website,
 because the Mojo docs are built along with other content that's not included in
 this repo. As such, we recommend you preview your edits in an IDE that can
 render markdown and Jupyter notebook files, such as VS Code, including the [VS
-Code environment in GitHub](https://github.dev/modularml/mojo/blob/main/).
+Code environment in GitHub](https://github.dev/modular/mojo/blob/main/).
 
 For more information about how to contribute, see the [Contributor
 Guide](../CONTRIBUTING.md)

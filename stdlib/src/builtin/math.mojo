@@ -68,7 +68,7 @@ fn abs[T: Absable](value: T) -> T:
     return value.__abs__()
 
 
-# TODO: https://github.com/modularml/modular/issues/38694
+# TODO: https://github.com/modular/modular/issues/38694
 # TODO: Remove this
 @always_inline
 fn abs(value: IntLiteral) -> IntLiteral:
@@ -83,7 +83,7 @@ fn abs(value: IntLiteral) -> IntLiteral:
     return value.__abs__()
 
 
-# TODO: https://github.com/modularml/modular/issues/38694
+# TODO: https://github.com/modular/modular/issues/38694
 # TODO: Remove this
 @always_inline
 fn abs(value: FloatLiteral) -> FloatLiteral:

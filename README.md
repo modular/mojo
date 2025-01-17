@@ -25,11 +25,11 @@ This repo includes source code for:
 
 This repo has two primary branches:
 
-- The [`main`](https://github.com/modularml/mojo/tree/main) branch, which is in
+- The [`main`](https://github.com/modular/mojo/tree/main) branch, which is in
 sync with the last stable released version of Mojo. Use the examples here if you’re
 using a [release build of Mojo](#latest-released).
 
-- The [`nightly`](https://github.com/modularml/mojo/tree/nightly) branch, which
+- The [`nightly`](https://github.com/modular/mojo/tree/nightly) branch, which
 is in sync with the Mojo nightly build and subject to breakage. Use this branch
 for [contributions](./CONTRIBUTING.md), or if you're using the latest
 [nightly build of Mojo](#latest-nightly).
@@ -78,7 +78,7 @@ And when you clone this repo, switch to the `nightly` branch because the `main`
 branch might not be compatible with nightly builds:
 
 ```bash
-git clone https://github.com/modularml/mojo.git
+git clone https://github.com/modular/mojo.git
 ```
 
 ```bash
@@ -88,13 +88,13 @@ git checkout nightly
 ## Contributing
 
 When you want to report issues or request features, [please create a GitHub
-issue here](https://github.com/modularml/mojo/issues).
+issue here](https://github.com/modular/mojo/issues).
 See [here](./CONTRIBUTING.md) for guidelines on filing good bugs.
 
 We welcome contributions to this repo on the
-[`nightly`](https://github.com/modularml/mojo/tree/nightly)
+[`nightly`](https://github.com/modular/mojo/tree/nightly)
 branch. If you’d like to contribute to Mojo, please first read our [Contributor
-Guide](https://github.com/modularml/mojo/blob/main/CONTRIBUTING.md).
+Guide](https://github.com/modular/mojo/blob/main/CONTRIBUTING.md).
 
 For more general questions or to chat with other Mojo developers, check out our
 [Discord](https://discord.gg/modular).
@@ -108,6 +108,6 @@ MAX and Mojo usage and distribution are licensed under the
 
 ## Thanks to our contributors
 
-<a href="https://github.com/modularml/mojo/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=modularml/mojo" />
+<a href="https://github.com/modular/mojo/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=modular/mojo" />
 </a>

@@ -105,7 +105,7 @@ struct StringRef(
 
         Note that you should use the constructor from `UnsafePointer[UInt8]` instead
         as we are now storing the bytes as UInt8.
-        See https://github.com/modularml/mojo/issues/2317 for more information.
+        See https://github.com/modular/mojo/issues/2317 for more information.
 
         Args:
             ptr: UnsafePointer to the string.
@@ -136,7 +136,7 @@ struct StringRef(
 
         Note that you should use the constructor from `UnsafePointer[UInt8]` instead
         as we are now storing the bytes as UInt8.
-        See https://github.com/modularml/mojo/issues/2317 for more information.
+        See https://github.com/modular/mojo/issues/2317 for more information.
 
         Args:
             ptr: UnsafePointer to the string.

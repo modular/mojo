@@ -11,7 +11,7 @@ Mojo product [page](https://www.modular.com/mojo).
 Git clone the repository of Mojo samples using the command below:
 
 ```bash
-git clone https://github.com/modularml/mojo.git
+git clone https://github.com/modular/mojo.git
 ```
 
 ## Running
