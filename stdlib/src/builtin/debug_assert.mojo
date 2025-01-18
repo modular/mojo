@@ -21,6 +21,7 @@ from sys import is_gpu, is_nvidia_gpu, is_amd_gpu, llvm_intrinsic
 from sys._build import is_debug_build
 from sys.ffi import c_char, c_size_t, c_uint, external_call
 from sys.param_env import env_get_string
+from sys.intrinsics import likely
 
 from builtin._location import __call_location, _SourceLocation
 from memory import UnsafePointer, Span
@@ -137,7 +138,7 @@ fn debug_assert[
 
     @parameter
     if _assert_enabled[assert_mode, cpu_only]():
-        if cond():
+        if likely(cond()):
             return
         _debug_assert_msg(messages, __call_location())
 
@@ -220,7 +221,7 @@ fn debug_assert[
 
     @parameter
     if _assert_enabled[assert_mode, cpu_only]():
-        if cond:
+        if likely(cond):
             return
         _debug_assert_msg(messages, __call_location())
 
