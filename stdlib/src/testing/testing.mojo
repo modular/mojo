@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -42,8 +42,8 @@ from utils import StringSlice
 
 
 @always_inline
-fn _assert_error[T: Stringable](msg: T, loc: _SourceLocation) -> String:
-    return loc.prefix("AssertionError: " + str(msg))
+fn _assert_error[T: Writable](msg: T, loc: _SourceLocation) -> String:
+    return loc.prefix(String("AssertionError: ", msg))
 
 
 @always_inline
@@ -141,7 +141,10 @@ fn assert_equal[
     """
     if lhs != rhs:
         raise _assert_cmp_error["`left == right` comparison"](
-            str(lhs), str(rhs), msg=msg, loc=location.or_else(__call_location())
+            String(lhs),
+            String(rhs),
+            msg=msg,
+            loc=location.or_else(__call_location()),
         )
 
 
@@ -200,7 +203,10 @@ fn assert_equal[
     """
     if any(lhs != rhs):
         raise _assert_cmp_error["`left == right` comparison"](
-            str(lhs), str(rhs), msg=msg, loc=location.or_else(__call_location())
+            String(lhs),
+            String(rhs),
+            msg=msg,
+            loc=location.or_else(__call_location()),
         )
 
 
@@ -345,7 +351,10 @@ fn assert_not_equal[
     """
     if lhs == rhs:
         raise _assert_cmp_error["`left != right` comparison"](
-            str(lhs), str(rhs), msg=msg, loc=location.or_else(__call_location())
+            String(lhs),
+            String(rhs),
+            msg=msg,
+            loc=location.or_else(__call_location()),
         )
 
 
@@ -403,7 +412,10 @@ fn assert_not_equal[
     """
     if all(lhs == rhs):
         raise _assert_cmp_error["`left != right` comparison"](
-            str(lhs), str(rhs), msg=msg, loc=location.or_else(__call_location())
+            String(lhs),
+            String(rhs),
+            msg=msg,
+            loc=location.or_else(__call_location()),
         )
 
 
@@ -490,14 +502,14 @@ fn assert_almost_equal[
     )
 
     if not all(almost_equal):
-        var err = str(lhs) + " is not close to " + str(rhs)
+        var err = String(lhs, " is not close to ", rhs)
 
         @parameter
         if type.is_integral() or type.is_floating_point():
-            err += " with a diff of " + str(abs(lhs - rhs))
+            err += String(" with a diff of ", abs(lhs - rhs))
 
         if msg:
-            err += " (" + msg + ")"
+            err += String(" (", msg, ")")
 
         raise _assert_error(err, location.or_else(__call_location()))
 
@@ -529,7 +541,10 @@ fn assert_is[
     """
     if lhs is not rhs:
         raise _assert_cmp_error["`left is right` identification"](
-            str(lhs), str(rhs), msg=msg, loc=location.or_else(__call_location())
+            String(lhs),
+            String(rhs),
+            msg=msg,
+            loc=location.or_else(__call_location()),
         )
 
 
@@ -560,7 +575,10 @@ fn assert_is_not[
     """
     if lhs is rhs:
         raise _assert_cmp_error["`left is not right` identification"](
-            str(lhs), str(rhs), msg=msg, loc=location.or_else(__call_location())
+            String(lhs),
+            String(rhs),
+            msg=msg,
+            loc=location.or_else(__call_location()),
         )
 
 
@@ -643,9 +661,7 @@ struct assert_raises:
         Raises:
             AssertionError: Always. The block must raise to pass the test.
         """
-        raise Error(
-            "AssertionError: Didn't raise at " + str(self.call_location)
-        )
+        raise Error("AssertionError: Didn't raise at ", self.call_location)
 
     fn __exit__(self, error: Error) raises -> Bool:
         """Exit the context manager with an error.
@@ -660,5 +676,5 @@ struct assert_raises:
             True if the error message contained the expected string.
         """
         if self.message_contains:
-            return self.message_contains.value() in str(error)
+            return self.message_contains.value() in String(error)
         return True

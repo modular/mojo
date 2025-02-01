@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -67,7 +67,7 @@ def test_equality():
     assert_true(StringLiteral.__ne__("five", "six"))
     assert_false(StringLiteral.__ne__("six", "six"))
 
-    var hello = str("hello")
+    var hello = String("hello")
     var hello_ref = hello.as_string_slice()
 
     assert_false(StringLiteral.__eq__("goodbye", hello))
@@ -209,7 +209,7 @@ def test_hash():
 def test_indexing():
     var s = "hello"
     assert_equal(s[False], "h")
-    assert_equal(s[int(1)], "e")
+    assert_equal(s[Int(1)], "e")
     assert_equal(s[2], "l")
 
 
@@ -287,7 +287,7 @@ def test_layout():
     # Test empty StringLiteral contents
     var empty = "".unsafe_ptr()
     # An empty string literal is stored as just the NUL terminator.
-    assert_true(int(empty) != 0)
+    assert_true(Int(empty) != 0)
     # TODO(MSTDL-596): This seems to hang?
     # assert_equal(empty[0], 0)
 
@@ -499,7 +499,7 @@ def test_splitlines():
 
 def test_float_conversion():
     assert_equal(("4.5").__float__(), 4.5)
-    assert_equal(float("4.5"), 4.5)
+    assert_equal(Float64("4.5"), 4.5)
     with assert_raises():
         _ = ("not a float").__float__()
 

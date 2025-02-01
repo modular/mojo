@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -22,7 +22,7 @@ fn to_string(mut x: IntOrString) -> String:
   if x.isa[String]():
     return x[String]
   # x.isa[Int]()
-  return str(x[Int])
+  return String(x[Int])
 
 # They have to be mutable for now, and implement CollectionElement
 var an_int = IntOrString(4)
@@ -85,7 +85,7 @@ struct Variant[*Ts: CollectionElement](
         if x.isa[String]():
             return x[String]
         # x.isa[Int]()
-        return str(x[Int])
+        return String(x[Int])
 
     # They have to be mutable for now, and implement CollectionElement
     var an_int = IntOrString(4)

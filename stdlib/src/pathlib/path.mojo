@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -24,8 +24,6 @@ from sys.ffi import c_char
 from builtin._location import __call_location, _SourceLocation
 from memory import UnsafePointer, stack_allocation
 
-from utils import StringRef
-
 alias DIR_SEPARATOR = "\\" if os_is_windows() else "/"
 
 
@@ -46,7 +44,7 @@ fn cwd() raises -> Path:
     if res == UnsafePointer[c_char]():
         raise Error("unable to query the current directory")
 
-    return String(StringRef(ptr=buf))
+    return String(StringSlice[buf.origin](unsafe_from_utf8_cstr_ptr=buf))
 
 
 @always_inline
@@ -61,8 +59,8 @@ fn _dir_of_current_file() raises -> Path:
 
 @no_inline
 fn _dir_of_current_file_impl(file_name: StringLiteral) raises -> Path:
-    var i = str(file_name).rfind(DIR_SEPARATOR)
-    return Path(str(file_name)[0:i])
+    var i = String(file_name).rfind(DIR_SEPARATOR)
+    return Path(String(file_name)[0:i])
 
 
 @value
@@ -119,9 +117,9 @@ struct Path(
         Returns:
           A new path with the suffix appended to the current path.
         """
-        return self.__truediv__(suffix.path)
+        return self.__truediv__(StringSlice(suffix.path))
 
-    fn __truediv__(self, suffix: String) -> Self:
+    fn __truediv__(self, suffix: StringSlice) -> Self:
         """Joins two paths using the system-defined path separator.
 
         Args:
@@ -134,7 +132,7 @@ struct Path(
         res /= suffix
         return res
 
-    fn __itruediv__(mut self, suffix: String):
+    fn __itruediv__(mut self, suffix: StringSlice):
         """Joins two paths using the system-defined path separator.
 
         Args:
@@ -143,7 +141,8 @@ struct Path(
         if self.path.endswith(DIR_SEPARATOR):
             self.path += suffix
         else:
-            self.path += DIR_SEPARATOR + suffix
+            self.path += DIR_SEPARATOR
+            self.path += suffix
 
     @no_inline
     fn __str__(self) -> String:
@@ -183,7 +182,7 @@ struct Path(
         Returns:
           A string representation of the path.
         """
-        return str(self)
+        return String(self)
 
     fn __repr__(self) -> String:
         """Returns a printable representation of the path.
@@ -191,7 +190,7 @@ struct Path(
         Returns:
           A printable representation of the path.
         """
-        return str(self)
+        return String(self)
 
     fn __eq__(self, other: Self) -> Bool:
         """Returns True if the two paths are equal.
@@ -202,9 +201,9 @@ struct Path(
         Returns:
           True if the paths are equal and False otherwise.
         """
-        return str(self) == str(other)
+        return String(self) == String(other)
 
-    fn __eq__(self, other: String) -> Bool:
+    fn __eq__(self, other: StringSlice) -> Bool:
         """Returns True if the two paths are equal.
 
         Args:
@@ -213,7 +212,7 @@ struct Path(
         Returns:
           True if the String and Path are equal, and False otherwise.
         """
-        return self.path == other
+        return self.path.as_string_slice() == other
 
     fn __ne__(self, other: Self) -> Bool:
         """Returns True if the two paths are not equal.
@@ -339,7 +338,7 @@ struct Path(
           value: The value to write.
         """
         with open(self, "w") as f:
-            f.write(str(value))
+            f.write(String(value))
 
     fn suffix(self) -> String:
         """The path's extension, if any.
@@ -358,6 +357,9 @@ struct Path(
 
         return ""
 
+    # TODO(MOCO-1532):
+    #   Use StringSlice here once param inference bug for empty variadic
+    #   list of parameterized types is fixed.
     fn joinpath(self, *pathsegments: String) -> Path:
         """Joins the Path using the pathsegments.
 
