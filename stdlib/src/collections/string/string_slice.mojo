@@ -38,30 +38,16 @@ alias StaticString = StringSlice[StaticConstantOrigin]
 """An immutable static string slice."""
 
 
-fn _count_utf8_continuation_bytes(str_slice: StringSlice) -> Int:
-    alias sizes = (256, 128, 64, 32, 16, 8)
-    var ptr = str_slice.unsafe_ptr()
-    var num_bytes = str_slice.byte_length()
-    var amnt: Int = 0
-    var processed = 0
+@always_inline
+fn _is_continuation_byte[
+    w: Int
+](vec: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    return (vec & 0b1100_0000) == 0b1000_0000
 
-    @parameter
-    for i in range(len(sizes)):
-        alias s = sizes[i]
 
-        @parameter
-        if simdwidthof[DType.uint8]() >= s:
-            var rest = num_bytes - processed
-            for _ in range(rest // s):
-                var vec = (ptr + processed).load[width=s]()
-                var comp = (vec & 0b1100_0000) == 0b1000_0000
-                amnt += Int(comp.cast[DType.uint8]().reduce_add())
-                processed += s
-
-    for i in range(num_bytes - processed):
-        amnt += Int((ptr[processed + i] & 0b1100_0000) == 0b1000_0000)
-
-    return amnt
+@always_inline
+fn _count_utf8_continuation_bytes(span: Span[Byte]) -> Int:
+    return span.count[func=_is_continuation_byte]()
 
 
 @always_inline
@@ -70,7 +56,7 @@ fn _utf8_first_byte_sequence_length(b: Byte) -> Int:
     this does not work correctly if given a continuation byte."""
 
     debug_assert(
-        (b & 0b1100_0000) != 0b1000_0000,
+        not _is_continuation_byte(b),
         "Function does not work correctly if given a continuation byte.",
     )
     return Int(count_leading_zeros(~b)) + Int(b < 0b1000_0000)
@@ -1168,7 +1154,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         # overall length in bytes.
         # For a visual explanation of how this UTF-8 codepoint counting works:
         #   https://connorgray.com/ephemera/project-log#2025-01-13
-        var continuation_count = _count_utf8_continuation_bytes(self)
+        var continuation_count = _count_utf8_continuation_bytes(self.as_bytes())
         return self.byte_length() - continuation_count
 
     fn get_immutable(
