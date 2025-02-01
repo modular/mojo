@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,7 +16,8 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import KeyElement
-from collections.string import (
+from collections.string import StringSlice
+from collections.string.string import (
     _calc_initial_buffer_size_int32,
     _calc_initial_buffer_size_int64,
 )
@@ -39,24 +40,22 @@ from utils._visualizers import lldb_formatter_wrapping_type
 # ===----------------------------------------------------------------------=== #
 
 
-trait Indexer:
-    """This trait denotes a type that can be used to index a container that
-    handles integral index values.
-
-    This solves the issue of being able to index data structures such as `List`
-    with the various integral types without being too broad and allowing types
-    that are coercible to `Int` (e.g. floating point values that have `__int__`
-    method). In contrast to `Intable`, types conforming to `Indexer` must be
-    convertible to `Int` in a lossless way.
-
-    Note that types conforming to `Indexer` are implicitly convertible to `Int`.
+trait Indexer(
+    Intable,
+):
+    """
+    The `Indexer` trait is used for types that can index into a collection or
+    pointer. The type returned is the underlying __mlir_type.index, enabling
+    types like `UInt` to not have to be converted to an `Int` first. This type
+    is implicitly convertable to an `Int`, so can be used anywhere an `Int` can
+    e.g. for comparisons.
     """
 
-    fn __index__(self) -> Int:
-        """Return the index value.
+    fn __index__(self) -> __mlir_type.index:
+        """Convert to index.
 
         Returns:
-            The index value of the object.
+            The corresponding __mlir_type.index value.
         """
         ...
 
@@ -67,7 +66,7 @@ trait Indexer:
 
 
 @always_inline("nodebug")
-fn index[T: Indexer](idx: T, /) -> Int:
+fn index[T: Indexer](idx: T, /) -> __mlir_type.index:
     """Returns the value of `__index__` for the given value.
 
     Parameters:
@@ -77,7 +76,7 @@ fn index[T: Indexer](idx: T, /) -> Int:
         idx: The value.
 
     Returns:
-        An `Int` representing the index value.
+        An `__mlir_type` representing the index value.
     """
     return idx.__index__()
 
@@ -91,8 +90,8 @@ trait Intable(CollectionElement):
     """The `Intable` trait describes a type that can be converted to an Int.
 
     Any type that conforms to `Intable` or
-    [`IntableRaising`](/mojo/stdlib/builtin/int/IntableRaising) works with
-    the built-in [`int()`](/mojo/stdlib/builtin/int/int-function) function.
+    [`IntableRaising`](/mojo/stdlib/builtin/int/IntableRaising) can construct an
+    `Int`.
 
     This trait requires the type to implement the `__int__()` method. For
     example:
@@ -106,13 +105,12 @@ trait Intable(CollectionElement):
             return self.i
     ```
 
-    Now you can use the `int()` function to convert a `Foo` to an
-    `Int`:
+    Now you can construct an `Int`:
 
     ```mojo
     %# from testing import assert_equal
     foo = Foo(42)
-    assert_equal(int(foo), 42)
+    assert_equal(Int(foo), 42)
     ```
 
     **Note:** If the `__int__()` method can raise an error, use the
@@ -135,8 +133,7 @@ trait IntableRaising:
     the conversion might raise an error.
 
     Any type that conforms to [`Intable`](/mojo/stdlib/builtin/int/Intable)
-    or `IntableRaising` works with the built-in
-    [`int()`](/mojo/stdlib/builtin/int/int-function) function.
+    or `IntableRaising` can construct an `Int`.
 
     This trait requires the type to implement the `__int__()` method, which can
     raise an error. For example:
@@ -150,13 +147,12 @@ trait IntableRaising:
             return self.i
     ```
 
-    Now you can use the `int()` function to convert a `Foo` to an
-    `Int`:
+    Now you can construct an `Int`:
 
     ```mojo
     %# from testing import assert_equal
     foo = Foo(42)
-    assert_equal(int(foo), 42)
+    assert_equal(Int(foo), 42)
     ```
     """
 
@@ -172,30 +168,38 @@ trait IntableRaising:
         ...
 
 
-# ===----------------------------------------------------------------------=== #
-#  IntLike
-# ===----------------------------------------------------------------------=== #
+trait ImplicitlyIntable(Intable):
+    """The `ImplicitlyIntable` trait describes a type that can be converted to
+    an Int implicitly.
 
+    This trait requires the type to implement the `__as_int__()` method. For
+    example:
 
-trait IntLike(
-    Absable,
-    Ceilable,
-    Floorable,
-    Writable,
-    Powable,
-    Stringable,
-    Truncable,
-):
+    ```mojo
+    @value
+    struct Foo(ImplicitlyIntable):
+        var i: Int
+
+        fn __as_int__(self) -> Int:
+            return self.i
+    ```
+
+    Now you can use `Foo` anywhere that an `Int` is expected, e.g. equality
+    checks:
+
+    ```mojo
+    %# from testing import assert_equal
+    foo = Foo(42)
+    assert_equal(foo, 42)
+    ```
     """
-    The `IntLike` trait is a tag for `Int` or `UInt`. This allows writing
-    functions that works on either.
-    """
 
-    fn __mlir_index__(self) -> __mlir_type.index:
-        """Convert to index.
+    fn __as_int__(self) -> Int:
+        """Implicitly convert to an integral representation of the value,
+        wherever an `Int` is expected.
 
         Returns:
-            The corresponding __mlir_type.index value.
+            The integral representation of the value.
         """
         ...
 
@@ -205,6 +209,10 @@ trait IntLike(
 # ===----------------------------------------------------------------------=== #
 
 
+# FIXME(25.2): Move `int` deprecation warnings to a compiler error
+@deprecated(
+    "the `int` function is deprecated, use the `Int` constructor instead"
+)
 @always_inline
 fn int[T: Intable](value: T) -> Int:
     """Get the Int representation of the value.
@@ -221,6 +229,9 @@ fn int[T: Intable](value: T) -> Int:
     return value.__int__()
 
 
+@deprecated(
+    "the `int` function is deprecated, use the `Int` constructor instead"
+)
 @always_inline
 fn int[T: IntableRaising](value: T) raises -> Int:
     """Get the Int representation of the value.
@@ -240,7 +251,10 @@ fn int[T: IntableRaising](value: T) raises -> Int:
     return value.__int__()
 
 
-fn int(value: String, base: Int = 10) raises -> Int:
+@deprecated(
+    "the `int` function is deprecated, use the `Int` constructor instead"
+)
+fn int(value: StringSlice, base: Int = 10) raises -> Int:
     """Parses and returns the given string as an integer in the given base.
 
     If base is set to 0, the string is parsed as an Integer literal, with the
@@ -278,6 +292,9 @@ fn int(value: String, base: Int = 10) raises -> Int:
     return atol(value, base)
 
 
+@deprecated(
+    "the `int` function is deprecated, use the `Int` constructor instead"
+)
 fn int(value: UInt) -> Int:
     """Get the Int representation of the value.
 
@@ -301,12 +318,11 @@ fn int(value: UInt) -> Int:
 struct Int(
     CeilDivable,
     Indexer,
-    Intable,
     ImplicitlyBoolable,
     KeyElement,
     Roundable,
-    IntLike,
     _HashableWithHasher,
+    ExplicitlyCopyable,
 ):
     """This type represents an integer value."""
 
@@ -314,10 +330,10 @@ struct Int(
     var value: __mlir_type.index
     """The underlying storage for the integer value."""
 
-    alias MAX = int(Scalar[DType.index].MAX)
+    alias MAX = Int(Scalar[DType.index].MAX)
     """Returns the maximum integer value."""
 
-    alias MIN = int(Scalar[DType.index].MIN)
+    alias MIN = Int(Scalar[DType.index].MIN)
     """Returns the minimum value of type."""
 
     # ===------------------------------------------------------------------=== #
@@ -329,13 +345,13 @@ struct Int(
         """Default constructor that produces zero."""
         self.value = __mlir_op.`index.constant`[value = __mlir_attr.`0:index`]()
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicitly copy the provided value.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other
+        return self
 
     @doc_private
     @always_inline("nodebug")
@@ -347,51 +363,6 @@ struct Int(
             value: The init value.
         """
         self.value = value
-
-    @doc_private
-    @always_inline("nodebug")
-    @implicit
-    fn __init__(out self, value: __mlir_type.`!pop.scalar<si16>`):
-        """Construct Int from the given Int16 value.
-
-        Args:
-            value: The init value.
-        """
-        self = Self(
-            __mlir_op.`pop.cast`[_type = __mlir_type.`!pop.scalar<index>`](
-                value
-            )
-        )
-
-    @doc_private
-    @always_inline("nodebug")
-    @implicit
-    fn __init__(out self, value: __mlir_type.`!pop.scalar<si32>`):
-        """Construct Int from the given Int32 value.
-
-        Args:
-            value: The init value.
-        """
-        self = Self(
-            __mlir_op.`pop.cast`[_type = __mlir_type.`!pop.scalar<index>`](
-                value
-            )
-        )
-
-    @doc_private
-    @always_inline("nodebug")
-    @implicit
-    fn __init__(out self, value: __mlir_type.`!pop.scalar<si64>`):
-        """Construct Int from the given Int64 value.
-
-        Args:
-            value: The init value.
-        """
-        self = Self(
-            __mlir_op.`pop.cast`[_type = __mlir_type.`!pop.scalar<index>`](
-                value
-            )
-        )
 
     @doc_private
     @always_inline("nodebug")
@@ -418,19 +389,6 @@ struct Int(
 
     @always_inline("nodebug")
     @implicit
-    fn __init__[IndexerTy: Indexer](mut self, value: IndexerTy):
-        """Construct Int from the given Indexer value.
-
-        Parameters:
-            IndexerTy: A type conforming to Indexer.
-
-        Args:
-            value: The init value.
-        """
-        self = value.__index__()
-
-    @always_inline("nodebug")
-    @implicit
     fn __init__(out self, value: UInt):
         """Construct Int from the given UInt value.
 
@@ -438,6 +396,81 @@ struct Int(
             value: The init value.
         """
         self = Self(value.value)
+
+    @always_inline("nodebug")
+    fn __init__[T: Intable](out self, value: T):
+        """Get the Int representation of the value.
+
+        Parameters:
+            T: The Intable type.
+
+        Args:
+            value: The object to get the integral representation of.
+        """
+        self = value.__int__()
+
+    @always_inline("nodebug")
+    fn __init__[T: IntableRaising](out self, value: T) raises:
+        """Get the Int representation of the value.
+
+        Parameters:
+            T: The Intable type.
+
+        Args:
+            value: The object to get the integral representation of.
+
+        Raises:
+            If the type does not have an integral representation.
+        """
+        self = value.__int__()
+
+    @always_inline("nodebug")
+    @implicit
+    fn __init__[I: ImplicitlyIntable](out self, value: I):
+        """Construct Int from implicitly convertable type.
+
+        Parameters:
+            I: The type that is implicitly convertable to an `Int`.
+
+        Args:
+            value: The init value.
+        """
+        self = value.__as_int__()
+
+    @always_inline("nodebug")
+    fn __init__(out self, value: StringSlice, base: UInt = 10) raises:
+        """Parses and returns the given string as an integer in the given base.
+
+        If base is set to 0, the string is parsed as an Integer literal, with the
+        following considerations:
+        - '0b' or '0B' prefix indicates binary (base 2)
+        - '0o' or '0O' prefix indicates octal (base 8)
+        - '0x' or '0X' prefix indicates hexadecimal (base 16)
+        - Without a prefix, it's treated as decimal (base 10)
+
+        Args:
+            value: A string to be parsed as an integer in the given base.
+            base: Base used for conversion, value must be between 2 and 36, or 0.
+
+        Raises:
+            If the given string cannot be parsed as an integer value or if an
+            incorrect base is provided.
+
+        Examples:
+            >>> Int("32")
+            32
+            >>> Int("FF", 16)
+            255
+            >>> Int("0xFF", 0)
+            255
+            >>> Int("0b1010", 0)
+            10
+
+        Notes:
+            This follows [Python's integer literals](
+            https://docs.python.org/3/reference/lexical_analysis.html#integers).
+        """
+        self = atol(value, base)
 
     # ===------------------------------------------------------------------=== #
     # Operator dunders
@@ -602,7 +635,7 @@ struct Int(
             rhs: The value to divide on.
 
         Returns:
-            `float(self)/float(rhs)` value.
+            `Float64(self)/Float64(rhs)` value.
         """
         return Float64(self) / Float64(rhs)
 
@@ -1032,18 +1065,6 @@ struct Int(
         return self.__bool__()
 
     @always_inline("nodebug")
-    fn __index__(self) -> Int:
-        """Return self converted to an integer, if self is suitable for use as
-        an index into a list.
-
-        For Int type this is simply the value.
-
-        Returns:
-            The corresponding Int value.
-        """
-        return self
-
-    @always_inline("nodebug")
     fn __int__(self) -> Int:
         """Gets the integral value (this is an identity function for Int).
 
@@ -1128,7 +1149,7 @@ struct Int(
         Returns:
             A string representation.
         """
-        return str(self)
+        return String(self)
 
     fn __hash__(self) -> UInt:
         """Hash the int using builtin hash.
@@ -1213,7 +1234,7 @@ struct Int(
         writer.write(self)
 
     @always_inline("nodebug")
-    fn __mlir_index__(self) -> __mlir_type.index:
+    fn __index__(self) -> __mlir_type.index:
         """Convert to index.
 
         Returns:

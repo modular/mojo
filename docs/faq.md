@@ -41,9 +41,7 @@ at this point, but you can also just use the `.mojo` extension. :)
 Mojo combines the usability of Python with the systems programming features
 it’s missing. We are guided more by pragmatism than novelty, but Mojo’s use of
 [MLIR](https://mlir.llvm.org/) allows it to scale to new exotic hardware types
-and domains in a way that other languages haven’t demonstrated (for an example
-of Mojo talking directly to MLIR, see our [low-level IR in Mojo
-notebook](/mojo/notebooks/BoolMLIR)). It also
+and domains in a way that other languages haven’t demonstrated. It also
 has caching and distributed compilation built into its
 core. We also believe Mojo has a good chance of unifying hybrid packages in the
 broader Python community.
@@ -136,9 +134,7 @@ Although you can use MLIR to create a flexible and powerful compiler for any
 programming language, Mojo is the world’s first language to be built from the
 ground up with MLIR design principles. This means that Mojo not only offers
 high-performance compilation for heterogeneous hardware, but it also provides
-direct programming support for the MLIR intermediate representations. For a
-simple example of Mojo talking directly to MLIR, see our [low-level IR in Mojo
-notebook](/mojo/notebooks/BoolMLIR).
+direct programming support for the MLIR intermediate representations.
 
 ### Is Mojo only for AI or can it be used for other stuff?
 
@@ -147,7 +143,7 @@ develop AI algorithms, but as we grow Mojo into a superset of Python, you can
 use it for other things like HPC, data transformations, writing pre/post
 processing operations, and much more. For examples of how Mojo can be used for
 other general programming tasks, see our [Mojo
-examples](https://github.com/modularml/mojo/tree/main/examples).
+examples](https://github.com/modular/mojo/tree/main/examples).
 
 ### Is Mojo interpreted or compiled?
 
@@ -242,18 +238,6 @@ multiplication](https://www.modular.com/blog/the-worlds-fastest-unified-matrix-m
 
 ## Performance
 
-### Mojo’s matmul performance in the notebook doesn’t seem that great. What’s going on?
-
-The [Mojo Matmul
-notebook](https://github.com/modularml/mojo/blob/main/examples/notebooks/Matmul.ipynb)
-uses matrix multiplication to show off some Mojo features in a scenario that
-you would never attempt in pure Python. So that implementation is like a “toy”
-matmul implementation and it doesn’t measure up to the state of the art.
-
-Modular has a separate matmul implementation written in Mojo and used by
-[MAX Engine](/engine), which you can read about it in [this blog
-post](https://www.modular.com/blog/the-worlds-fastest-unified-matrix-multiplication).
-
 ### Are there any AI related performance benchmarks for Mojo?
 
 It’s important to remember that Mojo is a general-purpose programming language,
@@ -270,8 +254,8 @@ dashboard](https://www.modular.com/max/performance).
 
 ### How can I get access to the SDK?
 
-Mojo is included with the MAX SDK, which you can [download and use for
-free](/max/install).
+Mojo is included with the `max` conda package. Try it now by following
+the tutorial to [get started with Mojo](/mojo/manual/get-started).
 
 Read more about [why Mojo is bundled with
 MAX](/max/faq#why-bundle-mojo-with-max).
@@ -280,9 +264,7 @@ MAX](/max/faq#why-bundle-mojo-with-max).
 
 Yes, but it's different. When we first announced Mojo, it was available
 only through login, in a JupyterLab environment. Now that Mojo is available
-for local development, we've shut down that service (you can instead [run
-Mojo notebooks
-locally](https://github.com/modularml/mojo/tree/main/examples/notebooks#readme)).
+for local development, we've shut down that service.
 
 The new [Mojo Playground](/mojo/playground) is built into the docs website
 and does not require login.
@@ -301,7 +283,7 @@ and does not require login.
   using buttons in the Playground toolbar.
 
 - There might be some bugs. Please [report issues and feedback on
-  GitHub](https://github.com/modularml/mojo/issues/new/choose).
+  GitHub](https://github.com/modular/mojo/issues/new/choose).
 
 ### What are the license terms for the SDK?
 

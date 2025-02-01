@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -12,12 +12,36 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from testing import assert_equal, assert_false, assert_true
+from testing import assert_equal, assert_false, assert_true, assert_raises
 
-from memory import Span
-from utils import StringSlice
-from utils._utf8_validation import _is_valid_utf8
-from utils.string_slice import _count_utf8_continuation_bytes
+from collections.string.string_slice import (
+    StringSlice,
+    _count_utf8_continuation_bytes,
+)
+from collections.string._utf8_validation import _is_valid_utf8
+from memory import Span, UnsafePointer
+
+from sys.info import sizeof, alignof
+
+
+fn test_string_slice_layout() raises:
+    # Test that the layout of `StringSlice` is the same as `llvm::StringRef`.
+    # This is necessary for `StringSlice` to be validly bitcasted to and from
+    # `llvm::StringRef`
+
+    # StringSlice should be two words in size.
+    assert_equal(sizeof[StringSlice[MutableAnyOrigin]](), 2 * sizeof[Int]())
+
+    var str_slice = StringSlice("")
+
+    var base_ptr = Int(UnsafePointer.address_of(str_slice))
+    var first_word_ptr = Int(UnsafePointer.address_of(str_slice._slice._data))
+    var second_word_ptr = Int(UnsafePointer.address_of(str_slice._slice._len))
+
+    # 1st field should be at 0-byte offset from base ptr
+    assert_equal(first_word_ptr - base_ptr, 0)
+    # 2nd field should at 1-word offset from base ptr
+    assert_equal(second_word_ptr - base_ptr, sizeof[Int]())
 
 
 fn test_string_literal_byte_span() raises:
@@ -89,7 +113,7 @@ fn test_string_byte_span() raises:
     assert_equal(len(sub5), 0)
 
     # Empty slices still have a pointer value
-    assert_equal(int(sub5.unsafe_ptr()) - int(sub4.unsafe_ptr()), 2)
+    assert_equal(Int(sub5.unsafe_ptr()) - Int(sub4.unsafe_ptr()), 2)
 
     # ----------------------------------
     # Test invalid slicing
@@ -126,24 +150,108 @@ fn test_heap_string_from_string_slice() raises:
     assert_equal(heap_string, "Hello")
 
 
+fn test_string_substring() raises:
+    var string = String("Hello")
+    var str_slice = string.as_string_slice()
+
+    assert_equal(len(str_slice), 5)
+    assert_equal(str_slice[0], "H")
+    assert_equal(str_slice[1], "e")
+    assert_equal(str_slice[2], "l")
+    assert_equal(str_slice[3], "l")
+    assert_equal(str_slice[4], "o")
+
+    # ----------------------------------
+    # Test subslicing
+    # ----------------------------------
+
+    # Slice the whole thing
+    var sub1 = str_slice[:5]
+    assert_equal(len(sub1), 5)
+    assert_equal(sub1[0], "H")
+    assert_equal(sub1[1], "e")
+    assert_equal(sub1[2], "l")
+    assert_equal(sub1[3], "l")
+    assert_equal(sub1[4], "o")
+
+    # Slice the end
+    var sub2 = str_slice[2:5]
+    assert_equal(len(sub2), 3)
+    assert_equal(sub2[0], "l")
+    assert_equal(sub2[1], "l")
+    assert_equal(sub2[2], "o")
+
+    # Slice the first element
+    var sub3 = str_slice[0:1]
+    assert_equal(len(sub3), 1)
+    assert_equal(sub3[0], "H")
+    assert_equal(sub3[-1], "H")
+
+    # ----------------------------------
+    # Test empty subslicing
+    # ----------------------------------
+
+    var sub4 = str_slice[0:0]
+    assert_equal(len(sub4), 0)
+
+    var sub5 = str_slice[2:2]
+    assert_equal(len(sub5), 0)
+
+    # Empty slices still have a pointer value
+    assert_equal(Int(sub5.unsafe_ptr()) - Int(sub4.unsafe_ptr()), 2)
+
+    # ----------------------------------
+    # Test disallowed stepsize
+    # ----------------------------------
+
+    with assert_raises():
+        var sub6 = str_slice[0:0:2]
+
+
 fn test_slice_len() raises:
-    alias str1: StringLiteral = "12345"
-    alias str2: StringLiteral = "1234"
-    alias str3: StringLiteral = "123"
-    alias str4: StringLiteral = "12"
-    alias str5: StringLiteral = "1"
+    assert_equal(5, len(StringSlice("12345")))
+    assert_equal(4, len(StringSlice("1234")))
+    assert_equal(3, len(StringSlice("123")))
+    assert_equal(2, len(StringSlice("12")))
+    assert_equal(1, len(StringSlice("1")))
+    assert_equal(0, len(StringSlice("")))
 
-    alias slice1 = str1.as_string_slice()
-    alias slice2 = str2.as_string_slice()
-    alias slice3 = str3.as_string_slice()
-    alias slice4 = str4.as_string_slice()
-    alias slice5 = str5.as_string_slice()
+    # String length is in bytes, not codepoints.
+    var s0 = String("ನಮಸ್ಕಾರ")
+    assert_equal(len(s0), 21)
+    assert_equal(len(s0.chars()), 7)
 
-    assert_equal(5, len(slice1))
-    assert_equal(4, len(slice2))
-    assert_equal(3, len(slice3))
-    assert_equal(2, len(slice4))
-    assert_equal(1, len(slice5))
+    # For ASCII string, the byte and codepoint length are the same:
+    var s1 = String("abc")
+    assert_equal(len(s1), 3)
+    assert_equal(len(s1.chars()), 3)
+
+
+fn test_slice_char_length() raises:
+    var s0 = StringSlice("")
+    assert_equal(s0.byte_length(), 0)
+    assert_equal(s0.char_length(), 0)
+
+    var s1 = StringSlice("foo")
+    assert_equal(s1.byte_length(), 3)
+    assert_equal(s1.char_length(), 3)
+
+    # This string contains 1-, 2-, 3-, and 4-byte codepoint sequences.
+    var s2 = StringSlice("߷കൈ🔄!")
+    assert_equal(s2.byte_length(), 13)
+    assert_equal(s2.char_length(), 5)
+
+    # Just a bit of Zalgo text.
+    var s3 = StringSlice("H̵͙̖̼̬̬̲̱͊̇̅͂̍͐͌͘͜͝")
+    assert_equal(s3.byte_length(), 37)
+    assert_equal(s3.char_length(), 19)
+
+    # Character length is codepoints, not graphemes
+    # This is thumbs up + a skin tone modifier codepoint.
+    var s4 = StringSlice("👍🏻")
+    assert_equal(s4.byte_length(), 8)
+    assert_equal(s4.char_length(), 2)
+    # TODO: assert_equal(s4.grapheme_count(), 1)
 
 
 fn test_slice_eq() raises:
@@ -176,6 +284,34 @@ fn test_slice_bool() raises:
     assert_true(str1.as_string_slice().__bool__())
     var str2: String = ""
     assert_true(not str2.as_string_slice().__bool__())
+
+
+def test_slice_repr():
+    # Standard single-byte characters
+    assert_equal(StringSlice.__repr__("hello"), "'hello'")
+    assert_equal(StringSlice.__repr__(String(0)), "'0'")
+    assert_equal(StringSlice.__repr__("A"), "'A'")
+    assert_equal(StringSlice.__repr__(" "), "' '")
+    assert_equal(StringSlice.__repr__("~"), "'~'")
+
+    # Special single-byte characters
+    assert_equal(StringSlice.__repr__("\0"), r"'\x00'")
+    assert_equal(StringSlice.__repr__("\x06"), r"'\x06'")
+    assert_equal(StringSlice.__repr__("\x09"), r"'\t'")
+    assert_equal(StringSlice.__repr__("\n"), r"'\n'")
+    assert_equal(StringSlice.__repr__("\x0d"), r"'\r'")
+    assert_equal(StringSlice.__repr__("\x0e"), r"'\x0e'")
+    assert_equal(StringSlice.__repr__("\x1f"), r"'\x1f'")
+    assert_equal(StringSlice.__repr__("'"), '"\'"')
+    assert_equal(StringSlice.__repr__("\\"), r"'\\'")
+    assert_equal(StringSlice.__repr__("\x7f"), r"'\x7f'")
+
+    # Multi-byte characters
+    assert_equal(
+        StringSlice.__repr__("Örnsköldsvik"), "'Örnsköldsvik'"
+    )  # 2-byte
+    assert_equal(StringSlice.__repr__("你好!"), "'你好!'")  # 3-byte
+    assert_equal(StringSlice.__repr__("hello 🔥!"), "'hello 🔥!'")  # 4-byte
 
 
 fn test_utf8_validation() raises:
@@ -262,34 +398,40 @@ fn test_utf8_validation() raises:
 
 
 def test_find():
-    haystack = str("abcdefg").as_string_slice()
-    haystack_with_special_chars = str("abcdefg@#$").as_string_slice()
-    haystack_repeated_chars = str("aaaaaaaaaaaaaaaaaaaaaaaa").as_string_slice()
+    haystack = String("abcdefg").as_string_slice()
+    haystack_with_special_chars = String("abcdefg@#$").as_string_slice()
+    haystack_repeated_chars = String(
+        "aaaaaaaaaaaaaaaaaaaaaaaa"
+    ).as_string_slice()
 
-    assert_equal(haystack.find(str("a").as_string_slice()), 0)
-    assert_equal(haystack.find(str("ab").as_string_slice()), 0)
-    assert_equal(haystack.find(str("abc").as_string_slice()), 0)
-    assert_equal(haystack.find(str("bcd").as_string_slice()), 1)
-    assert_equal(haystack.find(str("de").as_string_slice()), 3)
-    assert_equal(haystack.find(str("fg").as_string_slice()), 5)
-    assert_equal(haystack.find(str("g").as_string_slice()), 6)
-    assert_equal(haystack.find(str("z").as_string_slice()), -1)
-    assert_equal(haystack.find(str("zzz").as_string_slice()), -1)
+    assert_equal(haystack.find(String("a").as_string_slice()), 0)
+    assert_equal(haystack.find(String("ab").as_string_slice()), 0)
+    assert_equal(haystack.find(String("abc").as_string_slice()), 0)
+    assert_equal(haystack.find(String("bcd").as_string_slice()), 1)
+    assert_equal(haystack.find(String("de").as_string_slice()), 3)
+    assert_equal(haystack.find(String("fg").as_string_slice()), 5)
+    assert_equal(haystack.find(String("g").as_string_slice()), 6)
+    assert_equal(haystack.find(String("z").as_string_slice()), -1)
+    assert_equal(haystack.find(String("zzz").as_string_slice()), -1)
 
-    assert_equal(haystack.find(str("@#$").as_string_slice()), -1)
+    assert_equal(haystack.find(String("@#$").as_string_slice()), -1)
     assert_equal(
-        haystack_with_special_chars.find(str("@#$").as_string_slice()), 7
-    )
-
-    assert_equal(haystack_repeated_chars.find(str("aaa").as_string_slice()), 0)
-    assert_equal(haystack_repeated_chars.find(str("AAa").as_string_slice()), -1)
-
-    assert_equal(
-        haystack.find(str("hijklmnopqrstuvwxyz").as_string_slice()), -1
+        haystack_with_special_chars.find(String("@#$").as_string_slice()), 7
     )
 
     assert_equal(
-        str("").as_string_slice().find(str("abc").as_string_slice()), -1
+        haystack_repeated_chars.find(String("aaa").as_string_slice()), 0
+    )
+    assert_equal(
+        haystack_repeated_chars.find(String("AAa").as_string_slice()), -1
+    )
+
+    assert_equal(
+        haystack.find(String("hijklmnopqrstuvwxyz").as_string_slice()), -1
+    )
+
+    assert_equal(
+        String("").as_string_slice().find(String("abc").as_string_slice()), -1
     )
 
 
@@ -335,7 +477,7 @@ alias BAD_SEQUENCES = List[String](
 )
 
 
-fn validate_utf8(slice: String) -> Bool:
+fn validate_utf8(slice: StringSlice) -> Bool:
     return _is_valid_utf8(slice.as_bytes())
 
 
@@ -347,6 +489,17 @@ def test_good_utf8_sequences():
 def test_bad_utf8_sequences():
     for sequence in BAD_SEQUENCES:
         assert_false(validate_utf8(sequence[]))
+
+
+def test_stringslice_from_utf8():
+    for sequence in GOOD_SEQUENCES:
+        var bytes = sequence[].as_bytes()
+        _ = StringSlice.from_utf8(bytes)
+
+    for sequence in BAD_SEQUENCES:
+        with assert_raises(contains="buffer is not valid UTF-8"):
+            var bytes = sequence[].as_bytes()
+            _ = StringSlice.from_utf8(bytes)
 
 
 def test_combination_good_utf8_sequences():
@@ -397,9 +550,10 @@ def test_count_utf8_continuation_bytes():
     alias b4 = UInt8(0b1111_0000)
 
     def _test(amnt: Int, items: List[UInt8]):
-        p = items.unsafe_ptr()
-        span = Span[Byte, StaticConstantOrigin](ptr=p, length=len(items))
-        assert_equal(amnt, _count_utf8_continuation_bytes(span))
+        var p = items.unsafe_ptr()
+        var span = Span[Byte, StaticConstantOrigin](ptr=p, length=len(items))
+        var str_slice = StringSlice(unsafe_from_utf8=span)
+        assert_equal(amnt, _count_utf8_continuation_bytes(str_slice))
 
     _test(5, List[UInt8](c, c, c, c, c))
     _test(2, List[UInt8](b2, c, b2, c, b1))
@@ -422,68 +576,60 @@ def test_splitlines():
 
     # FIXME: remove once StringSlice conforms to TestableCollectionElement
     fn _assert_equal[
-        O1: ImmutableOrigin, O2: ImmutableOrigin
-    ](l1: List[StringSlice[O1]], l2: List[StringSlice[O2]]) raises:
-        assert_equal(len(l1), len(l2))
-        for i in range(len(l1)):
-            assert_equal(str(l1[i]), str(l2[i]))
-
-    # FIXME: remove once StringSlice conforms to TestableCollectionElement
-    fn _assert_equal[
         O1: ImmutableOrigin
     ](l1: List[StringSlice[O1]], l2: List[String]) raises:
         assert_equal(len(l1), len(l2))
         for i in range(len(l1)):
-            assert_equal(str(l1[i]), l2[i])
+            assert_equal(String(l1[i]), l2[i])
 
     # Test with no line breaks
-    _assert_equal(S("hello world").splitlines(), L("hello world"))
+    assert_equal(S("hello world").splitlines(), L("hello world"))
 
     # Test with line breaks
-    _assert_equal(S("hello\nworld").splitlines(), L("hello", "world"))
-    _assert_equal(S("hello\rworld").splitlines(), L("hello", "world"))
-    _assert_equal(S("hello\r\nworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\nworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\rworld").splitlines(), L("hello", "world"))
+    assert_equal(S("hello\r\nworld").splitlines(), L("hello", "world"))
 
     # Test with multiple different line breaks
     s1 = S("hello\nworld\r\nmojo\rlanguage\r\n")
     hello_mojo = L("hello", "world", "mojo", "language")
-    _assert_equal(s1.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s1.splitlines(), hello_mojo)
+    assert_equal(
         s1.splitlines(keepends=True),
         L("hello\n", "world\r\n", "mojo\r", "language\r\n"),
     )
 
     # Test with an empty string
-    _assert_equal(S("").splitlines(), L())
+    assert_equal(S("").splitlines(), L())
     # test \v \f \x1c \x1d
     s2 = S("hello\vworld\fmojo\x1clanguage\x1d")
-    _assert_equal(s2.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s2.splitlines(), hello_mojo)
+    assert_equal(
         s2.splitlines(keepends=True),
         L("hello\v", "world\f", "mojo\x1c", "language\x1d"),
     )
 
     # test \x1c \x1d \x1e
     s3 = S("hello\x1cworld\x1dmojo\x1elanguage\x1e")
-    _assert_equal(s3.splitlines(), hello_mojo)
-    _assert_equal(
+    assert_equal(s3.splitlines(), hello_mojo)
+    assert_equal(
         s3.splitlines(keepends=True),
         L("hello\x1c", "world\x1d", "mojo\x1e", "language\x1e"),
     )
 
     # test \x85 \u2028 \u2029
-    var next_line = String(List[UInt8](0xC2, 0x85, 0))
+    var next_line = String(buffer=List[UInt8](0xC2, 0x85, 0))
     """TODO: \\x85"""
-    var unicode_line_sep = String(List[UInt8](0xE2, 0x80, 0xA8, 0))
+    var unicode_line_sep = String(buffer=List[UInt8](0xE2, 0x80, 0xA8, 0))
     """TODO: \\u2028"""
-    var unicode_paragraph_sep = String(List[UInt8](0xE2, 0x80, 0xA9, 0))
+    var unicode_paragraph_sep = String(buffer=List[UInt8](0xE2, 0x80, 0xA9, 0))
     """TODO: \\u2029"""
 
     for i in List(next_line, unicode_line_sep, unicode_paragraph_sep):
         u = i[]
         item = String("").join("hello", u, "world", u, "mojo", u, "language", u)
         s = StringSlice(item)
-        _assert_equal(s.splitlines(), hello_mojo)
+        assert_equal(s.splitlines(), hello_mojo)
         items = List("hello" + u, "world" + u, "mojo" + u, "language" + u)
         _assert_equal(s.splitlines(keepends=True), items)
 
@@ -624,26 +770,142 @@ def test_endswith():
     assert_true(ab.endswith("ab"))
 
 
+def test_count():
+    var str = StringSlice("Hello world")
+
+    assert_equal(12, str.count(""))
+    assert_equal(1, str.count("Hell"))
+    assert_equal(3, str.count("l"))
+    assert_equal(1, str.count("ll"))
+    assert_equal(1, str.count("ld"))
+    assert_equal(0, str.count("universe"))
+
+    assert_equal(StringSlice("aaaaa").count("a"), 5)
+    assert_equal(StringSlice("aaaaaa").count("aa"), 3)
+
+
+def test_chars_iter():
+    # Test `for` loop iteration support
+    for char in StringSlice("abc").chars():
+        assert_true(char in (Char.ord("a"), Char.ord("b"), Char.ord("c")))
+
+    # Test empty string chars
+    var s0 = StringSlice("")
+    var s0_iter = s0.chars()
+
+    assert_false(s0_iter.__has_next__())
+    assert_true(s0_iter.peek_next() is None)
+    assert_true(s0_iter.next() is None)
+
+    # Test simple ASCII string chars
+    var s1 = StringSlice("abc")
+    var s1_iter = s1.chars()
+
+    assert_equal(s1_iter.next().value(), Char.ord("a"))
+    assert_equal(s1_iter.next().value(), Char.ord("b"))
+    assert_equal(s1_iter.next().value(), Char.ord("c"))
+    assert_true(s1_iter.next() is None)
+
+    # Multibyte character decoding: A visual character composed of a combining
+    # sequence of 2 codepoints.
+    var s2 = StringSlice("á")
+    assert_equal(s2.byte_length(), 3)
+    assert_equal(s2.char_length(), 2)
+
+    var iter = s2.chars()
+    assert_equal(iter.__next__(), Char.ord("a"))
+    # U+0301 Combining Acute Accent
+    assert_equal(iter.__next__().to_u32(), 0x0301)
+    assert_equal(iter.__has_next__(), False)
+
+    # A piece of text containing, 1-byte, 2-byte, 3-byte, and 4-byte codepoint
+    # sequences.
+    # For a visualization of this sequence, see:
+    #   https://connorgray.com/ephemera/project-log#2025-01-13
+    var s3 = StringSlice("߷കൈ🔄!")
+    assert_equal(s3.byte_length(), 13)
+    assert_equal(s3.char_length(), 5)
+    var s3_iter = s3.chars()
+
+    # Iterator __len__ returns length in codepoints, not bytes.
+    assert_equal(s3_iter.__len__(), 5)
+    assert_equal(s3_iter._slice.byte_length(), 13)
+    assert_equal(s3_iter.__has_next__(), True)
+    assert_equal(s3_iter.__next__(), Char.ord("߷"))
+
+    assert_equal(s3_iter.__len__(), 4)
+    assert_equal(s3_iter._slice.byte_length(), 11)
+    assert_equal(s3_iter.__next__(), Char.ord("ക"))
+
+    # Combining character, visually comes first, but codepoint-wise comes
+    # after the character it combines with.
+    assert_equal(s3_iter.__len__(), 3)
+    assert_equal(s3_iter._slice.byte_length(), 8)
+    assert_equal(s3_iter.__next__(), Char.ord("ൈ"))
+
+    assert_equal(s3_iter.__len__(), 2)
+    assert_equal(s3_iter._slice.byte_length(), 5)
+    assert_equal(s3_iter.__next__(), Char.ord("🔄"))
+
+    assert_equal(s3_iter.__len__(), 1)
+    assert_equal(s3_iter._slice.byte_length(), 1)
+    assert_equal(s3_iter.__has_next__(), True)
+    assert_equal(s3_iter.__next__(), Char.ord("!"))
+
+    assert_equal(s3_iter.__len__(), 0)
+    assert_equal(s3_iter._slice.byte_length(), 0)
+    assert_equal(s3_iter.__has_next__(), False)
+
+
+def test_string_slice_from_pointer():
+    var a = StringSlice("AAA")
+    var b = StringSlice[StaticConstantOrigin](
+        unsafe_from_utf8_ptr=a.unsafe_ptr()
+    )
+    assert_equal(3, len(a))
+    assert_equal(3, len(b))
+    var c = String("ABCD")
+    var d = StringSlice[__origin_of(c)](
+        unsafe_from_utf8_cstr_ptr=c.unsafe_cstr_ptr()
+    )
+    var e = StringSlice[__origin_of(c)](unsafe_from_utf8_ptr=c.unsafe_ptr())
+    assert_equal(4, len(c))
+    assert_equal(4, len(d))
+    assert_equal(4, len(e))
+    assert_true("A", d[0])
+    assert_true("B", d[1])
+    assert_true("C", d[2])
+    assert_true("D", d[3])
+    assert_true("D", d[-1])
+
+
 def main():
+    test_string_slice_layout()
     test_string_literal_byte_span()
     test_string_byte_span()
     test_heap_string_from_string_slice()
     test_slice_len()
+    test_slice_char_length()
     test_slice_eq()
     test_slice_bool()
+    test_slice_repr()
     test_utf8_validation()
     test_find()
     test_good_utf8_sequences()
     test_bad_utf8_sequences()
+    test_stringslice_from_utf8()
     test_combination_good_utf8_sequences()
     test_combination_bad_utf8_sequences()
     test_combination_good_bad_utf8_sequences()
     test_combination_10_good_utf8_sequences()
     test_combination_10_good_10_bad_utf8_sequences()
     test_count_utf8_continuation_bytes()
+    test_count()
     test_splitlines()
     test_rstrip()
     test_lstrip()
     test_strip()
     test_startswith()
     test_endswith()
+    test_chars_iter()
+    test_string_slice_from_pointer()

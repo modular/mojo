@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -36,6 +36,9 @@ struct TestCounter(CollectionElement):
         self.copied = other.copied + 1
         self.moved = other.moved
 
+    fn copy(self) -> Self:
+        return self
+
     fn __moveinit__(out self, owned other: Self):
         self.copied = other.copied
         self.moved = other.moved + 1
@@ -67,6 +70,10 @@ struct Poison(CollectionElement):
 
     fn __copyinit__(out self, other: Self):
         _poison_ptr().init_pointee_move(True)
+
+    fn copy(self) -> Self:
+        # Invokes __copyinit__, which sets the poision value.
+        return self
 
     fn __moveinit__(out self, owned other: Self):
         _poison_ptr().init_pointee_move(True)
@@ -116,7 +123,7 @@ def test_explicit_copy():
     var v1 = TestVariant(TestCounter())
 
     # Perform explicit copy
-    var v2 = TestVariant(other=v1)
+    var v2 = v1.copy()
 
     # Test copy counts
     assert_equal(v1[TestCounter].copied, 0)
