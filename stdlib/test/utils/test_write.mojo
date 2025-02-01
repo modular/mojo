@@ -103,25 +103,25 @@ def test_hex_digits_to_hex_chars():
     alias S = StringSlice[__origin_of(items)]
     ptr = items.unsafe_ptr()
     _hex_digits_to_hex_chars(ptr, UInt32(ord("🔥")))
-    assert_equal("0001f525", S(ptr=ptr, length=8))
+    assert_equal("0001f525", String(S(ptr=ptr, length=8)))
     memset_zero(ptr, len(items))
     _hex_digits_to_hex_chars(ptr, UInt16(ord("你")))
-    assert_equal("4f60", S(ptr=ptr, length=4))
+    assert_equal("4f60", String(S(ptr=ptr, length=4)))
     memset_zero(ptr, len(items))
     _hex_digits_to_hex_chars(ptr, UInt8(ord("Ö")))
-    assert_equal("d6", S(ptr=ptr, length=2))
+    assert_equal("d6", String(S(ptr=ptr, length=2)))
     _hex_digits_to_hex_chars(ptr, UInt8(0))
-    assert_equal("00", S(ptr=ptr, length=2))
+    assert_equal("00", String(S(ptr=ptr, length=2)))
     _hex_digits_to_hex_chars(ptr, UInt16(0))
-    assert_equal("0000", S(ptr=ptr, length=4))
+    assert_equal("0000", String(S(ptr=ptr, length=4)))
     _hex_digits_to_hex_chars(ptr, UInt32(0))
-    assert_equal("00000000", S(ptr=ptr, length=8))
+    assert_equal("00000000", String(S(ptr=ptr, length=8)))
     _hex_digits_to_hex_chars(ptr, ~UInt8(0))
-    assert_equal("ff", S(ptr=ptr, length=2))
+    assert_equal("ff", String(S(ptr=ptr, length=2)))
     _hex_digits_to_hex_chars(ptr, ~UInt16(0))
-    assert_equal("ffff", S(ptr=ptr, length=4))
+    assert_equal("ffff", String(S(ptr=ptr, length=4)))
     _hex_digits_to_hex_chars(ptr, ~UInt32(0))
-    assert_equal("ffffffff", S(ptr=ptr, length=8))
+    assert_equal("ffffffff", String(S(ptr=ptr, length=8)))
 
 
 def test_write_hex():
@@ -129,13 +129,13 @@ def test_write_hex():
     alias S = StringSlice[__origin_of(items)]
     ptr = items.unsafe_ptr()
     _write_hex[8](ptr, ord("🔥"))
-    assert_equal(r"\U0001f525", S(ptr=ptr, length=10))
+    assert_equal(r"\U0001f525", String(S(ptr=ptr, length=10)))
     memset_zero(ptr, len(items))
     _write_hex[4](ptr, ord("你"))
-    assert_equal(r"\u4f60", S(ptr=ptr, length=6))
+    assert_equal(r"\u4f60", String(S(ptr=ptr, length=6)))
     memset_zero(ptr, len(items))
     _write_hex[2](ptr, ord("Ö"))
-    assert_equal(r"\xd6", S(ptr=ptr, length=4))
+    assert_equal(r"\xd6", String(S(ptr=ptr, length=4)))
 
 
 def main():
