@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -42,6 +42,7 @@ from utils.index import IndexList
 from utils.numerics import FPUtils, isnan, nan
 from utils.static_tuple import StaticTuple
 
+from .constants import log2e
 from .polynomial import polynomial_evaluate
 
 # ===----------------------------------------------------------------------=== #
@@ -242,7 +243,7 @@ fn sqrt[
 
         @parameter
         for i in range(simd_width):
-            res[i] = sqrt(int(x[i]))
+            res[i] = sqrt(Int(x[i]))
         return res
     elif is_nvidia_gpu():
 
@@ -420,8 +421,8 @@ fn exp2[
             1.33336498402e-3,
         ),
     ](xc)
-    return __type_of(r)(
-        from_bits=(r.to_bits() + (m << FPUtils[type].mantissa_width()))
+    return __type_of(r).from_bits(
+        (r.to_bits() + (m << FPUtils[type].mantissa_width()))
     )
 
 
@@ -488,7 +489,7 @@ fn _ldexp_impl[
     alias integral_type = FPUtils[type].integral_type
     var m = exp.cast[integral_type]() + FPUtils[type].exponent_bias()
 
-    return x * __type_of(x)(from_bits=m << FPUtils[type].mantissa_width())
+    return x * __type_of(x).from_bits(m << FPUtils[type].mantissa_width())
 
 
 @always_inline
@@ -572,14 +573,13 @@ fn exp[
     """
     constrained[type.is_floating_point(), "must be a floating point value"]()
     alias neg_ln2 = -0.69314718055966295651160180568695068359375
-    alias inv_lg2 = 1.442695040888963407359924681001892137426646
 
     @parameter
     if is_nvidia_gpu():
 
         @parameter
         if type in (DType.float16, DType.float32):
-            return exp2(x * inv_lg2)
+            return exp2(x * log2e)
 
     @parameter
     if type not in (DType.float32, DType.float64):
@@ -597,7 +597,7 @@ fn exp[
         max_val = 88.3762626647950
 
     var xc = x.clamp(min_val, max_val)
-    var k = floor(xc.fma(inv_lg2, 0.5))
+    var k = floor(xc.fma(log2e, 0.5))
     var r = k.fma(neg_ln2, xc)
     return max(_ldexp_impl(_exp_taylor(r), k), xc)
 
@@ -676,7 +676,7 @@ fn frexp[
         (((mask1 & x_int) >> mantissa_width) - exponent_bias).cast[type](),
         zero,
     )
-    var frac = selector.select(T(from_bits=x_int & ~mask1 | mask2), zero)
+    var frac = selector.select(T.from_bits(x_int & ~mask1 | mask2), zero)
     return StaticTuple[size=2](frac, exp)
 
 
@@ -740,7 +740,6 @@ fn _log_base[
         alias ln2 = 0.69314718055994530942
         y = exp.fma(ln2, y)
     else:
-        alias log2e = 1.4426950408889634073599
         y = y.fma(log2e, exp)
     return (x == 0).select(Scalar[type].MIN, (x > 0).select(y, nan[type]()))
 
@@ -2589,7 +2588,7 @@ trait CeilDivable:
         var x: Float64
 
         fn __ceildiv__(self, denominator: Self) -> Self:
-            return -(self.x // -denominator.x)
+            return Self(self.x // denominator.x)
     ```
     """
 
@@ -2622,7 +2621,7 @@ trait CeilDivableRaising:
         var x: object
 
         fn __ceildiv__(self, denominator: Self) raises -> Self:
-            return -(self.x // -denominator.x)
+            return Self(self.x // denominator.x)
     ```
     """
 

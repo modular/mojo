@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -78,7 +78,7 @@ def test_basic_no_copies():
 def test_multiple_resizes():
     var dict = Dict[String, Int]()
     for i in range(20):
-        dict["key" + str(i)] = i + 1
+        dict[String("key", i)] = i + 1
     assert_equal(11, dict["key10"])
     assert_equal(20, dict["key19"])
 
@@ -99,7 +99,7 @@ def test_bool_conversion():
 def test_big_dict():
     var dict = Dict[String, Int]()
     for i in range(2000):
-        dict["key" + str(i)] = i + 1
+        dict[String("key", i)] = i + 1
     assert_equal(2000, len(dict))
 
 
@@ -132,7 +132,7 @@ def test_dict_string_representation_int_int():
 def test_compact():
     var dict = Dict[String, Int]()
     for i in range(20):
-        var key = "key" + str(i)
+        var key = String("key", i)
         dict[key] = i + 1
         _ = dict.pop(key)
     assert_equal(0, len(dict))
@@ -141,10 +141,10 @@ def test_compact():
 def test_compact_with_elements():
     var dict = Dict[String, Int]()
     for i in range(5):
-        var key = "key" + str(i)
+        var key = String("key", i)
         dict[key] = i + 1
     for i in range(5, 20):
-        var key = "key" + str(i)
+        var key = String("key", i)
         dict[key] = i + 1
         _ = dict.pop(key)
     assert_equal(5, len(dict))
@@ -238,7 +238,7 @@ def test_dict_copy():
     orig["a"] = 1
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     assert_equal(1, copy["a"])
 
     # test there are two copies of dict and
@@ -253,7 +253,7 @@ def test_dict_copy_delete_original():
     orig["a"] = 1
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     # don't access the original dict, anymore, confirm that
     # deleting the original doesn't violate the integrity of the copy
     assert_equal(1, copy["a"])
@@ -264,13 +264,13 @@ def test_dict_copy_add_new_item():
     orig["a"] = 1
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     assert_equal(1, copy["a"])
 
     # test there are two copies of dict and
     # they don't share underlying memory
     copy["b"] = 2
-    assert_false(str(2) in orig)
+    assert_false(String(2) in orig)
 
 
 def test_dict_copy_calls_copy_constructor():
@@ -278,7 +278,7 @@ def test_dict_copy_calls_copy_constructor():
     orig["a"] = CopyCounter()
 
     # test values copied to new Dict
-    var copy = Dict(other=orig)
+    var copy = orig.copy()
     assert_equal(0, orig["a"].copy_count)
     assert_equal(1, copy["a"].copy_count)
     assert_equal(0, orig._find_ref("a").copy_count)
@@ -602,6 +602,23 @@ fn test_dict_setdefault() raises:
     assert_equal(0, other_dict["b"].copy_count)
 
 
+def test_compile_time_dict():
+    alias N = 10
+
+    fn _get_dict() -> Dict[String, Int32]:
+        var res = Dict[String, Int32]()
+        for i in range(N):
+            res[String(i)] = i
+        return res
+
+    alias my_dict = _get_dict()
+
+    @parameter
+    for i in range(N):
+        alias val = my_dict.get(String(i)).value()
+        assert_equal(val, i)
+
+
 def main():
     test_dict()
     test_dict_fromkeys()
@@ -615,3 +632,4 @@ def main():
     test_clear()
     test_init_initial_capacity()
     test_dict_setdefault()
+    test_compile_time_dict()

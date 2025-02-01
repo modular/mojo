@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -20,7 +20,7 @@ from utils import IndexList
 ```
 """
 
-from collections.string import _calc_initial_buffer_size
+from collections.string.string import _calc_initial_buffer_size
 from sys import bitwidthof
 
 from builtin.dtype import _int_type_of_width, _uint_type_of_width
@@ -28,6 +28,7 @@ from builtin.io import _get_dtype_printf_format, _snprintf
 
 from . import unroll
 from .static_tuple import StaticTuple
+from hashlib._hasher import _Hasher
 
 # ===-----------------------------------------------------------------------===#
 # Utilities
@@ -389,11 +390,14 @@ struct IndexList[
         Returns:
             The tuple element value.
         """
-        return int(self.data.__getitem__[idx]())
+        return Int(self.data.__getitem__[idx]())
 
     @always_inline("nodebug")
-    fn __getitem__(self, idx: Int) -> Int:
+    fn __getitem__[I: Indexer](self, idx: I) -> Int:
         """Gets an element from the tuple by index.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Args:
             idx: The element index.
@@ -401,31 +405,31 @@ struct IndexList[
         Returns:
             The tuple element value.
         """
-        return int(self.data[idx])
+        return Int(self.data[idx])
 
     @always_inline("nodebug")
-    fn __setitem__[index: Int](mut self, val: Int):
+    fn __setitem__[idx: Int](mut self, val: Int):
         """Sets an element in the tuple at the given static index.
 
         Parameters:
-            index: The element index.
+            idx: The element index.
 
         Args:
             val: The value to store.
         """
-        self.data.__setitem__[index](val)
+        self.data.__setitem__[idx](val)
 
     @always_inline("nodebug")
-    fn __setitem__[index: Int](mut self, val: Self._int_type):
+    fn __setitem__[idx: Int](mut self, val: Self._int_type):
         """Sets an element in the tuple at the given static index.
 
         Parameters:
-            index: The element index.
+            idx: The element index.
 
         Args:
             val: The value to store.
         """
-        self.data.__setitem__[index](val)
+        self.data.__setitem__[idx](val)
 
     @always_inline("nodebug")
     fn __setitem__(mut self, idx: Int, val: Int):
@@ -448,7 +452,7 @@ struct IndexList[
 
         @parameter
         for i in range(size):
-            res[i] = int(self.__getitem__[i]())
+            res[i] = Int(self.__getitem__[i]())
         return res
 
     @always_inline("nodebug")
@@ -828,6 +832,20 @@ struct IndexList[
             self.cast[_type_of_width[element_bitwidth, unsigned]()]()
         )
 
+    fn __hash__[H: _Hasher](self, mut hasher: H):
+        """Updates hasher with the underlying bytes.
+
+        Parameters:
+            H: The hasher type.
+
+        Args:
+            hasher: The hasher instance.
+        """
+
+        @parameter
+        for i in range(size):
+            hasher.update(self.data[i])
+
 
 # ===-----------------------------------------------------------------------===#
 # Factory functions for creating index.
@@ -857,7 +875,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x))
+    return __type_of(result)(Int(x))
 
 
 @always_inline
@@ -881,7 +899,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x))
+    return __type_of(result)(Int(x))
 
 
 @always_inline
@@ -913,7 +931,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y))
+    return __type_of(result)(Int(x), Int(y))
 
 
 @always_inline
@@ -939,7 +957,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y))
+    return __type_of(result)(Int(x), Int(y))
 
 
 @always_inline
@@ -975,7 +993,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y), int(z))
+    return __type_of(result)(Int(x), Int(y), Int(z))
 
 
 @always_inline
@@ -1015,7 +1033,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y), int(z), int(w))
+    return __type_of(result)(Int(x), Int(y), Int(z), Int(w))
 
 
 @always_inline
@@ -1059,7 +1077,7 @@ fn Index[
     Returns:
         The constructed IndexList.
     """
-    return __type_of(result)(int(x), int(y), int(z), int(w), int(v))
+    return __type_of(result)(Int(x), Int(y), Int(z), Int(w), Int(v))
 
 
 # ===-----------------------------------------------------------------------===#

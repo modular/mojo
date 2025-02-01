@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -18,7 +18,7 @@ def test_copy_reference_explicitly():
     var a = List[Int](1, 2, 3)
 
     var b = Pointer.address_of(a)
-    var c = Pointer(other=b)
+    var c = b.copy()
 
     c[][0] = 4
     assert_equal(a[0], 4)
@@ -38,7 +38,7 @@ def test_equality():
 def test_str():
     var a = Int(42)
     var a_ref = Pointer.address_of(a)
-    assert_true(str(a_ref).startswith("0x"))
+    assert_true(String(a_ref).startswith("0x"))
 
 
 def main():

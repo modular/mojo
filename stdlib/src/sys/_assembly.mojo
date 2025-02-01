@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -26,9 +26,9 @@ fn inlined_assembly[
     *types: AnyType,
     constraints: StringLiteral,
     has_side_effect: Bool = True,
-](*arguments: *types) -> result_type:
+](*args: *types) -> result_type:
     """Generates assembly via inline assembly."""
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
     @parameter
     if _mlirtype_is_eq[result_type, NoneType]():
