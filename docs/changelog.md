@@ -393,6 +393,7 @@ what we publish.
   - Added `Path` explicit constructor from `StringSlice`.
   - removed `StringRef.startswith()` and `StringRef.endswith()`
   - removed `StringRef.strip()`
+  - Removed `StringRef.split()`
 - The `Tuple.get[i, T]()` method has been removed. Please use `tup[i]` or
   `rebind[T](tup[i])` as needed instead.
 - `StringableCollectionElement` is deprecated, use `WritableCollectionElement`
