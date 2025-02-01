@@ -92,7 +92,7 @@ fn chr(c: Int) -> String:
     .
     """
 
-    var num_bytes = _unicode_codepoint_utf8_byte_length(c)
+    var num_bytes = Char(c).utf8_byte_length()
     var p = UnsafePointer[UInt8].alloc(num_bytes + 1)
     _shift_unicode_to_utf8(p, c, num_bytes)
     # TODO: decide whether to use replacement char (�) or raise ValueError
