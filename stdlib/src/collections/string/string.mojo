@@ -92,17 +92,20 @@ fn chr(c: Int) -> String:
     .
     """
 
-    var num_bytes = Char(c).utf8_byte_length()
-    var p = UnsafePointer[UInt8].alloc(num_bytes + 1)
-    _shift_unicode_to_utf8(p, c, num_bytes)
-    # TODO: decide whether to use replacement char (�) or raise ValueError
-    # if not _is_valid_utf8(p, num_bytes):
-    #     debug_assert(False, "Invalid Unicode code point")
-    #     p.free()
-    #     return chr(0xFFFD)
-    p[num_bytes] = 0
-    return String(ptr=p, length=num_bytes + 1)
+    if c < 0b1000_0000:  # 1 byte ASCII char
+        return String(String._buffer_type(c, 0))
 
+    var char_opt = Char.from_u32(c)
+    if not char_opt:
+        # TODO: Raise ValueError instead.
+        return abort[String](
+            String("chr(", c, ") is not a valid Unicode codepoint")
+        )
+
+    # SAFETY: We just checked that `char` is present.
+    var char = char_opt.unsafe_value()
+
+    return String(char)
 
 # ===----------------------------------------------------------------------=== #
 # ascii

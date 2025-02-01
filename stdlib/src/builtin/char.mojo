@@ -482,16 +482,11 @@ struct Char(CollectionElement, EqualityComparable, Intable, Stringable):
 
         # Minimum codepoint values (respectively) that can fit in a 1, 2, 3,
         # and 4 byte encoded UTF-8 sequence.
-        alias sizes = SIMD[DType.int32, 4](
-            0,
-            2**7,
-            2**11,
-            2**16,
-        )
+        alias sizes = SIMD[DType.uint32, 4](0, 2**7, 2**11, 2**16)
 
         # Count how many of the minimums this codepoint exceeds, which is equal
         # to the number of bytes needed to encode it.
-        var lt = (sizes <= Int(self)).cast[DType.uint8]()
+        var lt = (sizes <= self.to_u32()).cast[DType.uint8]()
 
         # TODO(MOCO-1537): Support `reduce_add()` at compile time.
         #   var count = Int(lt.reduce_add())
