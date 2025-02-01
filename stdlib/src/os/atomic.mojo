@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -53,7 +53,7 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
         self.value = value
 
     @always_inline
-    fn load(mut self) -> Scalar[type]:
+    fn load(self) -> Scalar[type]:
         """Loads the current value from the atomic.
 
         Returns:
@@ -91,8 +91,55 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
             rhs.value,
         )
 
+    @staticmethod
     @always_inline
-    fn fetch_add(mut self, rhs: Scalar[type]) -> Scalar[type]:
+    fn _xchg(
+        ptr: UnsafePointer[Scalar[type], **_], value: Scalar[type]
+    ) -> Scalar[type]:
+        """Performs an atomic exchange.
+        The operation is a read-modify-write operation. Memory
+        is affected according to the value of order which is sequentially
+        consistent.
+
+        Args:
+            ptr: The source pointer.
+            value: The to exchange.
+
+        Returns:
+            The value of the value before the operation.
+        """
+        return __mlir_op.`pop.atomic.rmw`[
+            bin_op = __mlir_attr.`#pop<bin_op xchg>`,
+            ordering = __mlir_attr.`#pop<atomic_ordering seq_cst>`,
+            _type = __mlir_type[`!pop.scalar<`, type.value, `>`],
+        ](
+            ptr.bitcast[__mlir_type[`!pop.scalar<`, type.value, `>`]]().address,
+            value.value,
+        )
+
+    @staticmethod
+    @always_inline
+    fn store(ptr: UnsafePointer[Scalar[type], **_], value: Scalar[type]):
+        """Performs atomic store.
+        The operation is a read-modify-write operation. Memory
+        is affected according to the value of order which is sequentially
+        consistent.
+
+        Args:
+            ptr: The source pointer.
+            value: The value to store.
+        """
+        _ = __mlir_op.`pop.atomic.rmw`[
+            bin_op = __mlir_attr.`#pop<bin_op xchg>`,
+            ordering = __mlir_attr.`#pop<atomic_ordering seq_cst>`,
+            _type = __mlir_type[`!pop.scalar<`, type.value, `>`],
+        ](
+            ptr.bitcast[__mlir_type[`!pop.scalar<`, type.value, `>`]]().address,
+            value.value,
+        )
+
+    @always_inline
+    fn fetch_add(self, rhs: Scalar[type]) -> Scalar[type]:
         """Performs atomic in-place add.
 
         Atomically replaces the current value with the result of arithmetic
@@ -111,7 +158,7 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
         return Self._fetch_add(value_addr, rhs)
 
     @always_inline
-    fn __iadd__(mut self, rhs: Scalar[type]):
+    fn __iadd__(self, rhs: Scalar[type]):
         """Performs atomic in-place add.
 
         Atomically replaces the current value with the result of arithmetic
@@ -126,7 +173,7 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
         _ = self.fetch_add(rhs)
 
     @always_inline
-    fn fetch_sub(mut self, rhs: Scalar[type]) -> Scalar[type]:
+    fn fetch_sub(self, rhs: Scalar[type]) -> Scalar[type]:
         """Performs atomic in-place sub.
 
         Atomically replaces the current value with the result of arithmetic
@@ -150,7 +197,7 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
         ](value_addr.address, rhs.value)
 
     @always_inline
-    fn __isub__(mut self, rhs: Scalar[type]):
+    fn __isub__(self, rhs: Scalar[type]):
         """Performs atomic in-place sub.
 
         Atomically replaces the current value with the result of arithmetic
@@ -166,7 +213,7 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
 
     @always_inline
     fn compare_exchange_weak(
-        mut self, mut expected: Scalar[type], desired: Scalar[type]
+        self, mut expected: Scalar[type], desired: Scalar[type]
     ) -> Bool:
         """Atomically compares the self value with that of the expected value.
         If the values are equal, then the self value is replaced with the
@@ -224,7 +271,7 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
         _max_impl[scope=scope](ptr, rhs)
 
     @always_inline
-    fn max(mut self, rhs: Scalar[type]):
+    fn max(self, rhs: Scalar[type]):
         """Performs atomic in-place max.
 
         Atomically replaces the current value with the result of max of the
@@ -264,7 +311,7 @@ struct Atomic[type: DType, *, scope: StringLiteral = ""]:
         _min_impl[scope=scope](ptr, rhs)
 
     @always_inline
-    fn min(mut self, rhs: Scalar[type]):
+    fn min(self, rhs: Scalar[type]):
         """Performs atomic in-place min.
 
         Atomically replaces the current value with the result of min of the

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -14,9 +14,8 @@
 """
 
 from collections.string import StringSlice
-from collections.string.string import _atol, _isspace
 from hashlib._hasher import _HashableWithHasher, _Hasher
-from memory import UnsafePointer, Span
+from memory import UnsafePointer, Span, memcpy
 from memory.memory import _memcmp_impl_unconstrained
 
 from sys.ffi import c_char
@@ -220,16 +219,19 @@ struct StringRef(
     # ===-------------------------------------------------------------------===#
 
     @always_inline("nodebug")
-    fn __getitem__(self, idx: Int) -> StringRef:
+    fn __getitem__[I: Indexer](self, idx: I) -> StringRef:
         """Get the string value at the specified position.
 
         Args:
           idx: The index position.
 
+        Parameters:
+            I: A type that can be used as an index.
+
         Returns:
           The character at the specified position.
         """
-        return StringRef {data: self.data + idx, length: 1}
+        return StringRef {data: self.data + Int(idx), length: 1}
 
     @always_inline
     fn __eq__(self, rhs: StringRef) -> Bool:
@@ -283,7 +285,7 @@ struct StringRef(
         """
         var len1 = len(self)
         var len2 = len(rhs)
-        return int(len1 < len2) > _memcmp_impl_unconstrained(
+        return Int(len1 < len2) > _memcmp_impl_unconstrained(
             self.data, rhs.data, min(len1, len2)
         )
 
@@ -363,8 +365,8 @@ struct StringRef(
     fn __int__(self) raises -> Int:
         """Parses the given string as a base-10 integer and returns that value.
 
-        For example, `int("19")` returns `19`. If the given string cannot be parsed
-        as an integer value, an error is raised. For example, `int("hi")` raises an
+        For example, `Int("19")` returns `19`. If the given string cannot be parsed
+        as an integer value, an error is raised. For example, `Int("hi")` raises an
         error.
 
         Returns:
@@ -373,7 +375,7 @@ struct StringRef(
         var str_slice = StringSlice[ImmutableAnyOrigin](
             unsafe_from_utf8_strref=self
         )
-        return _atol(str_slice)
+        return atol(str_slice)
 
     @always_inline
     fn __len__(self) -> Int:
@@ -391,7 +393,12 @@ struct StringRef(
         Returns:
             A new string.
         """
-        return String.write(self)
+        var length = len(self)
+        var buffer = String._buffer_type()
+        # +1 for null terminator, initialized to 0
+        buffer.resize(length + 1, 0)
+        memcpy(dest=buffer.data, src=self.data, count=length)
+        return String(buffer^)
 
     @no_inline
     fn __repr__(self) -> String:
@@ -400,7 +407,7 @@ struct StringRef(
         Returns:
             The String representation of the StringRef.
         """
-        return String.write("StringRef(", repr(str(self)), ")")
+        return String("StringRef(", repr(String(self)), ")")
 
     @no_inline
     fn write_to[W: Writer](self, mut writer: W):
@@ -523,24 +530,6 @@ struct StringRef(
         var length = self_len - abs_start
 
         return StringRef(data, length)
-
-    fn strip(self) -> StringRef:
-        """Gets a StringRef with leading and trailing whitespaces removed.
-        This only takes C spaces into account: " \\t\\n\\v\\f\\r".
-
-        For example, `"  mojo  "` returns `"mojo"`.
-
-        Returns:
-            A StringRef with leading and trailing whitespaces removed.
-        """
-        var start: Int = 0
-        var end: Int = len(self)
-        var ptr = self.unsafe_ptr()
-        while start < end and _isspace(ptr[start]):
-            start += 1
-        while end > start and _isspace(ptr[end - 1]):
-            end -= 1
-        return StringRef(ptr + start, end - start)
 
     fn split(self, delimiter: StringRef) raises -> List[StringRef]:
         """Split the StringRef by a delimiter.

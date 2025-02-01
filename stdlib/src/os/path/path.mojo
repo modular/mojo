@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -52,22 +52,22 @@ fn _constrain_unix():
 fn _get_stat_st_mode(path: String) raises -> Int:
     @parameter
     if os_is_macos():
-        return int(_stat_macos(path).st_mode)
+        return Int(_stat_macos(path).st_mode)
     elif has_neon():
-        return int(_stat_linux_arm(path).st_mode)
+        return Int(_stat_linux_arm(path).st_mode)
     else:
-        return int(_stat_linux_x86(path).st_mode)
+        return Int(_stat_linux_x86(path).st_mode)
 
 
 @always_inline
 fn _get_lstat_st_mode(path: String) raises -> Int:
     @parameter
     if os_is_macos():
-        return int(_lstat_macos(path).st_mode)
+        return Int(_lstat_macos(path).st_mode)
     elif has_neon():
-        return int(_lstat_linux_arm(path).st_mode)
+        return Int(_lstat_linux_arm(path).st_mode)
     else:
-        return int(_lstat_linux_x86(path).st_mode)
+        return Int(_lstat_linux_x86(path).st_mode)
 
 
 # ===----------------------------------------------------------------------=== #
@@ -233,7 +233,7 @@ fn dirname[PathLike: os.PathLike, //](path: PathLike) -> String:
     var i = fspath.rfind(os.sep) + 1
     var head = fspath[:i]
     if head and head != os.sep * len(head):
-        return head.rstrip(os.sep)
+        return String(head.rstrip(String(os.sep)))
     return head
 
 
@@ -312,7 +312,10 @@ fn getsize[PathLike: os.PathLike, //](path: PathLike) raises -> Int:
 # ===----------------------------------------------------------------------=== #
 
 
-fn join(path: String, *paths: String) -> String:
+# TODO(MOCO-1532):
+#   Use StringSlice here once param inference bug for empty variadic
+#   list of parameterized types is fixed.
+fn join(owned path: String, *paths: String) -> String:
     """Join two or more pathname components, inserting '/' as needed.
     If any component is an absolute path, all previous path components
     will be discarded.  An empty last part will result in a path that
@@ -335,7 +338,7 @@ fn join(path: String, *paths: String) -> String:
         else:
             joined_path += sep + cur_path[]
 
-    return joined_path
+    return joined_path^
 
 
 # ===----------------------------------------------------------------------=== #
@@ -364,8 +367,8 @@ fn split[PathLike: os.PathLike, //](path: PathLike) -> (String, String):
     var fspath = path.__fspath__()
     var i = fspath.rfind(os.sep) + 1
     head, tail = fspath[:i], fspath[i:]
-    if head and head != str(os.sep) * len(head):
-        head = str(head.rstrip(sep))
+    if head and head != String(os.sep) * len(head):
+        head = String(head.rstrip(sep))
     return head, tail
 
 
@@ -389,7 +392,7 @@ fn basename[PathLike: os.PathLike, //](path: PathLike) -> String:
     var i = fspath.rfind(os.sep) + 1
     var head = fspath[i:]
     if head and head != os.sep * len(head):
-        return head.rstrip(os.sep)
+        return String(head.rstrip(String(os.sep)))
     return head
 
 
@@ -486,7 +489,7 @@ fn _is_shell_special_variable(byte: Byte) -> Bool:
         ord("8"),
         ord("9"),
     )
-    return int(byte) in shell_variables
+    return Int(byte) in shell_variables
 
 
 fn _is_alphanumeric(byte: Byte) -> Bool:
@@ -498,7 +501,7 @@ fn _is_alphanumeric(byte: Byte) -> Bool:
     Returns:
         True if the byte is an ASCII letter, number, or underscore and False otherwise.
     """
-    var b = int(byte)
+    var b = Int(byte)
     return (
         b == ord("_")
         or ord("0") <= b
