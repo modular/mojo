@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -19,8 +19,11 @@ from builtin.range import _StridedRangeIterator, _UIntStridedRangeIterator
 
 
 @register_passable("trivial")
-struct __MLIRType[T: AnyTrivialRegType](Movable, Copyable):
+struct __MLIRType[T: AnyTrivialRegType](Movable, Copyable, ExplicitlyCopyable):
     var value: T
+
+    fn copy(self) -> Self:
+        return self
 
 
 # ===-----------------------------------------------------------------------===#

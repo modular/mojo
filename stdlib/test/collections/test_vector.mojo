@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -125,7 +125,7 @@ def test_indexing():
     var vector = InlinedFixedVector[Int](10)
     for i in range(5):
         vector.append(i)
-    assert_equal(0, vector[int(0)])
+    assert_equal(0, vector[Int(0)])
     assert_equal(1, vector[True])
     assert_equal(2, vector[2])
 

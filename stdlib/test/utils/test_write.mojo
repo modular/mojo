@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -70,13 +70,13 @@ fn test_string_format_seq() raises:
 
 
 fn test_stringable_based_on_format() raises:
-    assert_equal(str(Point(10, 11)), "Point(10, 11)")
+    assert_equal(String(Point(10, 11)), "Point(10, 11)")
 
 
 fn test_writer_of_fixed_string() raises:
     var s1 = _FixedString[100]()
     s1.write("Hello, World!")
-    assert_equal(str(s1), "Hello, World!")
+    assert_equal(String(s1), "Hello, World!")
 
 
 fn test_write_int_padded() raises:

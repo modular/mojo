@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -506,7 +506,7 @@ def test_rotate_bits_simd():
 
 
 fn _log2_floor(n: Int) -> Int:
-    return int(floor(log2(float(n))))
+    return Int(floor(log2(Float64(n))))
 
 
 def test_log2_floor():
@@ -515,7 +515,7 @@ def test_log2_floor():
         assert_equal(
             log2_floor(i),
             _log2_floor(i),
-            msg="mismatching value for the input value of " + str(i),
+            msg=String("mismatching value for the input value of ", i),
         )
 
     fn _check_alias[n: Int](expected: Int) raises:
