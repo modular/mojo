@@ -22,7 +22,7 @@ from utils.write import (
     _write_hex,
     _hex_digits_to_hex_chars,
 )
-from utils.inline_string import _FixedString
+from collections.string.inline_string import _FixedString
 
 
 @value
@@ -67,13 +67,13 @@ def test_string_write_seq():
 
 
 def test_stringable_based_on_format():
-    assert_equal(str(Point(10, 11)), "Point(10, 11)")
+    assert_equal(String(Point(10, 11)), "Point(10, 11)")
 
 
 def test_writer_of_fixed_string():
     var s1 = _FixedString[100]()
     s1.write("Hello, World!")
-    assert_equal(str(s1), "Hello, World!")
+    assert_equal(String(s1), "Hello, World!")
 
 
 def test_write_int_padded():
