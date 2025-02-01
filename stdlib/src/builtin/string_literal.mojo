@@ -440,20 +440,20 @@ struct StringLiteral(
         return self.__str__()
 
     fn __iter__(ref self) -> _StringSliceIter[StaticConstantOrigin]:
-        """Return an iterator over the string literal.
+        """Iterate over the string unicode characters.
 
         Returns:
-            An iterator over the string.
+            An iterator of references to the string unicode characters.
         """
         return _StringSliceIter[StaticConstantOrigin](
             ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
     fn __reversed__(self) -> _StringSliceIter[StaticConstantOrigin, False]:
-        """Iterate backwards over the string, returning immutable references.
+        """Iterate backwards over the string unicode characters.
 
         Returns:
-            A reversed iterator over the string.
+            A reversed iterator of references to the string unicode characters.
         """
         return _StringSliceIter[StaticConstantOrigin, False](
             ptr=self.unsafe_ptr(), length=self.byte_length()

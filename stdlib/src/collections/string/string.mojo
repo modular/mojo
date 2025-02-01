@@ -1064,18 +1064,18 @@ struct String(
         self._iadd[False](other.as_bytes())
 
     fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
-        """Iterate over the string, returning immutable references.
+        """Iterate over the string unicode characters.
 
         Returns:
-            An iterator of references to the string elements.
+            An iterator of references to the string unicode characters.
         """
         return self.char_slices()
 
     fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
-        """Iterate backwards over the string, returning immutable references.
+        """Iterate backwards over the string unicode characters.
 
         Returns:
-            A reversed iterator of references to the string elements.
+            A reversed iterator of references to the string unicode characters.
         """
         return _StringSliceIter[__origin_of(self), forward=False](
             ptr=self.unsafe_ptr(), length=self.byte_length()
