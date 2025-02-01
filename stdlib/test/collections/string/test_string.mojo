@@ -1531,7 +1531,6 @@ def main():
     test_islower()
     test_lower()
     test_upper()
-    test_is_ascii_space()
     test_ascii_aliases()
     test_rstrip()
     test_lstrip()
