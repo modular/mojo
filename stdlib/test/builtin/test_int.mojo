@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -153,8 +153,8 @@ def test_int_representation():
 
 
 def test_indexer():
-    assert_equal(5, Int(5).__index__())
-    assert_equal(987, Int(987).__index__())
+    assert_true(5 == index(Int(5)))
+    assert_true(987 == index(Int(987)))
 
 
 def test_bool():
@@ -191,10 +191,10 @@ def test_decimal_digit_count():
 
 def test_int_uint():
     var u1 = UInt(42)
-    assert_equal(42, int(u1))
+    assert_equal(42, Int(u1))
 
     var u2 = UInt(0)
-    assert_equal(0, int(u2))
+    assert_equal(0, Int(u2))
 
 
 def test_comparison():
@@ -230,7 +230,7 @@ def test_comparison():
 
 
 def test_float_conversion():
-    assert_equal(float(Int(45)), Float64(45))
+    assert_equal(Float64(Int(45)), Float64(45))
 
 
 def test_conversion_from_python():

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -179,9 +179,7 @@ struct InlineArray[
             UnsafePointer.address_of(storage[i]).move_pointee_into(eltptr)
 
         # Do not destroy the elements when their backing storage goes away.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(storage)
-        )
+        __disable_del storage
 
     fn copy(self) -> Self:
         """Explicitly copy the provided value.
@@ -223,8 +221,11 @@ struct InlineArray[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __getitem__(ref self, idx: Int) -> ref [self] Self.ElementType:
+    fn __getitem__[I: Indexer](ref self, idx: I) -> ref [self] Self.ElementType:
         """Get a `Pointer` to the element at the given index.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Args:
             idx: The index of the item.
@@ -232,28 +233,42 @@ struct InlineArray[
         Returns:
             A reference to the item at the given index.
         """
-        var normalized_index = normalize_index["InlineArray"](idx, self)
-        return self.unsafe_get(normalized_index)
+
+        @parameter
+        if _type_is_eq[I, UInt]():
+            return self.unsafe_get(idx)
+        else:
+            var normalized_index = normalize_index["InlineArray"](
+                Int(idx), self
+            )
+            return self.unsafe_get(normalized_index)
 
     @always_inline
-    fn __getitem__[idx: Int](ref self) -> ref [self] Self.ElementType:
+    fn __getitem__[
+        I: Indexer, //, idx: I
+    ](ref self) -> ref [self] Self.ElementType:
         """Get a `Pointer` to the element at the given index.
 
         Parameters:
+            I: A type that can be used as an index.
             idx: The index of the item.
 
         Returns:
             A reference to the item at the given index.
         """
-        constrained[-size <= idx < size, "Index must be within bounds."]()
-
-        var normalized_idx = idx
+        constrained[-size <= Int(idx) < size, "Index must be within bounds."]()
 
         @parameter
-        if idx < 0:
-            normalized_idx += size
+        if _type_is_eq[I, UInt]():
+            return self.unsafe_get(idx)
+        else:
+            var normalized_idx = Int(idx)
 
-        return self.unsafe_get(normalized_idx)
+            @parameter
+            if Int(idx) < 0:
+                normalized_idx += size
+
+            return self.unsafe_get(normalized_idx)
 
     # ===------------------------------------------------------------------=== #
     # Trait implementations
@@ -273,7 +288,7 @@ struct InlineArray[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn unsafe_get(ref self, idx: Int) -> ref [self] Self.ElementType:
+    fn unsafe_get[I: Indexer](ref self, idx: I) -> ref [self] Self.ElementType:
         """Get a reference to an element of self without checking index bounds.
 
         Users should opt for `__getitem__` instead of this method as it is
@@ -285,20 +300,23 @@ struct InlineArray[
         Args:
             idx: The index of the element to get.
 
+        Parameters:
+            I: A type that can be used as an index.
+
         Returns:
             A reference to the element at the given index.
         """
-        var idx_as_int = index(idx)
+        var i = index(idx)
         debug_assert(
-            0 <= idx_as_int < size,
+            0 <= Int(i) < size,
             " InlineArray.unsafe_get() index out of bounds: ",
-            idx_as_int,
+            Int(idx),
             " should be less than: ",
             size,
         )
         var ptr = __mlir_op.`pop.array.gep`(
             UnsafePointer.address_of(self._array).address,
-            idx_as_int.value,
+            i,
         )
         return UnsafePointer(ptr)[]
 

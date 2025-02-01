@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -78,17 +78,8 @@ struct FileHandle:
         """Default constructor."""
         self.handle = OpaquePointer()
 
-    fn __init__(out self, path: String, mode: String) raises:
-        """Construct the FileHandle using the file path and mode.
-
-        Args:
-          path: The file path.
-          mode: The mode to open the file in (the mode can be "r" or "w" or "rw").
-        """
-        self = Self(path.as_string_slice(), mode.as_string_slice())
-
     fn __init__(out self, path: StringSlice, mode: StringSlice) raises:
-        """Construct the FileHandle using the file path and string.
+        """Construct the FileHandle using the file path and mode.
 
         Args:
           path: The file path.
@@ -202,7 +193,7 @@ struct FileHandle:
         if err_msg:
             raise err_msg^.consume_as_error()
 
-        return String(ptr=buf, length=int(size_copy) + 1)
+        return String(ptr=buf, length=Int(size_copy) + 1)
 
     fn read[
         type: DType
@@ -346,7 +337,7 @@ struct FileHandle:
             raise (err_msg^).consume_as_error()
 
         var list = List[UInt8](
-            ptr=buf, length=int(size_copy), capacity=int(size_copy)
+            ptr=buf, length=Int(size_copy), capacity=Int(size_copy)
         )
 
         return list
@@ -433,7 +424,7 @@ struct FileHandle:
             args: Sequence of arguments to write to this Writer.
         """
         var file = FileDescriptor(self._get_raw_fd())
-        write_buffered[buffer_size=4096](file, args)
+        write_buffered(file, args)
 
     fn _write[
         address_space: AddressSpace
@@ -472,7 +463,7 @@ struct FileHandle:
         return self^
 
     fn _get_raw_fd(self) -> Int:
-        return int(
+        return Int(
             external_call[
                 "KGEN_CompilerRT_IO_GetFD",
                 Int64,
@@ -482,7 +473,7 @@ struct FileHandle:
 
 fn open[
     PathLike: os.PathLike
-](path: PathLike, mode: String) raises -> FileHandle:
+](path: PathLike, mode: StringSlice) raises -> FileHandle:
     """Opens the file specified by path using the mode provided, returning a
     FileHandle.
 

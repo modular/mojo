@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -68,16 +68,14 @@ struct _SpanIter[
         return self
 
     @always_inline
-    fn __next__(
-        mut self,
-    ) -> Pointer[T, origin]:
+    fn __next__(mut self, out p: Pointer[T, origin]):
         @parameter
         if forward:
+            p = Pointer.address_of(self.src[self.index])
             self.index += 1
-            return Pointer.address_of(self.src[self.index - 1])
         else:
             self.index -= 1
-            return Pointer.address_of(self.src[self.index])
+            p = Pointer.address_of(self.src[self.index])
 
     @always_inline
     fn __has_next__(self) -> Bool:
@@ -168,21 +166,24 @@ struct Span[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __getitem__(self, idx: Int) -> ref [origin] T:
+    fn __getitem__[I: Indexer](self, idx: I) -> ref [origin] T:
         """Get a reference to an element in the span.
 
         Args:
             idx: The index of the value to return.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Returns:
             An element reference.
         """
         # TODO: Simplify this with a UInt type.
         debug_assert(
-            -self._len <= int(idx) < self._len, "index must be within bounds"
+            -self._len <= Int(idx) < self._len, "index must be within bounds"
         )
-
-        var offset = idx
+        # TODO(MSTDL-1086): optimize away SIMD/UInt normalization check
+        var offset = Int(idx)
         if offset < 0:
             offset += len(self)
         return self._data[offset]

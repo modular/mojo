@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -146,7 +146,7 @@ fn _get_number_of_bytes_to_store_from_number_of_bytes_to_load[
     alias table = _get_table_number_of_bytes_to_store_from_number_of_bytes_to_load[
         max_size
     ]()
-    return int(table[nb_of_elements_to_load])
+    return Int(table[nb_of_elements_to_load])
 
 
 fn _get_table_number_of_bytes_to_store_from_number_of_bytes_to_load_without_equal_sign[
@@ -181,7 +181,7 @@ fn _get_number_of_bytes_to_store_from_number_of_bytes_to_load_without_equal_sign
     alias table = _get_table_number_of_bytes_to_store_from_number_of_bytes_to_load_without_equal_sign[
         max_size
     ]()
-    return int(table[nb_of_elements_to_load])
+    return Int(table[nb_of_elements_to_load])
 
 
 fn load_incomplete_simd[

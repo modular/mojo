@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -31,7 +31,7 @@ struct _SourceLocation(Writable, Stringable):
         return String.write(self)
 
     @no_inline
-    fn prefix[T: Stringable](self, msg: T) -> String:
+    fn prefix[T: Writable](self, msg: T) -> String:
         """Return the given message prefixed with the pretty-printer location.
 
         Parameters:
@@ -40,7 +40,7 @@ struct _SourceLocation(Writable, Stringable):
         Args:
             msg: The message to attach the prefix to.
         """
-        return "At " + str(self) + ": " + str(msg)
+        return String("At ", self, ": ", msg)
 
     fn write_to[W: Writer](self, mut writer: W):
         """

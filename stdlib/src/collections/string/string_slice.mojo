@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -25,28 +25,29 @@ from bit import count_leading_zeros
 from collections import List, Optional
 from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
 from collections.string._utf8_validation import _is_valid_utf8
-from collections.string.string import _isspace
 from memory import UnsafePointer, memcmp, memcpy, Span
 from memory.memory import _memcmp_impl_unconstrained
 from sys import bitwidthof, simdwidthof
 from sys.intrinsics import unlikely, likely
+from sys.ffi import c_char
 from utils.stringref import StringRef, _memmem
+from hashlib._hasher import _HashableWithHasher, _Hasher
 from os import PathLike
 
 alias StaticString = StringSlice[StaticConstantOrigin]
 """An immutable static string slice."""
 
 
-fn _count_utf8_continuation_bytes(span: Span[Byte]) -> Int:
+fn _count_utf8_continuation_bytes(str_slice: StringSlice) -> Int:
     alias sizes = (256, 128, 64, 32, 16, 8)
-    var ptr = span.unsafe_ptr()
-    var num_bytes = len(span)
+    var ptr = str_slice.unsafe_ptr()
+    var num_bytes = str_slice.byte_length()
     var amnt: Int = 0
     var processed = 0
 
     @parameter
     for i in range(len(sizes)):
-        alias s = sizes.get[i, Int]()
+        alias s = sizes[i]
 
         @parameter
         if simdwidthof[DType.uint8]() >= s:
@@ -54,21 +55,13 @@ fn _count_utf8_continuation_bytes(span: Span[Byte]) -> Int:
             for _ in range(rest // s):
                 var vec = (ptr + processed).load[width=s]()
                 var comp = (vec & 0b1100_0000) == 0b1000_0000
-                amnt += int(comp.cast[DType.uint8]().reduce_add())
+                amnt += Int(comp.cast[DType.uint8]().reduce_add())
                 processed += s
 
     for i in range(num_bytes - processed):
-        amnt += int((ptr[processed + i] & 0b1100_0000) == 0b1000_0000)
+        amnt += Int((ptr[processed + i] & 0b1100_0000) == 0b1000_0000)
 
     return amnt
-
-
-fn _unicode_codepoint_utf8_byte_length(c: Int) -> Int:
-    debug_assert(
-        0 <= c <= 0x10FFFF, "Value: ", c, " is not a valid Unicode code point"
-    )
-    alias sizes = SIMD[DType.int32, 4](0, 0b0111_1111, 0b0111_1111_1111, 0xFFFF)
-    return int((sizes < c).cast[DType.uint8]().reduce_add())
 
 
 @always_inline
@@ -80,35 +73,7 @@ fn _utf8_first_byte_sequence_length(b: Byte) -> Int:
         (b & 0b1100_0000) != 0b1000_0000,
         "Function does not work correctly if given a continuation byte.",
     )
-    return int(count_leading_zeros(~b)) + int(b < 0b1000_0000)
-
-
-fn _shift_unicode_to_utf8(ptr: UnsafePointer[UInt8], c: Int, num_bytes: Int):
-    """Shift unicode to utf8 representation.
-
-    ### Unicode (represented as UInt32 BE) to UTF-8 conversion:
-    - 1: 00000000 00000000 00000000 0aaaaaaa -> 0aaaaaaa
-        - a
-    - 2: 00000000 00000000 00000aaa aabbbbbb -> 110aaaaa 10bbbbbb
-        - (a >> 6)  | 0b11000000, b         | 0b10000000
-    - 3: 00000000 00000000 aaaabbbb bbcccccc -> 1110aaaa 10bbbbbb 10cccccc
-        - (a >> 12) | 0b11100000, (b >> 6)  | 0b10000000, c        | 0b10000000
-    - 4: 00000000 000aaabb bbbbcccc ccdddddd -> 11110aaa 10bbbbbb 10cccccc
-    10dddddd
-        - (a >> 18) | 0b11110000, (b >> 12) | 0b10000000, (c >> 6) | 0b10000000,
-        d | 0b10000000
-    """
-    if num_bytes == 1:
-        ptr[0] = UInt8(c)
-        return
-
-    var shift = 6 * (num_bytes - 1)
-    var mask = UInt8(0xFF) >> (num_bytes + 1)
-    var num_bytes_marker = UInt8(0xFF) << (8 - num_bytes)
-    ptr[0] = ((c >> shift) & mask) | num_bytes_marker
-    for i in range(1, num_bytes):
-        shift -= 6
-        ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
+    return Int(count_leading_zeros(~b)) + Int(b < 0b1000_0000)
 
 
 fn _utf8_byte_type(b: SIMD[DType.uint8, _], /) -> __type_of(b):
@@ -218,17 +183,154 @@ struct _StringSliceIter[
     fn __len__(self) -> Int:
         @parameter
         if forward:
-            remaining = self.length - self.index
-            cont = _count_utf8_continuation_bytes(
-                Span[Byte, ImmutableAnyOrigin](
-                    ptr=self.ptr + self.index, length=remaining
-                )
+            var remaining = self.length - self.index
+            var span = Span[Byte, ImmutableAnyOrigin](
+                ptr=self.ptr + self.index, length=remaining
             )
-            return remaining - cont
+            return StringSlice(unsafe_from_utf8=span).char_length()
         else:
-            return self.index - _count_utf8_continuation_bytes(
-                Span[Byte, ImmutableAnyOrigin](ptr=self.ptr, length=self.index)
+            var span = Span[Byte, ImmutableAnyOrigin](
+                ptr=self.ptr, length=self.index
             )
+            return StringSlice(unsafe_from_utf8=span).char_length()
+
+
+@value
+struct CharsIter[mut: Bool, //, origin: Origin[mut]]:
+    """Iterator over the `Char`s in a string slice, constructed by
+    `StringSlice.chars()`.
+
+    Parameters:
+        mut: Mutability of the underlying string data.
+        origin: Origin of the underlying string data.
+    """
+
+    var _slice: StringSlice[origin]
+    """String slice containing the bytes that have not been read yet.
+
+    When this iterator advances, the pointer in `_slice` is advanced by the
+    byte length of each read character, and the slice length is decremented by
+    the same amount.
+    """
+
+    # Note:
+    #   Marked private since `StringSlice.chars()` is the intended public way to
+    #   construct this type.
+    @doc_private
+    fn __init__(out self, str_slice: StringSlice[origin]):
+        self._slice = str_slice
+
+    # ===-------------------------------------------------------------------===#
+    # Trait implementations
+    # ===-------------------------------------------------------------------===#
+
+    @doc_private
+    fn __iter__(self) -> Self:
+        return self
+
+    fn __next__(mut self) -> Char:
+        """Get the next character in the underlying string slice.
+
+        This returns the next `Char` encoded in the underlying string, and
+        advances the iterator state.
+
+        This function will abort if this iterator has been exhausted.
+
+        Returns:
+            The next character in the string.
+        """
+
+        return self.next().value()
+
+    @always_inline
+    fn __has_next__(self) -> Bool:
+        """Returns True if there are still elements in this iterator.
+
+        Returns:
+            A boolean indicating if there are still elements in this iterator.
+        """
+        return Bool(self.peek_next())
+
+    @always_inline
+    fn __len__(self) -> Int:
+        """Returns the remaining length of this iterator in `Char`s.
+
+        The value returned from this method indicates the number of subsequent
+        calls to `next()` that will return a value.
+
+        Returns:
+            Number of codepoints remaining in this iterator.
+        """
+        return self._slice.char_length()
+
+    # ===-------------------------------------------------------------------===#
+    # Methods
+    # ===-------------------------------------------------------------------===#
+
+    fn peek_next(self) -> Optional[Char]:
+        """Check what the next character in this iterator is, without advancing
+        the iterator state.
+
+        Repeated calls to this method will return the same value.
+
+        Returns:
+            The next character in the underlying string, or None if the string
+            is empty.
+
+        # Examples
+
+        `peek_next()` does not advance the iterator, so repeated calls will
+        return the same value:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        var input = StringSlice("123")
+        var iter = input.chars()
+
+        assert_equal(iter.peek_next().value(), Char.ord("1"))
+        assert_equal(iter.peek_next().value(), Char.ord("1"))
+        assert_equal(iter.peek_next().value(), Char.ord("1"))
+
+        # A call to `next()` return the same value as `peek_next()` had,
+        # but also advance the iterator.
+        assert_equal(iter.next().value(), Char.ord("1"))
+
+        # Later `peek_next()` calls will return the _new_ next character:
+        assert_equal(iter.peek_next().value(), Char.ord("2"))
+        ```
+        .
+        """
+        if len(self._slice) > 0:
+            # SAFETY: Will not read out of bounds because `_slice` is guaranteed
+            #   to contain valid UTF-8.
+            char, _ = Char.unsafe_decode_utf8_char(self._slice.unsafe_ptr())
+            return char
+        else:
+            return None
+
+    fn next(mut self) -> Optional[Char]:
+        """Get the next character in the underlying string slice, or None if
+        the iterator is empty.
+
+        This returns the next `Char` encoded in the underlying string, and
+        advances the iterator state.
+
+        Returns:
+            A character if the string is not empty, otherwise None.
+        """
+        var result: Optional[Char] = self.peek_next()
+
+        if result:
+            # SAFETY: We just checked that `result` holds a value
+            var char_len = result.unsafe_value().utf8_byte_length()
+            # Advance the pointer in _slice.
+            self._slice._slice._data += char_len
+            # Decrement the byte-length of _slice.
+            self._slice._slice._len -= char_len
+
+        return result
 
 
 @value
@@ -279,11 +381,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #   StringLiteral is guaranteed to use UTF-8 encoding.
         # FIXME(MSTDL-160):
         #   Ensure StringLiteral _actually_ always uses UTF-8 encoding.
-        # FIXME: this gets practically stuck at compile time
-        # debug_assert(
-        #     _is_valid_utf8(lit.as_bytes()),
-        #     "StringLiteral doesn't have valid UTF-8 encoding",
-        # )
         self = StaticString(unsafe_from_utf8=lit.as_bytes())
 
     @always_inline
@@ -296,7 +393,14 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Safety:
             `unsafe_from_utf8` MUST be valid UTF-8 encoded data.
         """
-
+        # FIXME(#3706): can't run at compile time
+        # TODO(MOCO-1525):
+        #   Support skipping UTF-8 during comptime evaluations, or support
+        #   the necessary SIMD intrinsics to allow this to evaluate at compile
+        #   time.
+        # debug_assert(
+        #     _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
+        # )
         self._slice = unsafe_from_utf8
 
     fn __init__(out self, *, unsafe_from_utf8_strref: StringRef):
@@ -320,6 +424,45 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         )
 
         self = Self(unsafe_from_utf8=byte_slice)
+
+    fn __init__(out self, *, unsafe_from_utf8_ptr: UnsafePointer[Byte]):
+        """Construct a new StringSlice from a `UnsafePointer[Byte]` pointing to null-terminated UTF-8
+        encoded bytes.
+
+        Args:
+            unsafe_from_utf8_ptr: An `UnsafePointer[Byte]` of null-terminated bytes encoded in UTF-8.
+
+        Safety:
+            - `unsafe_from_utf8_ptr` MUST point to data that is valid for
+                `origin`.
+            - `unsafe_from_utf8_ptr` MUST be valid UTF-8 encoded data.
+            - `unsafe_from_utf8_ptr` MUST be null terminated.
+        """
+
+        var count = _unsafe_strlen(unsafe_from_utf8_ptr)
+
+        var byte_slice = Span[Byte, origin](
+            ptr=unsafe_from_utf8_ptr,
+            length=count,
+        )
+
+        self = Self(unsafe_from_utf8=byte_slice)
+
+    fn __init__(out self, *, unsafe_from_utf8_cstr_ptr: UnsafePointer[c_char]):
+        """Construct a new StringSlice from a `UnsafePointer[c_char]` pointing to null-terminated UTF-8
+        encoded bytes.
+
+        Args:
+            unsafe_from_utf8_cstr_ptr: An `UnsafePointer[c_char]` of null-terminated bytes encoded in UTF-8.
+
+        Safety:
+            - `unsafe_from_utf8_ptr` MUST point to data that is valid for
+                `origin`.
+            - `unsafe_from_utf8_ptr` MUST be valid UTF-8 encoded data.
+            - `unsafe_from_utf8_ptr` MUST be null terminated.
+        """
+        var ptr = unsafe_from_utf8_cstr_ptr.bitcast[Byte]()
+        self = Self(unsafe_from_utf8_ptr=ptr)
 
     @always_inline
     fn __init__(out self, *, ptr: UnsafePointer[Byte], length: UInt):
@@ -359,15 +502,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Args:
             value: The string value.
         """
-
-        # TODO(MOCO-1525):
-        #   Support skipping UTF-8 during comptime evaluations, or support
-        #   the necessary SIMD intrinsics to allow this to evaluate at compile
-        #   time.
-        # debug_assert(
-        #     _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
-        # )
-
         self = StringSlice[O](unsafe_from_utf8=value.as_bytes())
 
     # ===-------------------------------------------------------------------===#
@@ -403,12 +537,20 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
 
     @no_inline
     fn __str__(self) -> String:
-        """Gets this slice as a standard `String`.
+        """Convert this StringSlice to a String.
 
         Returns:
-            The string representation of the slice.
+            A new String.
+
+        Notes:
+            This will allocate a new string that copies the string contents from
+            the provided string slice.
         """
-        return String(str_slice=self)
+        var length = self.byte_length()
+        var ptr = UnsafePointer[Byte].alloc(length + 1)  # null terminator
+        memcpy(ptr, self.unsafe_ptr(), length)
+        ptr[length] = 0
+        return String(ptr=ptr, length=length + 1)
 
     fn __repr__(self) -> String:
         """Return a Mojo-compatible representation of this string slice.
@@ -419,7 +561,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         """
         var result = String()
         var use_dquote = False
-        for s in self:
+        for s in self.char_slices():
             use_dquote = use_dquote or (s == "'")
 
             if s == "\\":
@@ -431,12 +573,12 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             elif s == "\r":
                 result += r"\r"
             else:
-                var codepoint = ord(s)
-                if isprintable(codepoint):
+                var codepoint = Char.ord(s)
+                if codepoint.is_ascii_printable():
                     result += s
-                elif codepoint < 0x10:
+                elif codepoint.to_u32() < 0x10:
                     result += hex(codepoint, prefix=r"\x0")
-                elif codepoint < 0x20 or codepoint == 0x7F:
+                elif codepoint.to_u32() < 0x20 or codepoint.to_u32() == 0x7F:
                     result += hex(codepoint, prefix=r"\x")
                 else:  # multi-byte character
                     result += s
@@ -446,16 +588,48 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         else:
             return "'" + result + "'"
 
+    @always_inline
     fn __len__(self) -> Int:
-        """Nominally returns the _length in Unicode codepoints_ (not bytes!).
+        """Get the string length in bytes.
+
+        This function returns the number of bytes in the underlying UTF-8
+        representation of the string.
+
+        To get the number of Unicode codepoints in a string, use
+        `len(str.chars())`.
 
         Returns:
-            The length in Unicode codepoints.
+            The string length in bytes.
+
+        # Examples
+
+        Query the length of a string, in bytes and Unicode codepoints:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        var s = StringSlice("ನಮಸ್ಕಾರ")
+
+        assert_equal(len(s), 21)
+        assert_equal(len(s.chars()), 7)
+        ```
+
+        Strings containing only ASCII characters have the same byte and
+        Unicode codepoint length:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        var s = StringSlice("abc")
+
+        assert_equal(len(s), 3)
+        assert_equal(len(s.chars()), 3)
+        ```
+        .
         """
-        var b_len = self.byte_length()
-        alias S = Span[Byte, StaticConstantOrigin]
-        var s = S(ptr=self.unsafe_ptr(), length=b_len)
-        return b_len - _count_utf8_continuation_bytes(s)
+        return self.byte_length()
 
     fn write_to[W: Writer](self, mut writer: W):
         """Formats this string slice to the provided `Writer`.
@@ -486,13 +660,44 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         """
         return hash(self._slice._data, self._slice._len)
 
+    fn __hash__[H: _Hasher](self, mut hasher: H):
+        """Updates hasher with the underlying bytes.
+
+        Parameters:
+            H: The hasher type.
+
+        Args:
+            hasher: The hasher instance.
+        """
+        hasher._update_with_bytes(self.unsafe_ptr(), len(self))
+
     fn __fspath__(self) -> String:
         """Return the file system path representation of this string.
 
         Returns:
           The file system path representation as a string.
         """
-        return String(self)
+        return self.__str__()
+
+    @always_inline
+    fn __getitem__(self, span: Slice) raises -> Self:
+        """Gets the sequence of characters at the specified positions.
+
+        Args:
+            span: A slice that specifies positions of the new substring.
+
+        Returns:
+            A new StringSlice containing the substring at the specified positions.
+        """
+        var step: Int
+        var start: Int
+        var end: Int
+        start, end, step = span.indices(len(self))
+
+        if step != 1:
+            raise Error("Slice must be within bounds and step must be 1")
+
+        return Self(unsafe_from_utf8=self._slice[span])
 
     # ===------------------------------------------------------------------===#
     # Operator dunders
@@ -581,19 +786,18 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         """
         var len1 = len(self)
         var len2 = len(rhs)
-        return int(len1 < len2) > _memcmp_impl_unconstrained(
+        return Int(len1 < len2) > _memcmp_impl_unconstrained(
             self.unsafe_ptr(), rhs.unsafe_ptr(), min(len1, len2)
         )
 
+    @deprecated("Use `str.chars()` or `str.char_slices()` instead.")
     fn __iter__(self) -> _StringSliceIter[origin]:
         """Iterate over the string, returning immutable references.
 
         Returns:
             An iterator of references to the string elements.
         """
-        return _StringSliceIter[origin](
-            ptr=self.unsafe_ptr(), length=self.byte_length()
-        )
+        return self.char_slices()
 
     fn __reversed__(self) -> _StringSliceIter[origin, False]:
         """Iterate backwards over the string, returning immutable references.
@@ -605,11 +809,11 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
-    fn __getitem__[IndexerType: Indexer](self, idx: IndexerType) -> String:
+    fn __getitem__[I: Indexer](self, idx: I) -> String:
         """Gets the character at the specified position.
 
         Parameters:
-            IndexerType: The inferred type of an indexer argument.
+            I: A type that can be used as an index.
 
         Args:
             idx: The index value.
@@ -763,7 +967,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #     if not s.isspace():
         #         break
         #     r_idx -= 1
-        while r_idx > 0 and _isspace(self.as_bytes()[r_idx - 1]):
+        while r_idx > 0 and Char(self.as_bytes()[r_idx - 1]).is_posix_space():
             r_idx -= 1
         return Self(unsafe_from_utf8=self.as_bytes()[:r_idx])
 
@@ -813,9 +1017,67 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #     if not s.isspace():
         #         break
         #     l_idx += 1
-        while l_idx < self.byte_length() and _isspace(self.as_bytes()[l_idx]):
+        while (
+            l_idx < self.byte_length()
+            and Char(self.as_bytes()[l_idx]).is_posix_space()
+        ):
             l_idx += 1
         return Self(unsafe_from_utf8=self.as_bytes()[l_idx:])
+
+    @always_inline
+    fn chars(self) -> CharsIter[origin]:
+        """Returns an iterator over the `Char`s encoded in this string slice.
+
+        Returns:
+            An iterator type that returns successive `Char` values stored in
+            this string slice.
+
+        # Examples
+
+        Print the characters in a string:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        var s = StringSlice("abc")
+        var iter = s.chars()
+        assert_equal(iter.__next__(), Char.ord("a"))
+        assert_equal(iter.__next__(), Char.ord("b"))
+        assert_equal(iter.__next__(), Char.ord("c"))
+        assert_equal(iter.__has_next__(), False)
+        ```
+
+        `chars()` iterates over Unicode codepoints, and supports multibyte
+        codepoints:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        # A visual character composed of a combining sequence of 2 codepoints.
+        var s = StringSlice("á")
+        assert_equal(s.byte_length(), 3)
+
+        var iter = s.chars()
+        assert_equal(iter.__next__(), Char.ord("a"))
+         # U+0301 Combining Acute Accent
+        assert_equal(iter.__next__().to_u32(), 0x0301)
+        assert_equal(iter.__has_next__(), False)
+        ```
+        .
+        """
+        return CharsIter(self)
+
+    fn char_slices(self) -> _StringSliceIter[origin]:
+        """Iterate over the string, returning immutable references.
+
+        Returns:
+            An iterator of references to the string elements.
+        """
+        return _StringSliceIter[origin](
+            ptr=self.unsafe_ptr(), length=self.byte_length()
+        )
 
     @always_inline
     fn as_bytes(self) -> Span[Byte, origin]:
@@ -847,6 +1109,68 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
 
         return len(self.as_bytes())
 
+    fn char_length(self) -> UInt:
+        """Returns the length in Unicode codepoints.
+
+        This returns the number of `Char` codepoint values encoded in the UTF-8
+        representation of this string.
+
+        Note: To get the length in bytes, use `StringSlice.byte_length()`.
+
+        Returns:
+            The length in Unicode codepoints.
+
+        # Examples
+
+        Query the length of a string, in bytes and Unicode codepoints:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        var s = StringSlice("ನಮಸ್ಕಾರ")
+
+        assert_equal(s.char_length(), 7)
+        assert_equal(len(s), 21)
+        ```
+
+        Strings containing only ASCII characters have the same byte and
+        Unicode codepoint length:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        var s = StringSlice("abc")
+
+        assert_equal(s.char_length(), 3)
+        assert_equal(len(s), 3)
+        ```
+
+        The character length of a string with visual combining characters is
+        the length in Unicode codepoints, not grapheme clusters:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_equal
+
+        var s = StringSlice("á")
+        assert_equal(s.char_length(), 2)
+        assert_equal(s.byte_length(), 3)
+        ```
+        .
+        """
+        # Every codepoint is encoded as one leading byte + 0 to 3 continuation
+        # bytes.
+        # The total number of codepoints is equal the number of leading bytes.
+        # So we can compute the number of leading bytes (and thereby codepoints)
+        # by subtracting the number of continuation bytes length from the
+        # overall length in bytes.
+        # For a visual explanation of how this UTF-8 codepoint counting works:
+        #   https://connorgray.com/ephemera/project-log#2025-01-13
+        var continuation_count = _count_utf8_continuation_bytes(self)
+        return self.byte_length() - continuation_count
+
     fn get_immutable(
         self,
     ) -> StringSlice[ImmutableOrigin.cast_from[origin].result]:
@@ -877,6 +1201,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         """
         if end == -1:
             return self.find(prefix, start) == start
+        # FIXME: use normalize_index
         return StringSlice[origin](
             ptr=self.unsafe_ptr() + start, length=end - start
         ).startswith(prefix)
@@ -899,6 +1224,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             return False
         if end == -1:
             return self.rfind(suffix, start) + len(suffix) == len(self)
+        # FIXME: use normalize_index
         return StringSlice[origin](
             ptr=self.unsafe_ptr() + start, length=end - start
         ).endswith(suffix)
@@ -915,6 +1241,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             A `StringSlice` borrowed from the current string containing the
             characters of the slice starting at start.
         """
+        # FIXME: use normalize_index
 
         var self_len = self.byte_length()
 
@@ -1000,7 +1327,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         if not loc:
             return -1
 
-        return int(loc) - int(self.unsafe_ptr())
+        return Int(loc) - Int(self.unsafe_ptr())
 
     fn rfind(self, substr: StringSlice, start: Int = 0) -> Int:
         """Finds the offset of the last occurrence of `substr` starting at
@@ -1033,49 +1360,47 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         if not loc:
             return -1
 
-        return int(loc) - int(self.unsafe_ptr())
+        return Int(loc) - Int(self.unsafe_ptr())
 
     fn isspace(self) -> Bool:
         """Determines whether every character in the given StringSlice is a
         python whitespace String. This corresponds to Python's
-        [universal separators:](
-        https://docs.python.org/3/library/stdtypes.html#str.splitlines)
-        `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e\\x85\\u2028\\u2029"`.
+        [universal separators](
+        https://docs.python.org/3/library/stdtypes.html#str.splitlines):
+         `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e\\x85\\u2028\\u2029"`.
 
         Returns:
             True if the whole StringSlice is made up of whitespace characters
             listed above, otherwise False.
+
+        Examples:
+
+        Check if a string contains only whitespace:
+
+        ```mojo
+        from collections.string import StringSlice
+        from testing import assert_true, assert_false
+
+        # An empty string is not considered to contain only whitespace chars:
+        assert_false(StringSlice("").isspace())
+
+        # ASCII space characters
+        assert_true(StringSlice(" ").isspace())
+        assert_true(StringSlice("\t").isspace())
+
+        # Contains non-space characters
+        assert_false(StringSlice(" abc  ").isspace())
+        ```
+        .
         """
 
         if self.byte_length() == 0:
             return False
 
-        # TODO add line and paragraph separator as stringliteral
-        # once Unicode escape sequences are accepted
-        var next_line = List[UInt8](0xC2, 0x85)
-        """TODO: \\x85"""
-        var unicode_line_sep = List[UInt8](0xE2, 0x80, 0xA8)
-        """TODO: \\u2028"""
-        var unicode_paragraph_sep = List[UInt8](0xE2, 0x80, 0xA9)
-        """TODO: \\u2029"""
-
-        for s in self:
-            var no_null_len = s.byte_length()
-            var ptr = s.unsafe_ptr()
-            if no_null_len == 1 and _isspace(ptr[0]):
-                continue
-            elif (
-                no_null_len == 2 and memcmp(ptr, next_line.unsafe_ptr(), 2) == 0
-            ):
-                continue
-            elif no_null_len == 3 and (
-                memcmp(ptr, unicode_line_sep.unsafe_ptr(), 3) == 0
-                or memcmp(ptr, unicode_paragraph_sep.unsafe_ptr(), 3) == 0
-            ):
-                continue
-            else:
+        for s in self.chars():
+            if not s.is_python_space():
                 return False
-        _ = next_line, unicode_line_sep, unicode_paragraph_sep
+
         return True
 
     fn isnewline[single_character: Bool = False](self) -> Bool:
@@ -1104,7 +1429,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             )
         else:
             var offset = 0
-            for s in self:
+            for s in self.char_slices():
                 var b_len = s.byte_length()
                 if not _is_newline_char(ptr, offset, ptr[offset], b_len):
                     return False
@@ -1152,17 +1477,17 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
                 var isnewline = unlikely(
                     _is_newline_char(ptr, eol_start, b0, char_len)
                 )
-                var char_end = int(isnewline) * (eol_start + char_len)
-                var next_idx = char_end * int(char_end < length)
+                var char_end = Int(isnewline) * (eol_start + char_len)
+                var next_idx = char_end * Int(char_end < length)
                 var is_r_n = b0 == `\r` and next_idx != 0 and ptr[
                     next_idx
                 ] == `\n`
-                eol_length = int(isnewline) * char_len + int(is_r_n)
+                eol_length = Int(isnewline) * char_len + Int(is_r_n)
                 if isnewline:
                     break
                 eol_start += char_len
 
-            var str_len = eol_start - offset + int(keepends) * eol_length
+            var str_len = eol_start - offset + Int(keepends) * eol_length
             var s = StringSlice[O](ptr=ptr + offset, length=str_len)
             output.append(s)
             offset = eol_start + eol_length
@@ -1311,3 +1636,21 @@ fn _is_newline_char[
         var b2 = p[eol_start + 2]
         return b0 == 0xE2 and b1 == 0x80 and (b2 == 0xA8 or b2 == 0xA9)
     return False
+
+
+@always_inline
+fn _unsafe_strlen(owned ptr: UnsafePointer[Byte]) -> Int:
+    """
+    Get the length of a null-terminated string from a pointer.
+    Note: the length does NOT include the null terminator.
+
+    Args:
+        ptr: The null-terminated pointer to the string.
+
+    Returns:
+        The length of the null terminated string without the null terminator.
+    """
+    var len = 0
+    while ptr.load(len):
+        len += 1
+    return len

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -104,16 +104,16 @@ fn test_comparison_operators() raises:
 
 
 def test_intable():
-    assert_equal(int(StringRef("123")), 123)
+    assert_equal(Int(StringRef("123")), 123)
 
     with assert_raises():
-        _ = int(StringRef("hi"))
+        _ = Int(StringRef("hi"))
 
 
 def test_indexing():
     a = StringRef("abc")
     assert_equal(a[False], "a")
-    assert_equal(a[int(1)], "b")
+    assert_equal(a[Int(1)], "b")
     assert_equal(a[0], "a")
 
 

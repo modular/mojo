@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,12 +16,13 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import Dict, List
+from collections.string import StringSlice
 from sys.ffi import OpaquePointer
 from sys.intrinsics import _type_is_eq
 
 from memory import ArcPointer, UnsafePointer, memcmp, memcpy
 
-from utils import StringRef, Variant
+from utils import Variant
 
 # ===----------------------------------------------------------------------=== #
 # _ObjectImpl
@@ -568,28 +569,27 @@ struct _ObjectImpl(
             writer.write("None")
             return
         if self.is_bool():
-            writer.write(str(self.get_as_bool()))
+            writer.write(String(self.get_as_bool()))
             return
         if self.is_int():
-            writer.write(str(self.get_as_int()))
+            writer.write(String(self.get_as_int()))
             return
         if self.is_float():
-            writer.write(str(self.get_as_float()))
+            writer.write(String(self.get_as_float()))
             return
         if self.is_str():
+            var string = self.get_as_string()
             writer.write(
-                "'"
-                + str(
-                    StringRef(
-                        self.get_as_string().data, self.get_as_string().length
-                    )
-                )
-                + "'"
+                "'",
+                StringSlice[__origin_of(string)](
+                    ptr=string.data, length=string.length
+                ),
+                "'",
             )
             return
         if self.is_func():
             writer.write(
-                "Function at address " + hex(int(self.get_as_func().value))
+                "Function at address " + hex(Int(self.get_as_func().value))
             )
             return
         if self.is_list():
@@ -597,7 +597,7 @@ struct _ObjectImpl(
             for j in range(self.get_list_length()):
                 if j != 0:
                     writer.write(", ")
-                writer.write(str(object(self.get_list_element(j))))
+                writer.write(String(object(self.get_list_element(j))))
             writer.write("]")
             return
 
@@ -607,12 +607,7 @@ struct _ObjectImpl(
         for entry in ptr[].impl[].items():
             if print_sep:
                 writer.write(", ")
-            writer.write(
-                "'"
-                + str(entry[].key)
-                + "' = "
-                + str(object(entry[].value.copy()))
-            )
+            writer.write("'", entry[].key, "' = ", object(entry[].value.copy()))
             print_sep = True
         writer.write("}")
         return
@@ -811,24 +806,20 @@ struct object(
         Args:
             value: The string value.
         """
-        self = object(StringRef(value))
+        self = object(StringSlice(value))
 
     @always_inline
     @implicit
-    fn __init__(out self, value: StringRef):
+    fn __init__(out self, value: StringSlice):
         """Initializes the object from a string reference.
 
         Args:
             value: The string value.
         """
         var impl = _ImmutableString(
-            UnsafePointer[UInt8].alloc(value.length), value.length
+            UnsafePointer[UInt8].alloc(len(value)), len(value)
         )
-        memcpy(
-            dest=impl.data,
-            src=value.unsafe_ptr(),
-            count=value.length,
-        )
+        memcpy(dest=impl.data, src=value.unsafe_ptr(), count=len(value))
         self._value = impl
 
     @always_inline
@@ -857,8 +848,6 @@ struct object(
                 self._append(value.get[i, Float64]())
             elif _type_is_eq[T, Bool]():
                 self._append(value.get[i, Bool]())
-            elif _type_is_eq[T, StringRef]():
-                self._append(value.get[i, StringRef]())
             elif _type_is_eq[T, StringLiteral]():
                 self._append(value.get[i, StringLiteral]())
             else:
@@ -937,6 +926,15 @@ struct object(
         self._value = existing._value.copy()
 
     @always_inline
+    fn copy(self) -> Self:
+        """Explicitly construct a copy of self.
+
+        Returns:
+            A copy of this value.
+        """
+        return self
+
+    @always_inline
     fn __del__(owned self):
         """Delete the object and release any owned memory."""
         self._value.destroy()
@@ -977,10 +975,10 @@ struct object(
             return 1 if self._value.get_as_bool() else 0
 
         if self._value.is_int():
-            return int(self._value.get_as_int())
+            return Int(self._value.get_as_int())
 
         if self._value.is_float():
-            return int(self._value.get_as_float())
+            return Int(self._value.get_as_float())
 
         raise "object type cannot be converted to an integer"
 
@@ -1824,10 +1822,10 @@ struct object(
     @always_inline
     fn _convert_index_to_int(i: object) raises -> Int:
         if i._value.is_bool():
-            return int(i._value.convert_bool_to_int().get_as_int())
+            return Int(i._value.convert_bool_to_int().get_as_int())
         elif not i._value.is_int():
             raise Error("TypeError: string indices must be integers")
-        return int(i._value.get_as_int())
+        return Int(i._value.get_as_int())
 
     @always_inline
     fn __getitem__(self, i: object) raises -> object:
@@ -1853,7 +1851,7 @@ struct object(
             var char = self._value.get_as_string().data[index]
             impl.data.init_pointee_move(char)
             return object(impl)
-        return self._value.get_list_element(int(i._value.get_as_int()))
+        return self._value.get_list_element(Int(i._value.get_as_int()))
 
     @always_inline
     fn __getitem__(self, *index: object) raises -> object:

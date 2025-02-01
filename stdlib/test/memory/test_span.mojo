@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -115,7 +115,7 @@ def test_indexing():
     var l = InlineArray[Int, 7](1, 2, 3, 4, 5, 6, 7)
     var s = Span[Int](array=l)
     assert_equal(s[True], 2)
-    assert_equal(s[int(0)], 1)
+    assert_equal(s[Int(0)], 1)
     assert_equal(s[3], 4)
 
 
