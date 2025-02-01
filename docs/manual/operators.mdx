@@ -1,6 +1,7 @@
 ---
 title: Operators, expressions, and dunder methods
 sidebar_label: Operators and expressions
+github_url: https://github.com/modular/mojo/tree/main/examples/operators
 ---
 
 Mojo includes a variety of operators for manipulating values of different types.
@@ -217,19 +218,22 @@ error: invalid call to '__mul__': could not deduce parameter 'type' of parent st
 ```
 
 If you need to perform an arithmetic or bitwise operator on two `SIMD` values of
-different types, you can explicitly
-[`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) a `SIMD` so that they have the
-same type.
+different types, you can explicitly convert a value to the desired type either
+by invoking its [`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) method or by
+passing it as an argument to the constructor of the target type.
 
 ```mojo
 simd1 = SIMD[DType.float32, 4](2.2, 3.3, 4.4, 5.5)
 simd2 = SIMD[DType.int16, 4](-1, 2, -3, 4)
-simd3 = simd1 * simd2.cast[DType.float32]()  # Result is SIMD[DType.float32, 4]
-print(simd3)
+simd3 = simd1 * simd2.cast[DType.float32]()  # Convert with cast() method
+print("simd3:", simd3)
+simd4 = simd2 + SIMD[DType.int16, 4](simd1)  # Convert with SIMD constructor
+print("simd4:", simd4)
 ```
 
 ```output
-[-2.2000000476837158, 6.5999999046325684, -13.200000762939453, 22.0]
+simd3: [-2.2, 6.6, -13.200001, 22.0]
+simd4: [1, 5, 1, 9]
 ```
 
 One exception is that the exponentiation operator, `**`, is overloaded so that
@@ -270,7 +274,7 @@ There are three operators related to division:
     ```
 
     ```output
-    True float16 division: [1.400390625, -1.400390625, -1.400390625, 1.400390625]
+    True float16 division: [1.4003906, -1.4003906, -1.4003906, 1.4003906]
     True int32 division: [2, -2, -1, 1]
     ```
 
@@ -380,9 +384,10 @@ compared.
   `Int` or `UInt` do standard numerical comparison with a `Bool` result.
 - Two `SIMD` values can be compared only if they are the same `DType` and size.
   (If you need to compare two `SIMD` values of different types, you can
-  explicitly [`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) a `SIMD` so that
-  they have the same type.) Mojo performs elementwise comparison with a
-  `SIMD[DType.bool]` result. For example:
+  explicitly convert a value so that they have the same type either by invoking
+  its [`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) method or by passing it as
+  an argument to the constructor of the target type.) Mojo performs elementwise
+  comparison with a `SIMD[DType.bool]` result. For example:
 
     ```mojo
     simd1 = SIMD[DType.int16, 4](-1, 2, -3, 4)
@@ -428,12 +433,13 @@ compared.
 - `Scalar` values are simply aliases for single-element `SIMD` vectors.
   Therefore, the same restrictions apply against comparing different types. In
   other words, you can't compare a `Float16` value to a `Float32` value unless
-  you cast the values to the same type. For example:
+  you convert the values to the same type. You can convert a `Scalar` value by
+  passing it as an argument to the constructor of the target type:
 
     ```mojo
-    var float1: Float16 = 12.345  # SIMD[DType.float16, 1]
-    var float2: Float32 = 0.5     # SIMD[DType.float32, 1]
-    result = float1.cast[DType.float32]() > float2  # SIMD[DType.bool, 1]
+    var float1: Float16 = 12.345         # SIMD[DType.float16, 1]
+    var float2: Float32 = 0.5            # SIMD[DType.float32, 1]
+    result = Float32(float1) > float2    # Result is SIMD[DType.bool, 1]
     print(result)
     ```
 
@@ -1030,7 +1036,7 @@ operations like printing complex values. We'll also allow mixing `Complex` and
 
 This example builds our `Complex` struct incrementally. You can also find the
 [complete example in the public Mojo GitHub
-repo](https://github.com/modularml/mojo/tree/main/examples/operators).
+repo](https://github.com/modular/mojo/tree/main/examples/operators).
 
 :::note
 
@@ -1063,7 +1069,7 @@ real and imaginary fields.
 
 ```mojo
 c1 = Complex(-1.2, 6.5)
-print(String("c1: Real: {}; Imaginary: {}").format(c1.re, c1.im))
+print("c1: Real: {}; Imaginary: {}".format(c1.re, c1.im))
 ```
 
 ```output
@@ -1088,7 +1094,7 @@ Now we can create a `Complex` instance and provide just a real component.
 
 ```mojo
 c2 = Complex(3.14159)
-print(String("c2: Real: {}; Imaginary: {}").format(c2.re, c2.im))
+print("c2: Real: {}; Imaginary: {}".format(c2.re, c2.im))
 ```
 
 ```output
@@ -1100,7 +1106,7 @@ c2: Real: 3.1415899999999999; Imaginary: 0.0
 To make it simpler to print `Complex` values, let's implement the
 [Writable](/mojo/stdlib/utils/write/Writable) trait. While we're at it, let's
 also implement the [`Stringable`](/mojo/stdlib/builtin/str/Stringable) trait so
-that we can use the `str()` function to generate a `String` representation of a
+that we can use the `String()` constructor to generate a `String` representation of a
 `Complex` value. You can find out more about these traits and their associated
 methods in [The `Stringable`, `Representable`, and `Writable`
 traits](/mojo/manual/traits#the-stringable-representable-and-writable-traits).
@@ -1137,13 +1143,14 @@ between defining functions with `def` and `fn`.
 :::
 
 Now we can print a `Complex` value directly, and we can explicitly generate a
-`String` representation by passing a `Complex` value to `str()`.
+`String` representation by passing a `Complex` value to `String()` which
+constructs a new `String` from all the arguments passed to it.
 
 ```mojo
 c3 = Complex(3.14159, -2.71828)
 print("c3 =", c3)
 
-var msg: String = "The value is: " + str(c3)
+var msg = String("The value is: ", c3)
 print(msg)
 ```
 
@@ -1183,7 +1190,7 @@ Now let's try getting and setting the real and imaginary components of a
 
 ```mojo
 c2 = Complex(3.14159)
-print(String("c2[0]: {}; c2[1]: {}").format(c2[0], c2[1]))
+print("c2[0]: {}; c2[1]: {}".format(c2[0], c2[1]))
 c2[0] = 2.71828
 c2[1] = 42
 print("c2[0] = 2.71828; c2[1] = 42; c2:", c2)

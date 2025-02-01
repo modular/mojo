@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -70,13 +70,13 @@ struct Counter[V: KeyElement](Sized, CollectionElement, Boolable):
             self._data[item] = self._data.get(item, 0) + 1
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Create a new Counter by copying another Counter.
 
-        Args:
-            other: The Counter to copy.
+        Returns:
+            A copy of the value.
         """
-        self._data = Dict[V, Int](other=other._data)
+        return Self(self._data.copy())
 
     @staticmethod
     fn fromkeys(keys: List[V, *_], value: Int) -> Self:
@@ -160,7 +160,7 @@ struct Counter[V: KeyElement](Sized, CollectionElement, Boolable):
         Returns:
             `False` if the Counter is empty, `True` otherwise.
         """
-        return bool(len(self))
+        return Bool(len(self))
 
     # ===------------------------------------------------------------------=== #
     # Comparison operators
@@ -295,7 +295,7 @@ struct Counter[V: KeyElement](Sized, CollectionElement, Boolable):
             A new Counter with the counts from the other Counter subtracted from
             this Counter.
         """
-        var result = Counter[V](other=self)
+        var result = self.copy()
 
         result.subtract(other)
 
@@ -632,6 +632,14 @@ struct CountTuple[V: KeyElement](
         """
         self._value = other._value
         self._count = other._count
+
+    fn copy(self) -> Self:
+        """Explicitly construct a copy of self.
+
+        Returns:
+            A copy of this value.
+        """
+        return self
 
     fn __moveinit__(out self, owned other: Self):
         """Create a new CountTuple by moving another CountTuple.

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -22,7 +22,7 @@ var a = Optional(1)
 var b = Optional[Int](None)
 if a:
     print(a.value())  # prints 1
-if b:  # bool(b) is False, so no print
+if b:  # Bool(b) is False, so no print
     print(b.value())
 var c = a.or_else(2)
 var d = b.or_else(2)
@@ -41,6 +41,12 @@ from utils import Variant
 struct _NoneType(CollectionElement, CollectionElementNew):
     fn __init__(out self, *, other: Self):
         pass
+
+    fn __copyinit__(out self, other: Self):
+        pass
+
+    fn copy(self) -> Self:
+        return _NoneType()
 
 
 # ===-----------------------------------------------------------------------===#
@@ -67,7 +73,7 @@ struct Optional[T: CollectionElement](
     var b = Optional[Int](None)
     if a:
         print(a.value())  # prints 1
-    if b:  # bool(b) is False, so no print
+    if b:  # Bool(b) is False, so no print
         print(b.value())
     var c = a.or_else(2)
     var d = b.or_else(2)
@@ -124,13 +130,13 @@ struct Optional[T: CollectionElement](
         """
         self = Self()
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy construct an Optional.
 
-        Args:
-            other: The Optional to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other
+        return self
 
     # ===-------------------------------------------------------------------===#
     # Operator dunders
@@ -381,6 +387,48 @@ struct Optional[T: CollectionElement](
         if self.__bool__():
             return self._value[T]
         return default
+
+    fn copied[
+        mut: Bool,
+        origin: Origin[mut], //,
+        T: CollectionElement,
+    ](self: Optional[Pointer[T, origin]]) -> Optional[T]:
+        """Converts an Optional containing a Pointer to an Optional of an owned
+        value by copying.
+
+        If `self` is an empty `Optional`, the returned `Optional` will be empty
+        as well.
+
+        Parameters:
+            mut: Mutability of the pointee origin.
+            origin: Origin of the contained `Pointer`.
+            T: Type of the owned result value.
+
+        Returns:
+            An Optional containing an owned copy of the pointee value.
+
+        # Examples
+
+        Copy the value of an `Optional[Pointer[_]]`
+
+        ```mojo
+        from collections import Optional
+
+        var data = String("foo")
+
+        var opt = Optional(Pointer.address_of(data))
+
+        # TODO(MOCO-1522): Drop `[T=String]` after fixing param inference issue.
+        var opt_owned: Optional[String] = opt.copied[T=String]()
+        ```
+        .
+        """
+        if self:
+            # SAFETY: We just checked that `self` is populated.
+            # Perform an implicit copy
+            return self.unsafe_value()[]
+        else:
+            return None
 
 
 # ===-----------------------------------------------------------------------===#

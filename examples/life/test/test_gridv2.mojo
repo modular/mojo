@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -53,7 +53,7 @@ def test_gridv2_index():
 
 def test_gridv2_str():
     grid = grid4x4()
-    grid_str = str(grid)
+    grid_str = String(grid)
     assert_equal(str4x4, grid_str)
 
 

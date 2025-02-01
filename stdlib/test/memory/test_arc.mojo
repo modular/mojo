@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -54,12 +54,12 @@ def test_deleter_not_called_until_no_references():
 def test_deleter_not_called_until_no_references_explicit_copy():
     var deleted = False
     var p = ArcPointer(ObservableDel(UnsafePointer.address_of(deleted)))
-    var p2 = ArcPointer(other=p)
+    var p2 = p.copy()
     _ = p^
     assert_false(deleted)
 
     var vec = List[ArcPointer[ObservableDel]]()
-    vec.append(ArcPointer(other=p2)^)
+    vec.append(p2.copy())
     _ = p2^
     assert_false(deleted)
     _ = vec^
@@ -68,7 +68,7 @@ def test_deleter_not_called_until_no_references_explicit_copy():
 
 def test_count():
     var a = ArcPointer(10)
-    var b = ArcPointer(other=a)
+    var b = a.copy()
     var c = a
     assert_equal(3, a.count())
     _ = b^

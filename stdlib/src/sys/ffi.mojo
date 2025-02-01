@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -17,7 +17,7 @@ from sys._libc import dlclose, dlerror, dlopen, dlsym
 
 from memory import UnsafePointer
 
-from utils import StringRef
+from collections.string import StringSlice
 
 from .info import is_64bit, os_is_linux, os_is_macos, os_is_windows
 from .intrinsics import _mlirtype_is_eq
@@ -113,6 +113,40 @@ struct RTLD:
 alias DEFAULT_RTLD = RTLD.NOW | RTLD.GLOBAL
 
 
+struct _OwnedDLHandle:
+    """Represents an owned handle to a dynamically linked library that can be
+    loaded and unloaded.
+
+    This type is intended to replace `DLHandle`, by incrementally introducing
+    ownership semantics to `DLHandle`.
+    """
+
+    var _handle: DLHandle
+
+    # ===-------------------------------------------------------------------===#
+    # Life cycle methods
+    # ===-------------------------------------------------------------------===#
+
+    @always_inline
+    fn __init__(out self, path: String, flags: Int = DEFAULT_RTLD):
+        self._handle = DLHandle(path, flags)
+
+    fn __moveinit__(out self, owned other: Self):
+        self._handle = other._handle
+
+    fn __del__(owned self):
+        """Delete the DLHandle object unloading the associated dynamic library.
+        """
+        self._handle.close()
+
+    # ===-------------------------------------------------------------------===#
+    # Methods
+    # ===-------------------------------------------------------------------===#
+
+    fn handle(self) -> DLHandle:
+        return self._handle
+
+
 @value
 @register_passable("trivial")
 struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
@@ -140,18 +174,25 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             var handle = dlopen(path.unsafe_cstr_ptr(), flags)
             if handle == OpaquePointer():
                 var error_message = dlerror()
-                abort("dlopen failed: " + String(error_message))
+                abort(
+                    "dlopen failed: ",
+                    String(
+                        StringSlice[error_message.origin](
+                            unsafe_from_utf8_cstr_ptr=error_message
+                        )
+                    ),
+                )
             self.handle = handle
         else:
             self.handle = OpaquePointer()
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        self = other
+        return self
 
     fn check_symbol(self, name: String) -> Bool:
         """Check that the symbol exists in the dynamic library.
@@ -172,7 +213,7 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             name.unsafe_cstr_ptr(),
         )
 
-        return bool(opaque_function_ptr)
+        return Bool(opaque_function_ptr)
 
     # TODO(#15590): Implement support for windows and remove the always_inline.
     @always_inline
@@ -321,7 +362,12 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             var err = dlerror()
 
             if err:
-                abort("dlsym failed: " + String(err))
+                abort(
+                    "dlsym failed: ",
+                    String(
+                        StringSlice[err.origin](unsafe_from_utf8_cstr_ptr=err)
+                    ),
+                )
 
         return res
 
@@ -368,36 +414,23 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
 
 
 @always_inline
-fn _get_dylib[
-    name: StringLiteral,
-    init_fn: fn (OpaquePointer) -> OpaquePointer,
-    destroy_fn: fn (OpaquePointer) -> None,
-](payload: OpaquePointer = OpaquePointer()) -> DLHandle:
-    var ptr = _get_global[name, init_fn, destroy_fn](payload).bitcast[
-        DLHandle
-    ]()
-    return ptr[]
-
-
-@always_inline
 fn _get_dylib_function[
-    name: StringLiteral,
+    dylib_global: _Global[_, _OwnedDLHandle, _],
     func_name: StringLiteral,
-    init_fn: fn (OpaquePointer) -> OpaquePointer,
-    destroy_fn: fn (OpaquePointer) -> None,
     result_type: AnyTrivialRegType,
-](payload: OpaquePointer = OpaquePointer()) -> result_type:
-    alias func_cache_name = name + "/" + func_name
+]() -> result_type:
+    alias func_cache_name = dylib_global.name + "/" + func_name
     var func_ptr = _get_global_or_null[func_cache_name]()
     if func_ptr:
         var result = UnsafePointer.address_of(func_ptr).bitcast[result_type]()[]
         _ = func_ptr
         return result
 
-    var dylib = _get_dylib[name, init_fn, destroy_fn](payload)
+    var dylib = dylib_global.get_or_create_ptr()[].handle()
     var new_func = dylib._get_function[func_name, result_type]()
+
     external_call["KGEN_CompilerRT_InsertGlobal", NoneType](
-        StringRef(func_cache_name),
+        StringSlice(func_cache_name),
         UnsafePointer.address_of(new_func).bitcast[OpaquePointer]()[],
     )
 
@@ -414,6 +447,9 @@ struct _Global[
     storage_type: Movable,
     init_fn: fn () -> storage_type,
 ]:
+    fn __init__(out self):
+        pass
+
     @staticmethod
     fn _init_wrapper(payload: OpaquePointer) -> OpaquePointer:
         # Struct-based globals don't get to take arguments to their initializer.
@@ -451,7 +487,10 @@ fn _get_global[
     destroy_fn: fn (OpaquePointer) -> None,
 ](payload: OpaquePointer = OpaquePointer()) -> OpaquePointer:
     return external_call["KGEN_CompilerRT_GetGlobalOrCreate", OpaquePointer](
-        StringRef(name), payload, init_fn, destroy_fn
+        StringSlice(name),
+        payload,
+        init_fn,
+        destroy_fn,
     )
 
 
@@ -469,37 +508,60 @@ fn _get_global_or_null[name: StringLiteral]() -> OpaquePointer:
 
 @always_inline("nodebug")
 fn external_call[
-    callee: StringLiteral, type: AnyTrivialRegType, *types: AnyType
-](*arguments: *types) -> type:
+    callee: StringLiteral,
+    return_type: AnyTrivialRegType,
+    *types: AnyType,
+](*args: *types) -> return_type:
     """Calls an external function.
 
     Args:
-      arguments: The arguments to pass to the external function.
+        args: The arguments to pass to the external function.
 
     Parameters:
-      callee: The name of the external function.
-      type: The return type.
-      types: The argument types.
+        callee: The name of the external function.
+        return_type: The return type.
+        types: The argument types.
 
     Returns:
-      The external call result.
+        The external call result.
+    """
+    return external_call[callee, return_type](args)
+
+
+@always_inline("nodebug")
+fn external_call[
+    callee: StringLiteral,
+    return_type: AnyTrivialRegType,
+](args: VariadicPack[element_trait=AnyType]) -> return_type:
+    """Calls an external function.
+
+    Parameters:
+        callee: The name of the external function.
+        return_type: The return type.
+
+    Args:
+        args: The arguments to pass to the external function.
+
+    Returns:
+        The external call result.
     """
 
     # The argument pack will contain references for each value in the pack,
     # but we want to pass their values directly into the C printf call. Load
     # all the members of the pack.
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
     @parameter
-    if _mlirtype_is_eq[type, NoneType]():
+    if _mlirtype_is_eq[return_type, NoneType]():
         __mlir_op.`pop.external_call`[func = callee.value, _type=None](
             loaded_pack
         )
-        return rebind[type](None)
+        return rebind[return_type](None)
     else:
-        return __mlir_op.`pop.external_call`[func = callee.value, _type=type](
-            loaded_pack
-        )
+        return __mlir_op.`pop.external_call`[
+            func = callee.value,
+            _type=return_type,
+        ](loaded_pack)
 
 
 # ===-----------------------------------------------------------------------===#
@@ -509,18 +571,20 @@ fn external_call[
 
 @always_inline("nodebug")
 fn _external_call_const[
-    callee: StringLiteral, type: AnyTrivialRegType, *types: AnyType
-](*arguments: *types) -> type:
+    callee: StringLiteral,
+    return_type: AnyTrivialRegType,
+    *types: AnyType,
+](*args: *types) -> return_type:
     """Mark the external function call as having no observable effects to the
     program state. This allows the compiler to optimize away successive calls
     to the same function.
 
     Args:
-      arguments: The arguments to pass to the external function.
+      args: The arguments to pass to the external function.
 
     Parameters:
       callee: The name of the external function.
-      type: The return type.
+      return_type: The return type.
       types: The argument types.
 
     Returns:
@@ -530,7 +594,7 @@ fn _external_call_const[
     # The argument pack will contain references for each value in the pack,
     # but we want to pass their values directly into the C printf call. Load
     # all the members of the pack.
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
     return __mlir_op.`pop.external_call`[
         func = callee.value,
@@ -541,5 +605,5 @@ fn _external_call_const[
             `argMem = none, `,
             `inaccessibleMem = none>`,
         ],
-        _type=type,
+        _type=return_type,
     ](loaded_pack)
