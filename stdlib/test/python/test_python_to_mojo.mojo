@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -21,7 +21,7 @@ fn test_string_to_python_to_mojo(mut python: Python) raises:
     var py_string = PythonObject("mojo")
     var py_string_capitalized = py_string.capitalize()
 
-    var cap_mojo_string = str(py_string_capitalized)
+    var cap_mojo_string = String(py_string_capitalized)
     assert_equal(cap_mojo_string, "Mojo")
 
 
@@ -54,7 +54,7 @@ fn test_range() raises:
 
 fn test_python_to_string() raises:
     var os = Python.import_module("os")
-    assert_true(str(os.environ).startswith("environ({"))
+    assert_true(String(os.environ).startswith("environ({"))
 
 
 def main():

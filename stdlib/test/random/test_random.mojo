@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -29,39 +29,43 @@ def test_random():
         var random_float = random_float64(0, 1)
         assert_true(
             random_float >= 0,
-            "Value " + str(random_float) + " is not above or equal to 0",
+            String("Value ", random_float, " is not above or equal to 0"),
         )
         assert_true(
             random_float <= 1,
-            "Value " + str(random_float) + " is not below or equal to 1",
+            String("Value ", random_float, " is not below or equal to 1"),
         )
 
         var random_signed = random_si64(-255, 255)
         assert_true(
             random_signed >= -255,
-            "Signed value "
-            + str(random_signed)
-            + " is not above or equal to -255",
+            String(
+                "Signed value ", random_signed, " is not above or equal to -255"
+            ),
         )
         assert_true(
             random_signed <= 255,
-            "Signed value "
-            + str(random_signed)
-            + " is not below or equal to 255",
+            String(
+                "Signed value ", random_signed, " is not below or equal to 255"
+            ),
         )
 
         var random_unsigned = random_ui64(0, 255)
         assert_true(
             random_unsigned >= 0,
-            "Unsigned value "
-            + str(random_unsigned)
-            + " is not above or equal to 0",
+            String(
+                "Unsigned value ",
+                random_unsigned,
+                " is not above or equal to 0",
+            ),
         )
         assert_true(
             random_unsigned <= 255,
-            "Unsigned value "
-            + str(random_unsigned)
-            + " is not below or equal to 255",
+            String(
+                "Unsigned value ",
+                random_unsigned,
+                " is not below or equal to 255",
+            ),
         )
 
     var random_normal = randn_float64(0, 1)
@@ -135,14 +139,14 @@ def test_shuffle():
     var i = L_l_s()
     var j = L_l_s()
     for x in range(10):
-        i.append(L_s(str(x), str(x + 1), str(x + 3)))
-        j.append(L_s(str(x), str(x + 1), str(x + 3)))
+        i.append(L_s(String(x), String(x + 1), String(x + 3)))
+        j.append(L_s(String(x), String(x + 1), String(x + 3)))
     shuffle(i)
     # TODO: Uncomment when possible
     # assert_true(g != h)
     assert_equal(len(i), len(j))
     for x in range(10):
-        var target: List[String] = L_s(str(x), str(x + 1), str(x + 3))
+        var target: List[String] = L_s(String(x), String(x + 1), String(x + 3))
         var found = False
         for y in range(len(i)):
             if j[y] == target:

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -239,7 +239,7 @@ fn source_loc_with_debug() -> _SourceLocation:
 
 fn test_source_location_struct() raises:
     var source_loc = _SourceLocation(50, 60, "/path/to/some_file.mojo")
-    assert_equal(str(source_loc), "/path/to/some_file.mojo:50:60")
+    assert_equal(String(source_loc), "/path/to/some_file.mojo:50:60")
 
 
 fn main() raises:

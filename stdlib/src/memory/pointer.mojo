@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -187,7 +187,7 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
         Args:
           value: The address space value.
         """
-        self._value = int(value)
+        self._value = Int(value)
 
     @always_inline("nodebug")
     fn value(self) -> Int:
@@ -208,7 +208,7 @@ struct AddressSpace(EqualityComparable, Stringable, Writable):
         return self._value
 
     @always_inline("nodebug")
-    fn __mlir_index__(self) -> __mlir_type.index:
+    fn __index__(self) -> __mlir_type.index:
         """Convert to index.
 
         Returns:
@@ -417,4 +417,4 @@ struct Pointer[
         Returns:
             The string representation of the Pointer.
         """
-        return str(UnsafePointer.address_of(self[]))
+        return String(UnsafePointer.address_of(self[]))

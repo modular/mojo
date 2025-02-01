@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -104,8 +104,8 @@ struct Bool(
     ComparableCollectionElement,
     Defaultable,
     ImplicitlyBoolable,
+    ImplicitlyIntable,
     Indexer,
-    Intable,
     Representable,
     Stringable,
     Writable,
@@ -166,6 +166,27 @@ struct Bool(
             value: The boolable value.
         """
         self = value.__bool__()
+
+    @always_inline
+    fn __init__[T: Boolable, //](out self, value: T):
+        """Set the bool representation of the object.
+
+        Parameters:
+            T: The type of the object.
+
+        Args:
+            value: The object to get the bool representation of.
+        """
+        self = value.__bool__()
+
+    @always_inline
+    fn __init__(out self, value: None):
+        """Set the bool representation of the `None` type to `False`.
+
+        Args:
+            value: The object to get the bool representation of.
+        """
+        self = False
 
     @always_inline("nodebug")
     @implicit
@@ -248,7 +269,7 @@ struct Bool(
         Returns:
             A string representation.
         """
-        return str(self)
+        return String(self)
 
     @always_inline("nodebug")
     fn __int__(self) -> Int:
@@ -260,6 +281,16 @@ struct Bool(
         return _select_register_value(self, Int(1), Int(0))
 
     @always_inline("nodebug")
+    fn __as_int__(self) -> Int:
+        """Implicitly convert to an integral representation of the value,
+        wherever an `Int` is expected.
+
+        Returns:
+            The integral representation of the value.
+        """
+        return self.__int__()
+
+    @always_inline("nodebug")
     fn __float__(self) -> Float64:
         """Convert this Bool to a float.
 
@@ -269,13 +300,13 @@ struct Bool(
         return _select_register_value(self, Float64(1.0), Float64(0.0))
 
     @always_inline("nodebug")
-    fn __index__(self) -> Int:
-        """Convert this Bool to an integer for indexing purposes.
+    fn __index__(self) -> __mlir_type.index:
+        """Convert to index.
 
         Returns:
             1 if the Bool is True, 0 otherwise.
         """
-        return self.__int__()
+        return Int(self).value
 
     @always_inline("nodebug")
     fn __eq__(self, rhs: Bool) -> Bool:
@@ -523,19 +554,9 @@ struct Bool(
 # ===----------------------------------------------------------------------=== #
 
 
-@always_inline
-fn bool(value: None) -> Bool:
-    """Get the bool representation of the `None` type.
-
-    Args:
-        value: The object to get the bool representation of.
-
-    Returns:
-        The bool representation of the object.
-    """
-    return False
-
-
+@deprecated(
+    "the `bool` function is deprecated, use the `Bool` constructor instead"
+)
 @always_inline
 fn bool[T: Boolable, //](value: T) -> Bool:
     """Get the bool representation of the object.
