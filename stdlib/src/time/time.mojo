@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -61,7 +61,7 @@ alias _WINDOWS_LARGE_INTEGER = Int64
 
 @value
 @register_passable("trivial")
-struct _CTimeSpec(Stringable):
+struct _CTimeSpec(Stringable, Writable):
     var tv_sec: Int  # Seconds
     var tv_subsec: Int  # subsecond (nanoseconds on linux and usec on mac)
 
@@ -78,28 +78,34 @@ struct _CTimeSpec(Stringable):
 
     @no_inline
     fn __str__(self) -> String:
-        return str(self.as_nanoseconds()) + "ns"
+        return String.write(self)
+
+    @no_inline
+    fn write_to[W: Writer](self, mut writer: W):
+        writer.write(self.as_nanoseconds(), "ns")
 
 
 @value
 @register_passable("trivial")
 struct _FILETIME:
-    var dwLowDateTime: UInt32
-    var dwHighDateTime: UInt32
+    var dw_low_date_time: UInt32
+    var dw_high_date_time: UInt32
 
     fn __init__(out self):
-        self.dwLowDateTime = 0
-        self.dwHighDateTime = 0
+        self.dw_low_date_time = 0
+        self.dw_high_date_time = 0
 
     fn as_nanoseconds(self) -> UInt:
         # AFTER subtracting windows offset the return value fits in a signed int64
         # BEFORE subtracting windows offset the return value does not fit in a signed int64
         # Taken from https://github.com/microsoft/STL/blob/c8d1efb6d504f6392acf8f6d01fd703f7c8826c0/stl/src/xtime.cpp#L50
-        alias windowsToUnixEpochOffsetNs: Int = 0x19DB1DED53E8000
+        alias windows_to_unix_epoch_offset_ns: Int = 0x19DB1DED53E8000
         var interval_count: UInt64 = (
-            self.dwHighDateTime.cast[DType.uint64]() << 32
-        ) + self.dwLowDateTime.cast[DType.uint64]() - windowsToUnixEpochOffsetNs
-        return int(interval_count * 100)
+            self.dw_high_date_time.cast[DType.uint64]() << 32
+        ) + self.dw_low_date_time.cast[
+            DType.uint64
+        ]() - windows_to_unix_epoch_offset_ns
+        return Int(interval_count * 100)
 
 
 @always_inline
@@ -121,7 +127,7 @@ fn _gettime_as_nsec_unix(clockid: Int) -> UInt:
         var ts = _clock_gettime(clockid)
         return ts.as_nanoseconds()
     else:
-        return int(
+        return Int(
             external_call["clock_gettime_nsec_np", Int64](Int32(clockid))
         )
 
@@ -130,7 +136,7 @@ fn _gettime_as_nsec_unix(clockid: Int) -> UInt:
 fn _gpu_clock() -> UInt:
     """Returns a 64-bit unsigned cycle counter."""
     alias asm = "llvm.nvvm.read.ptx.sreg.clock64" if is_nvidia_gpu() else "llvm.amdgcn.s.memtime"
-    return int(llvm_intrinsic[asm, Int64]())
+    return Int(llvm_intrinsic[asm, Int64]())
 
 
 @always_inline
@@ -269,7 +275,7 @@ fn _time_function_windows[
 
     # Note: Windows performance counter resolution is in µs.
     var elapsed_time_in_ns = (elapsed_ticks * 1_000_000_000) // ticks_per_sec
-    return int(elapsed_time_in_ns)
+    return Int(elapsed_time_in_ns)
 
 
 @always_inline
@@ -338,8 +344,8 @@ fn sleep(sec: Float64):
     alias NANOSECONDS_IN_SECOND = 1_000_000_000
     var total_secs = floor(sec)
     var tv_spec = _CTimeSpec(
-        int(total_secs),
-        int((sec - total_secs) * NANOSECONDS_IN_SECOND),
+        Int(total_secs),
+        Int((sec - total_secs) * NANOSECONDS_IN_SECOND),
     )
     var req = UnsafePointer[_CTimeSpec].address_of(tv_spec)
     var rem = UnsafePointer[_CTimeSpec]()

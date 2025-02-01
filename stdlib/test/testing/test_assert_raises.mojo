@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -39,9 +39,9 @@ fn test_assert_raises_no_error() raises:
             pass
         raise Error("This should not be reachable.")
     except e:
-        assert_true(str(e).startswith("AssertionError: Didn't raise"))
-        assert_true(str(e).endswith(":27"))  # col 27
-        assert_true(str(e) != "This should not be reachable.")
+        assert_true(String(e).startswith("AssertionError: Didn't raise"))
+        assert_true(String(e).endswith(":27"))  # col 27
+        assert_true(String(e) != "This should not be reachable.")
 
 
 fn test_assert_raises_no_match() raises:
@@ -50,7 +50,7 @@ fn test_assert_raises_no_match() raises:
             raise "OtherError"
         raise Error("This should not be reachable.")
     except e:
-        assert_equal(str(e), "OtherError")
+        assert_equal(String(e), "OtherError")
 
 
 def main():

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -50,7 +50,7 @@ trait Representable:
     This is typically used for debugging, so it is important that the representation is information-rich and unambiguous.
 
     Note that when computing the string representation of a collection (`Dict`, `List`, `Set`, etc...),
-    the `repr` function is called on each element, not the `str()` function.
+    the `repr` function is called on each element, not the `String()` function.
     """
 
     fn __repr__(self) -> String:

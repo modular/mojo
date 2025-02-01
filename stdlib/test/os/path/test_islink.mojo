@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -29,4 +29,4 @@ def main():
     assert_true(isdir(Path(TEMP_DIR)))
     assert_true(isdir(TEMP_DIR))
     assert_true(islink(TEMP_DIR))
-    assert_false(islink(str(Path(TEMP_DIR) / "nonexistent")))
+    assert_false(islink(String(Path(TEMP_DIR) / "nonexistent")))

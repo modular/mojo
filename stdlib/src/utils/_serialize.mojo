@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -134,7 +134,7 @@ fn _serialize[
             if row_idx != row_elem_count:
                 serialize_fn(",")
 
-            # Intermediate rows are filled with "..." and rowIdx is advanced to third
+            # Intermediate rows are filled with "..." and row_idx is advanced to third
             # from last.
             if (
                 row_elem_count >= _kCompactMaxElemsToPrint
@@ -170,7 +170,7 @@ fn _serialize[
         for i in range(len(shape)):
             if i:
                 shape_str += "x"
-            shape_str += str(shape[i])
+            shape_str += String(shape[i])
         serialize_fn(shape_str)
 
     if serialize_end_line:

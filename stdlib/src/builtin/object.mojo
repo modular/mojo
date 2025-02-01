@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,12 +16,13 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import Dict, List
+from collections.string import StringSlice
 from sys.ffi import OpaquePointer
 from sys.intrinsics import _type_is_eq
 
 from memory import ArcPointer, UnsafePointer, memcmp, memcpy
 
-from utils import StringRef, Variant
+from utils import Variant
 
 # ===----------------------------------------------------------------------=== #
 # _ObjectImpl
@@ -32,8 +33,8 @@ from utils import StringRef, Variant
 struct _NoneMarker(CollectionElementNew):
     """This is a trivial class to indicate that an object is `None`."""
 
-    fn __init__(out self, *, other: Self):
-        pass
+    fn copy(self) -> Self:
+        return _NoneMarker {}
 
 
 @register_passable("trivial")
@@ -55,8 +56,8 @@ struct _ImmutableString(CollectionElement, CollectionElementNew):
         self.length = length
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        self = other
+    fn copy(self) -> Self:
+        return self
 
     @always_inline
     fn string_compare(self, rhs: _ImmutableString) -> Int:
@@ -93,10 +94,6 @@ struct _RefCountedListRef(CollectionElement, CollectionElementNew):
         var ptr = UnsafePointer[_RefCountedList].alloc(1)
         __get_address_as_uninit_lvalue(ptr.address) = _RefCountedList()
         self.lst = ptr.bitcast[NoneType]()
-
-    @always_inline
-    fn __init__(out self, *, other: Self):
-        self.lst = other.lst
 
     @always_inline
     fn copy(self) -> Self:
@@ -189,10 +186,6 @@ struct _RefCountedAttrsDictRef(CollectionElement, CollectionElementNew):
         self.attrs = ptr.bitcast[Int8]()
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        self = other
-
-    @always_inline
     fn copy(self) -> Self:
         _ = self.attrs.bitcast[_RefCountedAttrsDict]()[].impl
         return Self {attrs: self.attrs}
@@ -217,8 +210,8 @@ struct _Function(CollectionElement, CollectionElementNew):
         self.value = f
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        self.value = other.value
+    fn copy(self) -> Self:
+        return self
 
     alias fn0 = fn () raises -> object
     """Nullary function type."""
@@ -349,15 +342,6 @@ struct _ObjectImpl(
         self.value = Self.type(value)
 
     @always_inline
-    fn __init__(out self, *, other: Self):
-        """Copy the object.
-
-        Args:
-            other: The value to copy.
-        """
-        self = other.value
-
-    @always_inline
     fn __copyinit__(out self, existing: Self):
         self = existing.value
 
@@ -367,6 +351,11 @@ struct _ObjectImpl(
 
     @always_inline
     fn copy(self) -> Self:
+        """Copy the object.
+
+        Returns:
+            A copy of the value.
+        """
         if self.is_str():
             var str = self.get_as_string()
             var impl = _ImmutableString(
@@ -523,9 +512,9 @@ struct _ObjectImpl(
         lowest-common denominator type for performing comparisons, in order of
         increasing priority: bool, int, and then float.
         """
-        var lhsId = lhs.get_type_id()
-        var rhsId = rhs.get_type_id()
-        if lhsId == rhsId:
+        var lhs_id = lhs.get_type_id()
+        var rhs_id = rhs.get_type_id()
+        if lhs_id == rhs_id:
             return
 
         @parameter
@@ -538,10 +527,10 @@ struct _ObjectImpl(
                 else:
                     value = value.convert_int_to_float()
 
-        if lhsId > rhsId:
-            convert(rhs, rhsId, lhsId)
+        if lhs_id > rhs_id:
+            convert(rhs, rhs_id, lhs_id)
         else:
-            convert(lhs, lhsId, rhsId)
+            convert(lhs, lhs_id, rhs_id)
 
     @staticmethod
     fn coerce_arithmetic_type(mut lhs: _ObjectImpl, mut rhs: _ObjectImpl):
@@ -580,28 +569,27 @@ struct _ObjectImpl(
             writer.write("None")
             return
         if self.is_bool():
-            writer.write(str(self.get_as_bool()))
+            writer.write(String(self.get_as_bool()))
             return
         if self.is_int():
-            writer.write(str(self.get_as_int()))
+            writer.write(String(self.get_as_int()))
             return
         if self.is_float():
-            writer.write(str(self.get_as_float()))
+            writer.write(String(self.get_as_float()))
             return
         if self.is_str():
+            var string = self.get_as_string()
             writer.write(
-                "'"
-                + str(
-                    StringRef(
-                        self.get_as_string().data, self.get_as_string().length
-                    )
-                )
-                + "'"
+                "'",
+                StringSlice[__origin_of(string)](
+                    ptr=string.data, length=string.length
+                ),
+                "'",
             )
             return
         if self.is_func():
             writer.write(
-                "Function at address " + hex(int(self.get_as_func().value))
+                "Function at address " + hex(Int(self.get_as_func().value))
             )
             return
         if self.is_list():
@@ -609,7 +597,7 @@ struct _ObjectImpl(
             for j in range(self.get_list_length()):
                 if j != 0:
                     writer.write(", ")
-                writer.write(str(object(self.get_list_element(j))))
+                writer.write(String(object(self.get_list_element(j))))
             writer.write("]")
             return
 
@@ -619,12 +607,7 @@ struct _ObjectImpl(
         for entry in ptr[].impl[].items():
             if print_sep:
                 writer.write(", ")
-            writer.write(
-                "'"
-                + str(entry[].key)
-                + "' = "
-                + str(object(entry[].value.copy()))
-            )
+            writer.write("'", entry[].key, "' = ", object(entry[].value.copy()))
             print_sep = True
         writer.write("}")
         return
@@ -823,24 +806,20 @@ struct object(
         Args:
             value: The string value.
         """
-        self = object(StringRef(value))
+        self = object(StringSlice(value))
 
     @always_inline
     @implicit
-    fn __init__(out self, value: StringRef):
+    fn __init__(out self, value: StringSlice):
         """Initializes the object from a string reference.
 
         Args:
             value: The string value.
         """
         var impl = _ImmutableString(
-            UnsafePointer[UInt8].alloc(value.length), value.length
+            UnsafePointer[UInt8].alloc(len(value)), len(value)
         )
-        memcpy(
-            dest=impl.data,
-            src=value.unsafe_ptr(),
-            count=value.length,
-        )
+        memcpy(dest=impl.data, src=value.unsafe_ptr(), count=len(value))
         self._value = impl
 
     @always_inline
@@ -869,8 +848,6 @@ struct object(
                 self._append(value.get[i, Float64]())
             elif _type_is_eq[T, Bool]():
                 self._append(value.get[i, Bool]())
-            elif _type_is_eq[T, StringRef]():
-                self._append(value.get[i, StringRef]())
             elif _type_is_eq[T, StringLiteral]():
                 self._append(value.get[i, StringLiteral]())
             else:
@@ -949,6 +926,15 @@ struct object(
         self._value = existing._value.copy()
 
     @always_inline
+    fn copy(self) -> Self:
+        """Explicitly construct a copy of self.
+
+        Returns:
+            A copy of this value.
+        """
+        return self
+
+    @always_inline
     fn __del__(owned self):
         """Delete the object and release any owned memory."""
         self._value.destroy()
@@ -989,10 +975,10 @@ struct object(
             return 1 if self._value.get_as_bool() else 0
 
         if self._value.is_int():
-            return int(self._value.get_as_int())
+            return Int(self._value.get_as_int())
 
         if self._value.is_float():
-            return int(self._value.get_as_float())
+            return Int(self._value.get_as_float())
 
         raise "object type cannot be converted to an integer"
 
@@ -1075,15 +1061,15 @@ struct object(
         """
         lhs._comparison_type_check()
         rhs._comparison_type_check()
-        var lhsValue = lhs._value
-        var rhsValue = rhs._value
-        _ObjectImpl.coerce_comparison_type(lhsValue, rhsValue)
-        if lhsValue.is_float():
-            return fp_func(lhsValue.get_as_float(), rhsValue.get_as_float())
-        if lhsValue.is_int():
-            return int_func(lhsValue.get_as_int(), rhsValue.get_as_int())
-        debug_assert(lhsValue.is_bool(), "expected both values to be bool")
-        return bool_func(lhsValue.get_as_bool(), rhsValue.get_as_bool())
+        var lhs_value = lhs._value
+        var rhs_value = rhs._value
+        _ObjectImpl.coerce_comparison_type(lhs_value, rhs_value)
+        if lhs_value.is_float():
+            return fp_func(lhs_value.get_as_float(), rhs_value.get_as_float())
+        if lhs_value.is_int():
+            return int_func(lhs_value.get_as_int(), rhs_value.get_as_int())
+        debug_assert(lhs_value.is_bool(), "expected both values to be bool")
+        return bool_func(lhs_value.get_as_bool(), rhs_value.get_as_bool())
 
     @always_inline
     fn _string_compare(self, rhs: object) -> Int:
@@ -1286,12 +1272,12 @@ struct object(
         """
         lhs._arithmetic_type_check()
         rhs._arithmetic_type_check()
-        var lhsValue = lhs._value
-        var rhsValue = rhs._value
-        _ObjectImpl.coerce_arithmetic_type(lhsValue, rhsValue)
-        if lhsValue.is_float():
-            return fp_func(lhsValue.get_as_float(), rhsValue.get_as_float())
-        return int_func(lhsValue.get_as_int(), rhsValue.get_as_int())
+        var lhs_value = lhs._value
+        var rhs_value = rhs._value
+        _ObjectImpl.coerce_arithmetic_type(lhs_value, rhs_value)
+        if lhs_value.is_float():
+            return fp_func(lhs_value.get_as_float(), rhs_value.get_as_float())
+        return int_func(lhs_value.get_as_int(), rhs_value.get_as_int())
 
     @staticmethod
     @always_inline
@@ -1310,12 +1296,12 @@ struct object(
         """
         lhs._arithmetic_integral_type_check()
         rhs._arithmetic_integral_type_check()
-        var lhsValue = lhs._value
-        var rhsValue = rhs._value
-        _ObjectImpl.coerce_integral_type(lhsValue, rhsValue)
-        if lhsValue.is_int():
-            return int_func(lhsValue.get_as_int(), rhsValue.get_as_int())
-        return bool_func(lhsValue.get_as_bool(), rhsValue.get_as_bool())
+        var lhs_value = lhs._value
+        var rhs_value = rhs._value
+        _ObjectImpl.coerce_integral_type(lhs_value, rhs_value)
+        if lhs_value.is_int():
+            return int_func(lhs_value.get_as_int(), rhs_value.get_as_int())
+        return bool_func(lhs_value.get_as_bool(), rhs_value.get_as_bool())
 
     @always_inline
     fn __neg__(self) raises -> object:
@@ -1360,14 +1346,14 @@ struct object(
             The sum or concatenated values.
         """
         if self._value.is_str() and rhs._value.is_str():
-            var lhsStr = self._value.get_as_string()
-            var rhsStr = rhs._value.get_as_string()
-            var length = lhsStr.length + rhsStr.length
+            var lhs_str = self._value.get_as_string()
+            var rhs_str = rhs._value.get_as_string()
+            var length = lhs_str.length + rhs_str.length
             var impl = _ImmutableString(
                 UnsafePointer[UInt8].alloc(length), length
             )
-            memcpy(impl.data, lhsStr.data, lhsStr.length)
-            memcpy(impl.data + lhsStr.length, rhsStr.data, rhsStr.length)
+            memcpy(impl.data, lhs_str.data, lhs_str.length)
+            memcpy(impl.data + lhs_str.length, rhs_str.data, rhs_str.length)
             var result = object()
             result._value = impl
             return result
@@ -1836,10 +1822,10 @@ struct object(
     @always_inline
     fn _convert_index_to_int(i: object) raises -> Int:
         if i._value.is_bool():
-            return i._value.convert_bool_to_int().get_as_int().value
+            return Int(i._value.convert_bool_to_int().get_as_int())
         elif not i._value.is_int():
             raise Error("TypeError: string indices must be integers")
-        return i._value.get_as_int().value
+        return Int(i._value.get_as_int())
 
     @always_inline
     fn __getitem__(self, i: object) raises -> object:
@@ -1865,7 +1851,7 @@ struct object(
             var char = self._value.get_as_string().data[index]
             impl.data.init_pointee_move(char)
             return object(impl)
-        return self._value.get_list_element(i._value.get_as_int().value)
+        return self._value.get_list_element(Int(i._value.get_as_int()))
 
     @always_inline
     fn __getitem__(self, *index: object) raises -> object:

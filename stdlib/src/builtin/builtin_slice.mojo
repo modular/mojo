@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -82,13 +82,13 @@ struct Slice(
         self.end = end
         self.step = step
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Creates a deep copy of the Slice.
 
-        Args:
-            other: The slice to copy.
+        Returns:
+            A copy of the value.
         """
-        self.__init__(start=other.start, end=other.end, step=other.step)
+        return self
 
     # ===-------------------------------------------------------------------===#
     # Trait implementations
@@ -206,6 +206,7 @@ struct Slice(
 
         var start = self.start
         var end = self.end
+
         var positive_step = step > 0
 
         if not start:

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -72,7 +72,7 @@ struct Set[T: KeyElement](Sized, Comparable, Hashable, Boolable):
         Args:
             elements: An existing set to copy.
         """
-        self.__init__()
+        self = Self()
         for e in elements:
             self.add(e[])
 
@@ -83,7 +83,7 @@ struct Set[T: KeyElement](Sized, Comparable, Hashable, Boolable):
         Args:
             elements: A vector of elements to add to the set.
         """
-        self.__init__()
+        self = Self()
         for e in elements:
             self.add(e[])
 

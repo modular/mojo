@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -12,9 +12,44 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from testing import assert_equal, assert_false, assert_raises, assert_true
+from testing import (
+    assert_equal,
+    assert_false,
+    assert_raises,
+    assert_true,
+    assert_not_equal,
+)
 
 from utils import StringRef
+
+
+def test_stringref():
+    var a = StringRef("AAA")
+    var b = StringRef("BBB")
+    var c = StringRef("AAA")
+
+    assert_equal(3, len(a))
+    assert_equal(3, len(b))
+    assert_equal(3, len(c))
+    assert_equal(4, len("ABBA"))
+
+    # Equality operators
+    assert_not_equal(a, b)
+    assert_not_equal(b, a)
+
+    # Self equality
+    assert_equal(a, a)
+
+    # Value equality
+    assert_equal(a, c)
+
+
+def test_stringref_from_pointer():
+    var a = StringRef("AAA")
+    var b = StringRef(ptr=a.data)
+    assert_equal(3, len(a))
+    assert_equal(3, len(b))
+    assert_equal(a, b)
 
 
 def test_strref_from_start():
@@ -69,16 +104,16 @@ fn test_comparison_operators() raises:
 
 
 def test_intable():
-    assert_equal(int(StringRef("123")), 123)
+    assert_equal(Int(StringRef("123")), 123)
 
     with assert_raises():
-        _ = int(StringRef("hi"))
+        _ = Int(StringRef("hi"))
 
 
 def test_indexing():
     a = StringRef("abc")
     assert_equal(a[False], "a")
-    assert_equal(a[int(1)], "b")
+    assert_equal(a[Int(1)], "b")
     assert_equal(a[0], "a")
 
 
@@ -106,26 +141,6 @@ def test_find():
     assert_equal(haystack.find("hijklmnopqrstuvwxyz"), -1)
 
     assert_equal(StringRef("").find("abc"), -1)
-
-
-def test_endswith():
-    var empty = StringRef("")
-    assert_true(empty.endswith(""))
-    assert_false(empty.endswith("a"))
-    assert_false(empty.endswith("ab"))
-
-    var a = StringRef("a")
-    assert_true(a.endswith(""))
-    assert_true(a.endswith("a"))
-    assert_false(a.endswith("ab"))
-
-    var ab = StringRef("ab")
-    assert_true(ab.endswith(""))
-    assert_false(ab.endswith("a"))
-    assert_true(ab.endswith("b"))
-    assert_true(ab.endswith("b", start=1))
-    assert_true(ab.endswith("a", end=1))
-    assert_true(ab.endswith("ab"))
 
 
 fn test_stringref_split() raises:
@@ -189,11 +204,12 @@ def test_str_and_ref():
 
 
 def main():
+    test_stringref()
+    test_stringref_from_pointer()
     test_strref_from_start()
     test_stringref_split()
     test_comparison_operators()
     test_intable()
     test_indexing()
     test_find()
-    test_endswith()
     test_str_and_ref()

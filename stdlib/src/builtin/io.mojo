@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,6 +16,7 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import InlineArray
+from collections.string import StringSlice
 from sys import _libc as libc
 from sys import (
     bitwidthof,
@@ -26,16 +27,16 @@ from sys import (
     stdout,
 )
 from sys._libc import dup, fclose, fdopen, fflush
-from sys.ffi import OpaquePointer
+from sys.ffi import OpaquePointer, c_char, OpaquePointer
+from sys._amdgpu import printf_begin, printf_append_args, printf_append_string_n
+from sys.intrinsics import _type_is_eq
 
 from builtin.dtype import _get_dtype_printf_format
 from builtin.file_descriptor import FileDescriptor
-from memory import UnsafePointer, memcpy
+from memory import UnsafePointer, memcpy, bitcast
 
 from utils import (
     StaticString,
-    StringRef,
-    StringSlice,
     write_args,
     write_buffered,
 )
@@ -68,7 +69,7 @@ struct _fdopen[mode: StringLiteral = "a"]:
         """Closes the file handle."""
         _ = fclose(self.handle)
 
-    fn readline(self) -> String:
+    fn readline(self) raises -> String:
         """Reads an entire line from stdin or until EOF. Lines are delimited by a newline character.
 
         Returns:
@@ -95,7 +96,7 @@ struct _fdopen[mode: StringLiteral = "a"]:
         """
         return self.read_until_delimiter("\n")
 
-    fn read_until_delimiter(self, delimiter: String) -> String:
+    fn read_until_delimiter(self, delimiter: StringSlice) raises -> String:
         """Reads an entire line from a stream, up to the `delimiter`.
         Does not include the delimiter in the result.
 
@@ -140,8 +141,19 @@ struct _fdopen[mode: StringLiteral = "a"]:
             ord(delimiter),
             self.handle,
         )
+        # Per man getdelim(3), getdelim will return -1 if an error occurs
+        # (or the user sends EOF without providing any input). We must
+        # raise an error in this case because otherwise, String() will crash mojo
+        # if the user sends EOF with no input.
+        if bytes_read == -1:
+            if buffer:
+                libc.free(buffer.bitcast[NoneType]())
+            # TODO: check errno to ensure we haven't encountered EINVAL or ENOMEM instead
+            raise Error("EOF")
         # Copy the buffer (excluding the delimiter itself) into a Mojo String.
-        var s = String(StringRef(buffer, bytes_read - 1))
+        var s = String(
+            StringSlice[buffer.origin](ptr=buffer, length=bytes_read - 1)
+        )
         # Explicitly free the buffer using free() instead of the Mojo allocator.
         libc.free(buffer.bitcast[NoneType]())
         return s
@@ -166,11 +178,11 @@ fn _flush(file: FileDescriptor = stdout):
 @no_inline
 fn _printf[
     fmt: StringLiteral, *types: AnyType
-](*arguments: *types, file: FileDescriptor = stdout):
+](*args: *types, file: FileDescriptor = stdout):
     # The argument pack will contain references for each value in the pack,
     # but we want to pass their values directly into the C printf call. Load
     # all the members of the pack.
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
     @parameter
     if is_nvidia_gpu():
@@ -178,10 +190,77 @@ fn _printf[
             fmt.unsafe_cstr_ptr(), Pointer.address_of(loaded_pack)
         )
     elif is_amd_gpu():
-        # constrained[False, "_printf on AMDGPU is not implemented"]()
-        pass
+        # This is adapted from Triton's third party method for lowering
+        # AMD printf calls:
+        # https://github.com/triton-lang/triton/blob/1c28e08971a0d70c4331432994338ee05d31e633/third_party/amd/lib/TritonAMDGPUToLLVM/TargetInfo.cpp#L321
+        fn _to_uint64[T: AnyType, //](value: T) -> UInt64:
+            @parameter
+            if _type_is_eq[T, UInt64]():
+                return rebind[UInt64](value)
+            elif _type_is_eq[T, UInt32]():
+                return UInt64(rebind[UInt32](value))
+            elif _type_is_eq[T, UInt16]():
+                return UInt64(rebind[UInt16](value))
+            elif _type_is_eq[T, UInt8]():
+                return UInt64(rebind[UInt8](value))
+            elif _type_is_eq[T, Int64]():
+                return UInt64(rebind[Int64](value))
+            elif _type_is_eq[T, Int32]():
+                return UInt64(rebind[Int32](value))
+            elif _type_is_eq[T, Int16]():
+                return UInt64(rebind[Int16](value))
+            elif _type_is_eq[T, Int8]():
+                return UInt64(rebind[Int8](value))
+            elif _type_is_eq[T, Float16]():
+                return bitcast[DType.uint64](Float64(rebind[Float16](value)))
+            elif _type_is_eq[T, Float32]():
+                return bitcast[DType.uint64](Float64(rebind[Float32](value)))
+            elif _type_is_eq[T, Float64]():
+                return bitcast[DType.uint64](rebind[Float64](value))
+            elif _type_is_eq[T, Int]():
+                return UInt64(rebind[Int](value))
+            elif _type_is_eq[T, UInt]():
+                return UInt64(rebind[UInt](value))
+            elif _type_is_eq[UnsafePointer[UInt8], UInt]():
+                return UInt64(Int(rebind[UnsafePointer[UInt8]](value)))
+            elif _type_is_eq[UnsafePointer[Int8], UInt]():
+                return UInt64(Int(rebind[UnsafePointer[Int8]](value)))
+            elif _type_is_eq[OpaquePointer, UInt]():
+                return UInt64(Int(rebind[OpaquePointer](value)))
+            return 0
+
+        alias args_len = len(VariadicList(types))
+
+        var message = printf_begin()
+        message = printf_append_string_n(message, fmt.as_bytes(), args_len == 0)
+        alias k_args_per_group = 7
+
+        @parameter
+        for group in range(0, args_len, k_args_per_group):
+            alias bound = min(group + k_args_per_group, args_len)
+            alias num_args = bound - group
+
+            var arguments = InlineArray[UInt64, k_args_per_group](fill=0)
+
+            @parameter
+            for i in range(num_args):
+                arguments[i] = _to_uint64(args[i])
+            message = printf_append_args(
+                message,
+                num_args,
+                arguments[0],
+                arguments[1],
+                arguments[2],
+                arguments[3],
+                arguments[4],
+                arguments[5],
+                arguments[6],
+                Int32(Int(bound == args_len)),
+            )
+
     else:
         with _fdopen(file) as fd:
+            # FIXME: external_call should handle this
             _ = __mlir_op.`pop.external_call`[
                 func = "KGEN_CompilerRT_fprintf".value,
                 variadicType = __mlir_attr[
@@ -202,7 +281,7 @@ fn _printf[
 @no_inline
 fn _snprintf[
     fmt: StringLiteral, *types: AnyType
-](str: UnsafePointer[UInt8], size: Int, *arguments: *types) -> Int:
+](str: UnsafePointer[UInt8], size: Int, *args: *types) -> Int:
     """Writes a format string into an output pointer.
 
     Parameters:
@@ -212,17 +291,19 @@ fn _snprintf[
     Args:
         str: A pointer into which the format string is written.
         size: At most, `size - 1` bytes are written into the output string.
-        arguments: Arguments interpolated into the format string.
+        args: Arguments interpolated into the format string.
 
     Returns:
         The number of bytes written into the output string.
     """
+
     # The argument pack will contain references for each value in the pack,
     # but we want to pass their values directly into the C snprintf call. Load
     # all the members of the pack.
-    var loaded_pack = arguments.get_loaded_kgen_pack()
+    var loaded_pack = args.get_loaded_kgen_pack()
 
-    return int(
+    # FIXME: external_call should handle this
+    return Int(
         __mlir_op.`pop.external_call`[
             func = "snprintf".value,
             variadicType = __mlir_attr[
@@ -266,12 +347,13 @@ fn print[
         file: The output stream.
     """
 
-    # TODO(MSTDL-1027): Print on AMD GPUs is not implemented yet.
     @parameter
     if is_amd_gpu():
-        return
-
-    write_buffered[buffer_size=4096](file, values, sep=sep, end=end)
+        write_buffered[buffer_size=512](file, values, sep=sep, end=end)
+    elif is_nvidia_gpu():
+        write_buffered[use_heap=True](file, values, sep=sep, end=end)
+    else:
+        write_buffered(file, values, sep=sep, end=end)
 
     @parameter
     if not is_gpu():
@@ -284,7 +366,7 @@ fn print[
 # ===----------------------------------------------------------------------=== #
 
 
-fn input(prompt: String = "") -> String:
+fn input(prompt: String = "") raises -> String:
     """Reads a line of input from the user.
 
     Reads a line from standard input, converts it to a string, and returns that string.

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,6 +16,6 @@
 from sys import env_get_bool
 
 
-# CHECK-FAIL: constraint failed: the boolean environment value is neither `True` nor `False`
+# CHECK-FAIL: constraint failed: the boolean environment value of `my_false` with value `blah` is not recognized
 fn main():
     _ = env_get_bool["my_false"]()

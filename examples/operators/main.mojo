@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -17,24 +17,24 @@ from my_complex import Complex
 def main():
     # Examples of creating Complex instances
     c1 = Complex(-1.2, 6.5)
-    print(String("c1: Real: {}; Imaginary: {}").format(c1.re, c1.im))
+    print("c1: Real: {}; Imaginary: {}".format(c1.re, c1.im))
 
     c2 = Complex(3.14159)
-    print(String("c2: Real: {}; Imaginary: {}").format(c2.re, c2.im))
+    print("c2: Real: {}; Imaginary: {}".format(c2.re, c2.im))
 
     print()
 
-    # Examples of using Complex values with str(), repr(), and print()
+    # Examples of using Complex values with String(), repr(), and print()
     c3 = Complex(3.14159, -2.71828)
     print("c3 =", c3)
-    var msg: String = "The value is: " + str(c3)
+    var msg = String("The value is: ", c3)
     print(msg)
-    print(String("{!r}").format(c3))
+    print("{!r}".format(c3))
 
     print()
 
     # Examples of using Complex indexing
-    print(String("c2[0]: {}; c2[1]: {}").format(c2[0], c2[1]))
+    print("c2[0]: {}; c2[1]: {}".format(c2[0], c2[1]))
     c2[0] = 2.71828
     c2[1] = 42
     print("c2[0] = 2.71828; c2[1] = 42; c2:", c2)
