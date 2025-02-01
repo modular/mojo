@@ -111,10 +111,10 @@ fn _shift_unicode_to_utf8[
             ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
     else:
         var shift = 6 * (num_bytes - 1)
-        var mask = UInt8(0xFF) >> (num_bytes + int(num_bytes > 1))
+        var mask = UInt8(0xFF) >> (num_bytes + Int(num_bytes > 1))
         var num_bytes_marker = UInt8(0xFF) << (8 - num_bytes)
         ptr[0] = ((c >> shift) & mask) | (
-            num_bytes_marker & -int(num_bytes != 1)
+            num_bytes_marker & -Int(num_bytes != 1)
         )
         for i in range(1, num_bytes):
             shift -= 6
