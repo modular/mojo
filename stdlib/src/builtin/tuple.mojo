@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -48,7 +48,6 @@ struct Tuple[*element_types: CollectionElement](Sized, CollectionElement):
     """The underlying storage for the tuple."""
 
     @always_inline("nodebug")
-    @implicit
     fn __init__(out self, owned *args: *element_types):
         """Construct the tuple.
 
@@ -82,9 +81,7 @@ struct Tuple[*element_types: CollectionElement](Sized, CollectionElement):
             )
 
         # Do not destroy the elements when 'storage' goes away.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(storage)
-        )
+        __disable_del storage
 
     fn __del__(owned self):
         """Destructor that destroys all of the elements."""
@@ -110,6 +107,15 @@ struct Tuple[*element_types: CollectionElement](Sized, CollectionElement):
         @parameter
         for i in range(Self.__len__()):
             UnsafePointer.address_of(self[i]).init_pointee_copy(existing[i])
+
+    @always_inline
+    fn copy(self) -> Self:
+        """Explicitly construct a copy of self.
+
+        Returns:
+            A copy of this value.
+        """
+        return self
 
     @always_inline("nodebug")
     fn __moveinit__(out self, owned existing: Self):
@@ -178,21 +184,6 @@ struct Tuple[*element_types: CollectionElement](Sized, CollectionElement):
         # Use an immortal mut reference, which converts to self's origin.
         return UnsafePointer(elt_kgen_ptr)[]
 
-    # TODO(#38268): Remove this method when references and parameter expressions
-    # cooperate better.  We can't handle the use in test_simd without this.
-    @always_inline("nodebug")
-    fn get[i: Int, T: CollectionElement](ref self) -> ref [self] T:
-        """Get a tuple element and rebind to the specified type.
-
-        Parameters:
-            i: The element index.
-            T: The element type.
-
-        Returns:
-            The tuple element at the requested index.
-        """
-        return rebind[T](self[i])
-
     @always_inline("nodebug")
     fn __contains__[
         T: EqualityComparableCollectionElement
@@ -222,7 +213,7 @@ struct Tuple[*element_types: CollectionElement](Sized, CollectionElement):
 
             @parameter
             if _type_is_eq[element_types[i], T]():
-                if self.get[i, T]() == value:
+                if rebind[T](self[i]) == value:
                     return True
 
         return False
