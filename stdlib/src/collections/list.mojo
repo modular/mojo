@@ -1076,4 +1076,3 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         return List[T, hint_trivial_type](
             ptr=data, length=size, capacity=capacity
         )
-
