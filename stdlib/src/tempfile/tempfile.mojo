@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -22,6 +22,7 @@ from tempfile import gettempdir
 import os
 import sys
 from collections import List, Optional
+from collections.string import StringSlice
 from pathlib import Path
 
 from memory import Span
@@ -34,12 +35,12 @@ fn _get_random_name(size: Int = 8) -> String:
     alias characters = String("abcdefghijklmnopqrstuvwxyz0123456789_")
     var name_list = List[UInt8](capacity=size + 1)
     for _ in range(size):
-        var rand_index = int(
+        var rand_index = Int(
             random.random_ui64(0, characters.byte_length() - 1)
         )
         name_list.append(ord(characters[rand_index]))
     name_list.append(0)
-    return String(name_list^)
+    return String(buffer=name_list^)
 
 
 fn _candidate_tempdir_list() -> List[String]:
@@ -63,7 +64,7 @@ fn _candidate_tempdir_list() -> List[String]:
     # As a last resort, the current directory if possible,
     # os.path.getcwd() could raise
     try:
-        dirlist.append(str(Path()))
+        dirlist.append(String(Path()))
     except:
         pass
 
@@ -89,7 +90,7 @@ fn _get_default_tempdir() raises -> String:
     raise Error("No usable temporary directory found")
 
 
-fn _try_to_create_file(dir: String) -> Bool:
+fn _try_to_create_file(dir: StringSlice) -> Bool:
     for _ in range(TMP_MAX):
         var name = _get_random_name()
         # TODO use os.join when it exists
@@ -101,7 +102,7 @@ fn _try_to_create_file(dir: String) -> Bool:
 
         # verify that we have writing access in the target directory
         try:
-            with FileHandle(str(filename), "w"):
+            with FileHandle(String(filename), "w"):
                 pass
             os.remove(filename)
             return True
@@ -160,7 +161,7 @@ fn mkdtemp(
             # python implementation expands the path,
             # but several functions are not yet implemented in mojo
             # i.e. abspath, normpath
-            return str(dir_name)
+            return String(dir_name)
         except:
             continue
     raise Error("Failed to create temporary file")
@@ -278,7 +279,7 @@ struct NamedTemporaryFile:
             print(
                 f.read() == "Hello world!"
             )
-        print(str(p), p.exists()) #Removed by default
+        print(String(p), p.exists()) #Removed by default
     ```
     Note: `NamedTemporaryFile.__init__` document the arguments.
     """
@@ -414,7 +415,7 @@ struct NamedTemporaryFile:
             args: Sequence of arguments to write to this Writer.
         """
         var file = FileDescriptor(self._file_handle._get_raw_fd())
-        write_buffered[buffer_size=4096](file, args)
+        write_buffered(file, args)
 
     @always_inline
     fn write_bytes(mut self, bytes: Span[Byte, _]):

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -20,7 +20,7 @@ from collections.string import StringSlice
 from memory import UnsafePointer, memcpy, Span
 from os import abort
 from sys import sizeof
-from utils import Variant, StringRef
+from utils import Variant
 
 
 # ===-----------------------------------------------------------------------===#
@@ -121,8 +121,8 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
                 self._storage[_FixedString[Self.SMALL_CAP]] += str_slice
             except e:
                 abort(
-                    "unreachable: InlineString append to FixedString failed: "
-                    + str(e),
+                    "unreachable: InlineString append to FixedString failed: ",
+                    e,
                 )
         else:
             # We're currently in the small layout but must change to the
@@ -140,7 +140,7 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
             # Copy the bytes from the additional string.
             buffer.extend(str_slice.as_bytes())
             buffer.append(0)  # Add the NUL byte
-            self._storage = Self.Layout(String(buffer^))
+            self._storage = Self.Layout(String(buffer=buffer^))
 
     fn __add__(self, other: StringSlice) -> Self:
         """Construct a string by appending another string at the end of this string.
@@ -197,7 +197,7 @@ struct InlineString(Sized, Stringable, CollectionElement, CollectionElementNew):
             The string representation of the type.
         """
         if self._is_small():
-            return str(self._storage[_FixedString[Self.SMALL_CAP]])
+            return String(self._storage[_FixedString[Self.SMALL_CAP]])
         else:
             return self._storage[String]
 
@@ -302,11 +302,11 @@ struct _FixedString[CAP: Int](
         """
         if len(literal) > CAP:
             raise Error(
-                "String literal (len="
-                + str(len(literal))
-                + ") is longer than FixedString capacity ("
-                + str(CAP)
-                + ")"
+                "String literal (len=",
+                len(literal),
+                ") is longer than FixedString capacity (",
+                CAP,
+                ")",
             )
 
         self.buffer = InlineArray[UInt8, CAP]()
@@ -384,12 +384,12 @@ struct _FixedString[CAP: Int](
         if total_len > CAP:
             return Optional(
                 Error(
-                    "Insufficient capacity to append len="
-                    + str(len(bytes))
-                    + " string to len="
-                    + str(len(self))
-                    + " FixedString with capacity="
-                    + str(CAP),
+                    "Insufficient capacity to append len=",
+                    len(bytes),
+                    " string to len=",
+                    len(self),
+                    " FixedString with capacity=",
+                    CAP,
                 )
             )
 

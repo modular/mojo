@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -51,10 +51,10 @@ def test_cast():
     )
 
     var b: UInt16 = 128
-    assert_equal(int(b.cast[DType.uint8]()), 128)
-    assert_equal(int(b.cast[DType.uint16]()), 128)
-    assert_equal(int(b.cast[DType.int8]()), -128)
-    assert_equal(int(b.cast[DType.int16]()), 128)
+    assert_equal(Int(b.cast[DType.uint8]()), 128)
+    assert_equal(Int(b.cast[DType.uint16]()), 128)
+    assert_equal(Int(b.cast[DType.int8]()), -128)
+    assert_equal(Int(b.cast[DType.int16]()), 128)
 
     @parameter
     if not has_neon():
@@ -69,33 +69,69 @@ def test_cast():
         )
 
 
+def test_cast_init():
+    # Basic casting preserves value within range
+    assert_equal(Int8(UInt8(127)), Int8(127))
+
+    # Numbers above signed max wrap to negative using two's complement
+    assert_equal(Int8(UInt8(128)), Int8(-128))
+    assert_equal(Int8(UInt8(129)), Int8(-127))
+    assert_equal(Int8(UInt8(256)), Int8(0))
+
+    # Negative signed convert to unsigned using two's complement
+    assert_equal(UInt8(Int8(-128)), UInt8(128))
+    assert_equal(UInt8(Int8(-127)), UInt8(129))
+    assert_equal(UInt8(Int8(-1)), UInt8(255))
+
+    # Truncate precision after downcast and upcast
+    assert_equal(
+        Float64(Float32(Float64(123456789.123456789))), Float64(123456792.0)
+    )
+
+    # Rightmost bits of significand become 0's on upcast
+    assert_equal(Float64(Float32(0.3)), Float64(0.30000001192092896))
+
+    # Numbers equal after truncation of float literal and cast truncation
+    assert_equal(
+        Float32(Float64(123456789.123456789)), Float32(123456789.123456789)
+    )
+
+    # Float to int/uint floors
+    assert_equal(Int64(Float64(42.2)), Int64(42))
+
+    # Pass a scalar to initialize a SIMD vector with more elements
+    assert_equal(
+        SIMD[DType.float64, 4](Float32(21.5)), SIMD[DType.float64, 4](21.5)
+    )
+
+
 def test_simd_variadic():
-    assert_equal(str(SIMD[DType.index, 4](52, 12, 43, 5)), "[52, 12, 43, 5]")
+    assert_equal(String(SIMD[DType.index, 4](52, 12, 43, 5)), "[52, 12, 43, 5]")
 
 
 def test_convert_simd_to_string():
     var a: SIMD[DType.float32, 2] = 5
-    assert_equal(str(a), "[5.0, 5.0]")
+    assert_equal(String(a), "[5.0, 5.0]")
 
     var b: SIMD[DType.float64, 4] = 6
-    assert_equal(str(b), "[6.0, 6.0, 6.0, 6.0]")
+    assert_equal(String(b), "[6.0, 6.0, 6.0, 6.0]")
 
     var c: SIMD[DType.index, 8] = 7
-    assert_equal(str(c), "[7, 7, 7, 7, 7, 7, 7, 7]")
+    assert_equal(String(c), "[7, 7, 7, 7, 7, 7, 7, 7]")
 
     # TODO: uncomment when https://github.com/modularml/mojo/issues/2353 is fixed
-    # assert_equal(str(UInt32(-1)), "4294967295")
-    assert_equal(str(UInt64(-1)), "18446744073709551615")
+    # assert_equal(String(UInt32(-1)), "4294967295")
+    assert_equal(String(UInt64(-1)), "18446744073709551615")
 
-    assert_equal(str((UInt16(32768))), "32768")
-    assert_equal(str((UInt16(65535))), "65535")
-    assert_equal(str((Int16(-2))), "-2")
+    assert_equal(String((UInt16(32768))), "32768")
+    assert_equal(String((UInt16(65535))), "65535")
+    assert_equal(String((Int16(-2))), "-2")
 
-    assert_equal(str(UInt64(16646288086500911323)), "16646288086500911323")
+    assert_equal(String(UInt64(16646288086500911323)), "16646288086500911323")
 
     # https://github.com/modularml/mojo/issues/556
     assert_equal(
-        str(
+        String(
             SIMD[DType.uint64, 4](
                 0xA0761D6478BD642F,
                 0xE7037ED1A0B428DB,
@@ -110,7 +146,7 @@ def test_convert_simd_to_string():
     )
 
     assert_equal(
-        str(
+        String(
             SIMD[DType.int32, 4](-943274556, -875902520, -808530484, -741158448)
         ),
         "[-943274556, -875902520, -808530484, -741158448]",
@@ -159,12 +195,12 @@ def test_issue_1625():
 
     # FIXME (40568) should directly use the SIMD assert_equal
     assert_equal(
-        str(evens_and_odds[0]),
-        str(SIMD[DType.int64, 8](0, 2, 4, 6, 8, 10, 12, 14)),
+        String(evens_and_odds[0]),
+        String(SIMD[DType.int64, 8](0, 2, 4, 6, 8, 10, 12, 14)),
     )
     assert_equal(
-        str(evens_and_odds[1]),
-        str(SIMD[DType.int64, 8](1, 3, 5, 7, 9, 11, 13, 15)),
+        String(evens_and_odds[1]),
+        String(SIMD[DType.int64, 8](1, 3, 5, 7, 9, 11, 13, 15)),
     )
     ptr.free()
 
@@ -269,7 +305,7 @@ def test_truthy():
 
     @parameter
     fn test_dtype_unrolled[i: Int]() raises:
-        alias type = dtypes.get[i, DType]()
+        alias type = dtypes[i]
         test_dtype[type]()
 
     unroll[test_dtype_unrolled, dtypes.__len__()]()
@@ -1016,7 +1052,8 @@ def test_join():
 
 def test_interleave():
     assert_equal(
-        str(Int32(0).interleave(Int32(1))), str(SIMD[DType.index, 2](0, 1))
+        String(Int32(0).interleave(Int32(1))),
+        String(SIMD[DType.index, 2](0, 1)),
     )
 
     assert_equal(
@@ -1114,7 +1151,7 @@ def test_clamp():
 def test_indexing():
     var s = SIMD[DType.int32, 4](1, 2, 3, 4)
     assert_equal(s[False], 1)
-    assert_equal(s[int(2)], 3)
+    assert_equal(s[Int(2)], 3)
     assert_equal(s[3], 4)
 
 
@@ -1136,7 +1173,7 @@ def test_reduce():
             x8 = X8(0, 1, 2, 3, 4, 5, 6, 7)
             x4 = X4(4, 6, 8, 10)
             x2 = X2(12, 16)
-            x1 = X1(int(28))  # TODO: fix MOCO-697 and use X1(28) instead
+            x1 = X1(Int(28))  # TODO: fix MOCO-697 and use X1(28) instead
             assert_equal(x8.reduce_add(), x1)
             assert_equal(x4.reduce_add(), x1)
             assert_equal(x2.reduce_add(), x1)
@@ -1153,7 +1190,7 @@ def test_reduce():
             x8 = X8(0, 1, 2, 3, 4, 5, 6, 7)
             x4 = X4(0, 5, 12, 21)
             x2 = X2(0, 105)
-            x1 = X1(int(0))  # TODO: fix MOCO-697 and use X1(0) instead
+            x1 = X1(Int(0))  # TODO: fix MOCO-697 and use X1(0) instead
             assert_equal(x8.reduce_mul(), x1)
             assert_equal(x4.reduce_mul(), x1)
             assert_equal(x2.reduce_mul(), x1)
@@ -1170,7 +1207,7 @@ def test_reduce():
             x8 = X8(0, 1, 2, 3, 4, 5, 6, 7)
             x4 = X4(0, 1, 2, 3)
             x2 = X2(0, 1)
-            x1 = X1(int(0))  # TODO: fix MOCO-697 and use X1(0) instead
+            x1 = X1(Int(0))  # TODO: fix MOCO-697 and use X1(0) instead
             assert_equal(x8.reduce_min(), x1)
             assert_equal(x4.reduce_min(), x1)
             assert_equal(x2.reduce_min(), x1)
@@ -1187,7 +1224,7 @@ def test_reduce():
             x8 = X8(0, 1, 2, 3, 4, 5, 6, 7)
             x4 = X4(4, 5, 6, 7)
             x2 = X2(6, 7)
-            x1 = X1(int(7))  # TODO: fix MOCO-697 and use X1(7) instead
+            x1 = X1(Int(7))  # TODO: fix MOCO-697 and use X1(7) instead
             assert_equal(x8.reduce_max(), x1)
             assert_equal(x4.reduce_max(), x1)
             assert_equal(x2.reduce_max(), x1)
@@ -1206,7 +1243,7 @@ def test_reduce():
             x8 = X8(0, -1, 2, -3, 4, -5, 6, -7)
             x4 = X4(4, -6, 8, -10)
             x2 = X2(12, -16)
-            x1 = X1(int(-4))  # TODO: fix MOCO-697 and use X1(-4) instead
+            x1 = X1(Int(-4))  # TODO: fix MOCO-697 and use X1(-4) instead
             assert_equal(x8.reduce_add(), x1)
             assert_equal(x4.reduce_add(), x1)
             assert_equal(x2.reduce_add(), x1)
@@ -1223,7 +1260,7 @@ def test_reduce():
             x8 = X8(0, -1, 2, -3, 4, -5, 6, -7)
             x4 = X4(0, 5, 12, 21)
             x2 = X2(0, 105)
-            x1 = X1(int(0))  # TODO: fix MOCO-697 and use X1(0) instead
+            x1 = X1(Int(0))  # TODO: fix MOCO-697 and use X1(0) instead
             assert_equal(x8.reduce_mul(), x1)
             assert_equal(x4.reduce_mul(), x1)
             assert_equal(x2.reduce_mul(), x1)
@@ -1240,7 +1277,7 @@ def test_reduce():
             x8 = X8(0, -1, 2, -3, 4, -5, 6, -7)
             x4 = X4(0, -5, 2, -7)
             x2 = X2(0, -7)
-            x1 = X1(int(-7))  # TODO: fix MOCO-697 and use X1(-7) instead
+            x1 = X1(Int(-7))  # TODO: fix MOCO-697 and use X1(-7) instead
             assert_equal(x8.reduce_min(), x1)
             assert_equal(x4.reduce_min(), x1)
             assert_equal(x2.reduce_min(), x1)
@@ -1257,7 +1294,7 @@ def test_reduce():
             x8 = X8(0, -1, 2, -3, 4, -5, 6, -7)
             x4 = X4(4, -1, 6, -3)
             x2 = X2(6, -1)
-            x1 = X1(int(6))  # TODO: fix MOCO-697 and use X1(6) instead
+            x1 = X1(Int(6))  # TODO: fix MOCO-697 and use X1(6) instead
             assert_equal(x8.reduce_max(), x1)
             assert_equal(x4.reduce_max(), x1)
             assert_equal(x2.reduce_max(), x1)
@@ -1316,7 +1353,7 @@ def test_reduce():
             x8 = X8(0, 1, 2, 3, 4, 5, 6, 7)
             x4 = X4(0, 1, 2, 3)
             x2 = X2(0, 1)
-            x1 = X1(int(0))  # TODO: fix MOCO-697 and use X1(0) instead
+            x1 = X1(Int(0))  # TODO: fix MOCO-697 and use X1(0) instead
             assert_equal(x8.reduce_and(), x1)
             assert_equal(x4.reduce_and(), x1)
             assert_equal(x2.reduce_and(), x1)
@@ -1333,7 +1370,7 @@ def test_reduce():
             x8 = X8(0, 1, 2, 3, 4, 5, 6, 7)
             x4 = X4(4, 5, 6, 7)
             x2 = X2(6, 7)
-            x1 = X1(int(7))  # TODO: fix MOCO-697 and use X1(7) instead
+            x1 = X1(Int(7))  # TODO: fix MOCO-697 and use X1(7) instead
             assert_equal(x8.reduce_or(), x1)
             assert_equal(x4.reduce_or(), x1)
             assert_equal(x2.reduce_or(), x1)
@@ -1801,7 +1838,7 @@ def test_comparison():
 
     @parameter
     fn test_dtype_unrolled[i: Int]() raises:
-        alias type = dtypes.get[i, DType]()
+        alias type = dtypes[i]
         test_dtype[type]()
 
     unroll[test_dtype_unrolled, dtypes.__len__()]()
@@ -1813,9 +1850,9 @@ def test_comparison():
 
 
 def test_float_conversion():
-    assert_almost_equal(float(Int32(45)), 45.0)
-    assert_almost_equal(float(Float32(34.32)), 34.32)
-    assert_almost_equal(float(UInt64(36)), 36.0)
+    assert_almost_equal(Float64(Int32(45)), 45.0)
+    assert_almost_equal(Float64(Float32(34.32)), 34.32)
+    assert_almost_equal(Float64(UInt64(36)), 36.0)
 
 
 def test_reversed():
@@ -1839,6 +1876,7 @@ def main():
     test_abs()
     test_add()
     test_cast()
+    test_cast_init()
     test_ceil()
     test_convert_simd_to_string()
     test_simd_repr()

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -24,8 +24,8 @@ fn test_equality() raises:
 
 
 fn test_stringable() raises:
-    assert_equal("float32", str(DType.float32))
-    assert_equal("int64", str(DType.int64))
+    assert_equal("float32", String(DType.float32))
+    assert_equal("int64", String(DType.int64))
 
 
 fn test_representable() raises:

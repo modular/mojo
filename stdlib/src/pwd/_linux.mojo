@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -10,9 +10,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
-from sys.ffi import c_char, external_call
-
 from memory import UnsafePointer
+from collections.string import StringSlice
+from sys.ffi import c_char, external_call
 
 from .pwd import Passwd
 
@@ -35,25 +35,45 @@ struct _C_Passwd:
 fn _build_pw_struct(passwd_ptr: UnsafePointer[_C_Passwd]) raises -> Passwd:
     var c_pwuid = passwd_ptr[]
     return Passwd(
-        pw_name=String(c_pwuid.pw_name),
-        pw_passwd=String(c_pwuid.pw_passwd),
-        pw_uid=int(c_pwuid.pw_uid),
-        pw_gid=int(c_pwuid.pw_gid),
-        pw_gecos=String(c_pwuid.pw_gecos),
-        pw_dir=String(c_pwuid.pw_dir),
-        pw_shell=String(c_pwuid.pw_shell),
+        pw_name=String(
+            StringSlice[__origin_of(c_pwuid)](
+                unsafe_from_utf8_cstr_ptr=c_pwuid.pw_name
+            )
+        ),
+        pw_passwd=String(
+            StringSlice[__origin_of(c_pwuid)](
+                unsafe_from_utf8_cstr_ptr=c_pwuid.pw_passwd
+            )
+        ),
+        pw_uid=Int(c_pwuid.pw_uid),
+        pw_gid=Int(c_pwuid.pw_gid),
+        pw_gecos=String(
+            StringSlice[__origin_of(c_pwuid)](
+                unsafe_from_utf8_cstr_ptr=c_pwuid.pw_gecos
+            )
+        ),
+        pw_dir=String(
+            StringSlice[__origin_of(c_pwuid)](
+                unsafe_from_utf8_cstr_ptr=c_pwuid.pw_dir
+            )
+        ),
+        pw_shell=String(
+            StringSlice[__origin_of(c_pwuid)](
+                unsafe_from_utf8_cstr_ptr=c_pwuid.pw_shell
+            )
+        ),
     )
 
 
 fn _getpw_linux(uid: UInt32) raises -> Passwd:
     var passwd_ptr = external_call["getpwuid", UnsafePointer[_C_Passwd]](uid)
     if not passwd_ptr:
-        raise "user ID not found in the password database: " + str(uid)
+        raise Error("user ID not found in the password database: ", uid)
     return _build_pw_struct(passwd_ptr)
 
 
 fn _getpw_linux(name: String) raises -> Passwd:
     var passwd_ptr = external_call["getpwnam", UnsafePointer[_C_Passwd]](name)
     if not passwd_ptr:
-        raise "user name not found in the password database: " + name
+        raise Error("user name not found in the password database: ", name)
     return _build_pw_struct(passwd_ptr)

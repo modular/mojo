@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -34,7 +34,7 @@ from ._b64encode import b64encode_with_buffers as _b64encode_with_buffers
 
 
 @always_inline
-fn _ascii_to_value(char: StringSlice) -> Int:
+fn _ascii_to_value[validate: Bool = False](char: StringSlice) raises -> Int:
     """Converts an ASCII character to its integer value for base64 decoding.
 
     Args:
@@ -58,6 +58,12 @@ fn _ascii_to_value(char: StringSlice) -> Int:
     elif char == "/":
         return 63
     else:
+
+        @parameter
+        if validate:
+            raise Error(
+                'ValueError: Unexpected character "{}" encountered'.format(char)
+            )
         return -1
 
 
@@ -99,7 +105,7 @@ fn b64encode(input_bytes: Span[Byte, _]) -> String:
         The ASCII base64 encoded string.
     """
     # +1 for the null terminator and +1 to be sure
-    var result = List[UInt8, True](capacity=int(len(input_bytes) * (4 / 3)) + 2)
+    var result = List[UInt8, True](capacity=Int(len(input_bytes) * (4 / 3)) + 2)
     b64encode(input_bytes, result)
     # null-terminate the result
     result.append(0)
@@ -112,8 +118,11 @@ fn b64encode(input_bytes: Span[Byte, _]) -> String:
 
 
 @always_inline
-fn b64decode(str: StringSlice) -> String:
+fn b64decode[validate: Bool = False](str: StringSlice) raises -> String:
     """Performs base64 decoding on the input string.
+
+    Parameters:
+      validate: If true, the function will validate the input string.
 
     Args:
       str: A base64 encoded string.
@@ -122,21 +131,22 @@ fn b64decode(str: StringSlice) -> String:
       The decoded string.
     """
     var n = str.byte_length()
-    debug_assert(n % 4 == 0, "Input length must be divisible by 4")
+
+    @parameter
+    if validate:
+        if n % 4 != 0:
+            raise Error(
+                "ValueError: Input length {} must be divisible by 4".format(n)
+            )
 
     var p = String._buffer_type(capacity=n + 1)
 
     # This algorithm is based on https://arxiv.org/abs/1704.00605
     for i in range(0, n, 4):
-        var a = _ascii_to_value(str[i])
-        var b = _ascii_to_value(str[i + 1])
-        var c = _ascii_to_value(str[i + 2])
-        var d = _ascii_to_value(str[i + 3])
-
-        debug_assert(
-            a >= 0 and b >= 0 and c >= 0 and d >= 0,
-            "Unexpected character encountered",
-        )
+        var a = _ascii_to_value[validate](str[i])
+        var b = _ascii_to_value[validate](str[i + 1])
+        var c = _ascii_to_value[validate](str[i + 2])
+        var d = _ascii_to_value[validate](str[i + 3])
 
         p.append((a << 2) | (b >> 4))
         if str[i + 2] == "=":
@@ -177,18 +187,18 @@ fn b16encode(str: StringSlice) -> String:
     @parameter
     @always_inline
     fn str_bytes(idx: UInt8) -> UInt8:
-        return str._slice[int(idx)]
+        return str._slice[Int(idx)]
 
     for i in range(length):
         var str_byte = str_bytes(i)
         var hi = str_byte >> 4
         var lo = str_byte & 0b1111
-        out.append(b16chars[int(hi)])
-        out.append(b16chars[int(lo)])
+        out.append(b16chars[Int(hi)])
+        out.append(b16chars[Int(lo)])
 
     out.append(0)
 
-    return String(out^)
+    return String(buffer=out^)
 
 
 # ===-----------------------------------------------------------------------===#
@@ -233,4 +243,4 @@ fn b16decode(str: StringSlice) -> String:
         p.append(decode(hi) << 4 | decode(lo))
 
     p.append(0)
-    return String(p^)
+    return String(buffer=p^)
