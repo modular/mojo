@@ -455,11 +455,11 @@ struct Span[
         # _memXXX implementations already handle when haystack_len == 0
         @parameter
         if unsafe_dont_normalize:
-            debug_assert(0 <= start < _len + int(_len == 0), "out of bounds")
+            debug_assert(0 <= start < _len + Int(_len == 0), "out of bounds")
             n_s = start
         else:
-            var v = start + _len * int(start < 0)
-            n_s = v * int(v < _len and v > 0) + _len * int(v >= _len)
+            var v = start + _len * Int(start < 0)
+            n_s = v * Int(v < _len and v > 0) + _len * Int(v >= _len)
         var s_ptr = self.unsafe_ptr()
         var haystack = __type_of(self)(ptr=s_ptr + n_s, length=_len - n_s)
         var loc: UnsafePointer[Scalar[D]]
@@ -474,7 +474,7 @@ struct Span[
         else:
             loc = _memrchr(haystack, subseq.unsafe_ptr()[0])
 
-        return (int(loc) - int(s_ptr) + 1) * int(bool(loc)) - 1
+        return (Int(loc) - Int(s_ptr) + 1) * Int(Bool(loc)) - 1
 
     fn find[
         O1: ImmutableOrigin,
@@ -596,7 +596,7 @@ fn _memchr[
         var bool_mask = haystack.load[width=bool_mask_width](i) == first_needle
         var mask = pack_bits(bool_mask)
         if mask:
-            output = haystack + int(i + count_trailing_zeros(mask))
+            output = haystack + Int(i + count_trailing_zeros(mask))
             return
 
     for i in range(vectorized_end, length):
@@ -647,7 +647,7 @@ fn _memmem[
         var mask = pack_bits(bool_mask)
 
         while mask:
-            var offset = int(i + count_trailing_zeros(mask))
+            var offset = Int(i + count_trailing_zeros(mask))
             if memcmp(haystack + offset + 1, needle + 1, needle_len - 1) == 0:
                 output = haystack + offset
                 return
@@ -686,7 +686,7 @@ fn _memrchr[
         var bool_mask = haystack.load[width=bool_mask_width](i) == first_needle
         var mask = pack_bits(bool_mask)
         if mask:
-            var zeros = int(count_leading_zeros(mask)) + 1
+            var zeros = Int(count_leading_zeros(mask)) + 1
             output = haystack + (i + bool_mask_width - zeros)
             return
 
@@ -742,7 +742,7 @@ fn _memrmem[
         var mask = pack_bits(bool_mask)
 
         while mask:
-            var offset = i + bool_mask_width - int(count_leading_zeros(mask))
+            var offset = i + bool_mask_width - Int(count_leading_zeros(mask))
             if memcmp(haystack + offset, needle + 1, needle_len - 1) == 0:
                 output = haystack + offset - 1
                 return

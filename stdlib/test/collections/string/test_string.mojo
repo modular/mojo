@@ -1002,7 +1002,7 @@ def test_rstrip():
 
     var str1 = String("string")
     assert_true(str1.rstrip() == "string")
-    assert_equal(str1.rstrip("g"), "strin")
+    assert_true(str1.rstrip("g") == "strin")
 
     var str2 = String("something \t\n\t\v\f")
     assert_true(str2.rstrip() == "something")
@@ -1029,7 +1029,7 @@ def test_lstrip():
 
     var str1 = String("string")
     assert_true(str1.lstrip() == "string")
-    assert_equal(str1.lstrip("s"), "tring")
+    assert_true(str1.lstrip("s") == "tring")
 
     var str2 = String(" \t\n\t\v\fsomething")
     assert_true(str2.lstrip() == "something")
