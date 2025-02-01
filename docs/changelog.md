@@ -217,29 +217,11 @@ what we publish.
   - `b16encode()`
   - `b16decode()`
 
-- Added new `String.chars()` and `String.char_slices()` iterator methods, and
-  deprecated the existing `String.__iter__()` method.
+- Added new `String.chars()` and `String.char_slices()` iterator methods.
 
   Different use-cases may prefer iterating over the `Char`s encoded in a string,
-  or iterating over subslices containing single characters. Neither iteration
-  semantics is an obvious default, so the existing `__iter__()` method has been
-  deprecated in favor of writing explicit iteration methods for the time being.
-
-  Code of the form:
-
-  ```mojo
-  var s: String  = ...
-  for c in s:
-      # ...
-  ```
-
-  can be migrated to using the `.char_slices()` method:
-
-  ```mojo
-  var s: String = ...
-  for c in s.char_slices():
-      # ...
-  ```
+  or iterating over subslices containing single characters. The existing
+  `__iter__()` method defaults to `String.char_slices()`.
 
 - The `String.__len__()` and `StringSlice.__len__()` methods now return the
   length of the string in bytes.
