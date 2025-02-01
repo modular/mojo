@@ -51,7 +51,7 @@ struct BitMask:
             A bitmask filled with `1` if the value is negative, filled with `0`
             otherwise.
         """
-        return int(Self.is_negative(Scalar[DType.index](value)))
+        return Int(Self.is_negative(Scalar[DType.index](value)))
 
     @always_inline
     @staticmethod
@@ -167,4 +167,4 @@ struct BitMask:
             otherwise.
         """
         alias S = Scalar[DType.index]
-        return int(Self.compare[comp=comp](S(lhs), S(rhs)))
+        return Int(Self.compare[comp=comp](S(lhs), S(rhs)))

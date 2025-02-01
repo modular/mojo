@@ -29,13 +29,13 @@ def test_is_negative():
 
     @parameter
     for i in range(len(dtypes)):
-        alias D = dtypes.get[i, DType]()
+        alias D = dtypes[i]
         var last_value = 2 ** (bitwidthof[D]() - 1) - 1
         var values = List(1, 2, last_value - 1, last_value)
 
         @parameter
         for j in range(len(widths)):
-            alias S = SIMD[D, widths.get[j, Int]()]
+            alias S = SIMD[D, widths[j]]
 
             for k in values:
                 assert_equal(S(-1), BitMask.is_negative(S(-k[])))
@@ -58,11 +58,11 @@ def test_is_true():
 
     @parameter
     for i in range(len(dtypes)):
-        alias D = dtypes.get[i, DType]()
+        alias D = dtypes[i]
 
         @parameter
         for j in range(len(widths)):
-            alias w = widths.get[j, Int]()
+            alias w = widths[j]
             alias B = SIMD[DType.bool, w]
             assert_equal(SIMD[D, w](-1), BitMask.is_true[D](B(True)))
             assert_equal(SIMD[D, w](0), BitMask.is_true[D](B(False)))
@@ -80,13 +80,13 @@ def test_compare():
 
     @parameter
     for i in range(len(dtypes)):
-        alias D = dtypes.get[i, DType]()
+        alias D = dtypes[i]
         var last_value = 2 ** (bitwidthof[D]() - 1) - 1
         var values = List(1, 2, last_value - 1, last_value)
 
         @parameter
         for j in range(len(widths)):
-            alias S = SIMD[D, widths.get[j, Int]()]
+            alias S = SIMD[D, widths[j]]
 
             for k in values:
                 var s_k = S(k[])
