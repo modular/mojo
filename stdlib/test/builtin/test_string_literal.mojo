@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -66,7 +66,7 @@ def test_equality():
     assert_true(StringLiteral.__ne__("five", "six"))
     assert_false(StringLiteral.__ne__("six", "six"))
 
-    var hello = str("hello")
+    var hello = String("hello")
     var hello_ref = hello.as_string_slice()
 
     assert_false(StringLiteral.__eq__("goodbye", hello))
@@ -208,7 +208,7 @@ def test_hash():
 def test_indexing():
     var s = "hello"
     assert_equal(s[False], "h")
-    assert_equal(s[int(1)], "e")
+    assert_equal(s[Int(1)], "e")
     assert_equal(s[2], "l")
 
 
@@ -231,6 +231,18 @@ def test_join():
     assert_equal(sep.join(s, s, s, s), "abc,abc,abc,abc")
     assert_equal(sep.join(1, 2, 3), "1,2,3")
     assert_equal(sep.join(1, "abc", 3), "1,abc,3")
+
+    var s2 = ",".join(List[UInt8](1, 2, 3))
+    assert_equal(s2, "1,2,3")
+
+    var s3 = ",".join(List[UInt8](1, 2, 3, 4, 5, 6, 7, 8, 9))
+    assert_equal(s3, "1,2,3,4,5,6,7,8,9")
+
+    var s4 = ",".join(List[UInt8]())
+    assert_equal(s4, "")
+
+    var s5 = ",".join(List[UInt8](1))
+    assert_equal(s5, "1")
 
 
 def test_isdigit():
@@ -263,18 +275,18 @@ def test_iter():
     var i = 0
     for c in s:
         if i == 0:
-            assert_equal(c, "o")
+            assert_equal(String(c), "o")
         elif i == 1:
-            assert_equal(c, "n")
+            assert_equal(String(c), "n")
         elif i == 2:
-            assert_equal(c, "e")
+            assert_equal(String(c), "e")
 
 
 def test_layout():
     # Test empty StringLiteral contents
     var empty = "".unsafe_ptr()
     # An empty string literal is stored as just the NUL terminator.
-    assert_true(int(empty) != 0)
+    assert_true(Int(empty) != 0)
     # TODO(MSTDL-596): This seems to hang?
     # assert_equal(empty[0], 0)
 
@@ -469,7 +481,7 @@ def test_splitlines():
 
 def test_float_conversion():
     assert_equal(("4.5").__float__(), 4.5)
-    assert_equal(float("4.5"), 4.5)
+    assert_equal(Float64("4.5"), 4.5)
     with assert_raises():
         _ = ("not a float").__float__()
 

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -34,17 +34,20 @@ from sys import external_call
 
 from memory import UnsafePointer
 
-from utils import StringRef
+from collections.string import StringSlice
 
 
 # TODO: When we have global variables, this should be a global list.
-fn argv() -> VariadicList[StringRef]:
+fn argv() -> VariadicList[StringSlice[StaticConstantOrigin]]:
     """The list of command line arguments.
 
     Returns:
         The list of command line arguments provided when mojo was invoked.
     """
-    var result = VariadicList[StringRef]("")
+    # SAFETY:
+    #   It is valid to use `StringSlice` here because `StringSlice` is
+    #   guaranteed to be ABI compatible with llvm::StringRef.
+    var result = VariadicList[StringSlice[StaticConstantOrigin]]("")
     external_call["KGEN_CompilerRT_GetArgV", NoneType](
         Pointer.address_of(result)
     )

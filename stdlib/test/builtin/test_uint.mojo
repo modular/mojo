@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -19,12 +19,12 @@ from testing import assert_equal, assert_false, assert_not_equal, assert_true
 
 
 def test_simple_uint():
-    assert_equal(str(UInt(32)), "32")
+    assert_equal(String(UInt(32)), "32")
 
-    assert_equal(str(UInt(0)), "0")
-    assert_equal(str(UInt()), "0")
+    assert_equal(String(UInt(0)), "0")
+    assert_equal(String(UInt()), "0")
 
-    assert_equal(str(UInt(18446744073709551615)), "18446744073709551615")
+    assert_equal(String(UInt(18446744073709551615)), "18446744073709551615")
 
 
 def test_uint_representation():
@@ -212,8 +212,8 @@ def test_int_representation():
 
 
 def test_indexer():
-    assert_equal(UInt(5), UInt(5).__index__())
-    assert_equal(UInt(987), UInt(987).__index__())
+    assert_true(5 == index(UInt(5)))
+    assert_true(987 == index(UInt(987)))
 
 
 def test_comparison():

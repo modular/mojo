@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -23,8 +23,8 @@ def test_methods():
     assert_equal(BFloat16(4.4) * 0.5, 2.2)
     assert_equal(BFloat16(4.4) / 0.5, 8.8)
 
-    assert_equal(int(BFloat16(3.0)), 3)
-    assert_equal(int(BFloat16(3.5)), 3)
+    assert_equal(Int(BFloat16(3.0)), 3)
+    assert_equal(Int(BFloat16(3.5)), 3)
 
     assert_almost_equal(BFloat16(4.4).cast[DType.float32](), 4.40625)
     assert_equal(BFloat16(3.0).cast[DType.float32](), 3)
@@ -68,7 +68,7 @@ def check_float64_values():
     )
 
     assert_equal(
-        str(
+        String(
             Float64(
                 __mlir_op.`pop.cast`[_type = __mlir_type[`!pop.scalar<f64>`]](
                     __mlir_op.`kgen.param.constant`[

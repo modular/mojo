@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -37,7 +37,7 @@ fn create_file_and_test_delete_path[
 fn test_remove() raises:
     var cwd_path = Path()
     var my_file_path = cwd_path / "my_file.test"
-    var my_file_name = str(my_file_path)
+    var my_file_name = String(my_file_path)
 
     # verify that the test file does not exist before starting the test
     assert_false(
@@ -57,7 +57,7 @@ fn test_remove() raises:
     create_file_and_test_delete_path[unlink, "unlink"](my_file_path)
 
     # test with relative path
-    my_file_name = str(Path("my_relative_file.test"))
+    my_file_name = String(Path("my_relative_file.test"))
     create_file_and_test_delete_path[remove, "remove"](my_file_name)
 
 

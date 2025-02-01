@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -87,7 +87,7 @@ struct Grid(StringableRaising):
             row_data = List[Int]()
             for col in range(cols):
                 # Generate a random 0 or 1 and append it to the row.
-                row_data.append(int(random.random_si64(0, 1)))
+                row_data.append(Int(random.random_si64(0, 1)))
             data.append(row_data)
 
         return Self(rows, cols, data)

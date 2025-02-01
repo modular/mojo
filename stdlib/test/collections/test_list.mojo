@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,7 +16,13 @@ from collections import List
 from sys.info import sizeof
 
 from memory import UnsafePointer, Span
-from test_utils import CopyCounter, MoveCounter
+from test_utils import (
+    CopyCounter,
+    MoveCounter,
+    DtorCounter,
+    g_dtor_count,
+    CopyCountedStruct,
+)
 from testing import assert_equal, assert_false, assert_raises, assert_true
 
 
@@ -437,32 +443,35 @@ def test_list_index():
         _ = test_list_b.index(20, start=4, stop=5)
 
 
+def test_list_append():
+    var items = List[UInt32]()
+    items.append(1)
+    items.append(2)
+    items.append(3)
+    assert_equal(items, List[UInt32](1, 2, 3))
+
+
 def test_list_extend():
-    #
-    # Test extending the list [1, 2, 3] with itself
-    #
+    var items = List[UInt32](1, 2, 3)
+    var copy = items
+    items.extend(copy)
+    assert_equal(items, List[UInt32](1, 2, 3, 1, 2, 3))
 
-    vec = List[Int]()
-    vec.append(1)
-    vec.append(2)
-    vec.append(3)
+    items = List[UInt32](1, 2, 3)
+    copy = List[UInt32](1, 2, 3)
 
-    assert_equal(len(vec), 3)
-    assert_equal(vec[0], 1)
-    assert_equal(vec[1], 2)
-    assert_equal(vec[2], 3)
+    # Extend with span
+    items.extend(Span(copy))
+    assert_equal(items, List[UInt32](1, 2, 3, 1, 2, 3))
 
-    var copy = vec
-    vec.extend(copy)
-
-    # vec == [1, 2, 3, 1, 2, 3]
-    assert_equal(len(vec), 6)
-    assert_equal(vec[0], 1)
-    assert_equal(vec[1], 2)
-    assert_equal(vec[2], 3)
-    assert_equal(vec[3], 1)
-    assert_equal(vec[4], 2)
-    assert_equal(vec[5], 3)
+    # Extend with whole SIMD
+    items = List[UInt32](1, 2, 3)
+    items.extend(SIMD[DType.uint32, 4](1, 2, 3, 4))
+    assert_equal(items, List[UInt32](1, 2, 3, 1, 2, 3, 4))
+    # Extend with part of SIMD
+    items = List[UInt32](1, 2, 3)
+    items.extend(SIMD[DType.uint32, 4](1, 2, 3, 4), count=3)
+    assert_equal(items, List[UInt32](1, 2, 3, 1, 2, 3))
 
 
 def test_list_extend_non_trivial():
@@ -531,7 +540,7 @@ def test_2d_dynamic_list():
 def test_list_explicit_copy():
     var list = List[CopyCounter]()
     list.append(CopyCounter())
-    var list_copy = List(other=list)
+    var list_copy = list.copy()
     assert_equal(0, list[0].copy_count)
     assert_equal(1, list_copy[0].copy_count)
 
@@ -539,25 +548,10 @@ def test_list_explicit_copy():
     for i in range(10):
         l2.append(i)
 
-    var l2_copy = List(other=l2)
+    var l2_copy = l2.copy()
     assert_equal(len(l2), len(l2_copy))
     for i in range(len(l2)):
         assert_equal(l2[i], l2_copy[i])
-
-
-@value
-struct CopyCountedStruct(CollectionElement):
-    var counter: CopyCounter
-    var value: String
-
-    fn __init__(out self, *, other: Self):
-        self.counter = CopyCounter(other=other.counter)
-        self.value = String(other=other.value)
-
-    @implicit
-    fn __init__(out self, value: String):
-        self.counter = CopyCounter()
-        self.value = value
 
 
 def test_no_extra_copies_with_sugared_set_by_field():
@@ -860,7 +854,7 @@ def test_list_init_span():
 
 def test_indexing():
     var l = List[Int](1, 2, 3)
-    assert_equal(l[int(1)], 2)
+    assert_equal(l[Int(1)], 2)
     assert_equal(l[False], 1)
     assert_equal(l[True], 2)
     assert_equal(l[2], 3)
@@ -869,28 +863,6 @@ def test_indexing():
 # ===-------------------------------------------------------------------===#
 # List dtor tests
 # ===-------------------------------------------------------------------===#
-var g_dtor_count: Int = 0
-
-
-struct DtorCounter(CollectionElement):
-    # NOTE: payload is required because List does not support zero sized structs.
-    var payload: Int
-
-    fn __init__(out self):
-        self.payload = 0
-
-    fn __init__(out self, *, other: Self):
-        self.payload = other.payload
-
-    fn __copyinit__(out self, existing: Self, /):
-        self.payload = existing.payload
-
-    fn __moveinit__(out self, owned existing: Self, /):
-        self.payload = existing.payload
-        existing.payload = 0
-
-    fn __del__(owned self):
-        g_dtor_count += 1
 
 
 def inner_test_list_dtor():
@@ -952,6 +924,7 @@ def main():
     test_list_reverse_move_count()
     test_list_insert()
     test_list_index()
+    test_list_append()
     test_list_extend()
     test_list_extend_non_trivial()
     test_list_explicit_copy()
