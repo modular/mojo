@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -26,28 +26,31 @@ from testing import (
 )
 
 from utils.numerics import inf, nan
+from utils import StringSlice
 
 
 def test_assert_messages():
+    assertion = "test_assertion.mojo:"
+    assertion_error = ": AssertionError:"
     try:
         assert_true(False)
     except e:
-        assert_true("test_assertion.mojo:33:20: AssertionError:" in str(e))
+        assert_true(assertion in String(e) and assertion_error in String(e))
 
     try:
         assert_false(True)
     except e:
-        assert_true("test_assertion.mojo:38:21: AssertionError:" in str(e))
+        assert_true(assertion in String(e) and assertion_error in String(e))
 
     try:
         assert_equal(1, 0)
     except e:
-        assert_true("test_assertion.mojo:43:21: AssertionError:" in str(e))
+        assert_true(assertion in String(e) and assertion_error in String(e))
 
     try:
         assert_not_equal(0, 0)
     except e:
-        assert_true("test_assertion.mojo:48:25: AssertionError:" in str(e))
+        assert_true(assertion in String(e) and assertion_error in String(e))
 
 
 @value
@@ -233,8 +236,41 @@ def test_assert_custom_location():
             location=location,
         )
     except e:
-        assert_true(str(location) in str(e))
-        assert_true("always_false" in str(e))
+        assert_true(String(location) in String(e))
+        assert_true("always_false" in String(e))
+
+
+def test_assert_equal_stringslice():
+    str1 = "This is Mojo"
+    str2 = String("This is Mojo")
+    str3 = "This is mojo"
+
+    fn _build(
+        value: StringLiteral, start: Int, end: Int
+    ) -> StringSlice[StaticConstantOrigin]:
+        return StringSlice[StaticConstantOrigin](
+            ptr=value.unsafe_ptr() + start, length=end - start
+        )
+
+    fn _build(
+        read value: String, start: Int, end: Int
+    ) -> StringSlice[__origin_of(value)]:
+        return StringSlice[__origin_of(value)](
+            ptr=value.unsafe_ptr() + start, length=end - start
+        )
+
+    l1 = List(_build(str1, 0, 4), _build(str1, 5, 7), _build(str1, 8, 12))
+    l2 = List(_build(str2, 0, 4), _build(str2, 5, 7), _build(str2, 8, 12))
+    l3 = List(_build(str3, 0, 4), _build(str3, 5, 7), _build(str3, 8, 12))
+    assert_equal(l1, l1)
+    assert_equal(l2, l2)
+    assert_equal(l1, l2)
+
+    with assert_raises():
+        assert_equal(l1, l3)
+
+    with assert_raises():
+        assert_equal(l2, l3)
 
 
 def main():
@@ -248,3 +284,4 @@ def main():
     test_assert_is()
     test_assert_is_not()
     test_assert_custom_location()
+    test_assert_equal_stringslice()

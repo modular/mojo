@@ -29,7 +29,7 @@ In the near-term, we will **not** prioritize "general goodness" work such as:
 - Tackling broad Python ecosystem challenges like packaging.
 
 If you have encountered any bugs with current Mojo behavior, please
-[submit an issue on GitHub](https://github.com/modularml/mojo/issues).
+[submit an issue on GitHub](https://github.com/modular/mojo/issues).
 
 If you have ideas about how to improve the core Mojo features, we prefer that
 you first look for similar topics or start a new conversation about it
@@ -148,7 +148,7 @@ When we get here, we will discuss what the right default is: for example, is
 full Python hash-table dynamism the default? Or do we use a more efficient
 model by default (e.g. vtable-based dispatch and explicitly declared stored
 properties) and allow opt'ing into dynamism with a `@dynamic` decorator on the
-class. More discussion is [in this proposal](https://github.com/modularml/mojo/blob/main/proposals/mojo-and-dynamism.md).
+class. More discussion is [in this proposal](https://github.com/modular/mojo/blob/main/proposals/mojo-and-dynamism.md).
 
 ## C/C++ Interop
 
@@ -374,11 +374,9 @@ print(One()) # prints '1'
 ```
 
 Mojo currently supports similar functionality through the
-[`Writable`](/mojo/stdlib/utils/write/Writable) trait, so that
-`print()` works on all `Writable` types. Similar support exists for the
-[`int()`](/mojo/stdlib/builtin/int/int-function) and
-[`len()`](/mojo/stdlib/builtin/len/len) functions. We'll continue to
-add traits support to the standard library to enable common use cases like this.
+[`Writable`](/mojo/stdlib/utils/write/Writable) trait, so that `print()` works
+on all `Writable` types. We'll continue to add traits support to the standard
+library to enable common use cases like this.
 
 ### The standard library has limited exceptions use
 
@@ -474,5 +472,5 @@ converting string literals to `String` values. For example:
 ```mojo
 var h: String = "hello"
 # or
-print(g or str("hello"))
+print(g or String("hello"))
 ```

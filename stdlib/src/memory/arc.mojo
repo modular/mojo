@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -104,14 +104,13 @@ struct ArcPointer[T: Movable](
             value^
         )
 
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Copy the object.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of the value.
         """
-        other._inner[].add_ref()
-        self._inner = other._inner
+        return self
 
     fn __copyinit__(out self, existing: Self):
         """Copy an existing reference. Increment the refcount to the object.
