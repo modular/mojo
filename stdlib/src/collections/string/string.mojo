@@ -45,7 +45,6 @@ from collections.string.string_slice import (
     StaticString,
     _StringSliceIter,
     to_string_list,
-    _unicode_codepoint_utf8_byte_length,
     _utf8_byte_type,
 )
 
@@ -1064,7 +1063,6 @@ struct String(
         """
         self._iadd[False](other.as_bytes())
 
-    @deprecated("Use `str.chars()` or `str.char_slices()` instead.")
     fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
         """Iterate over the string unicode characters.
 

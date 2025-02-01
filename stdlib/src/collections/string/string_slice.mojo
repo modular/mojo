@@ -790,7 +790,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             self.unsafe_ptr(), rhs.unsafe_ptr(), min(len1, len2)
         )
 
-    @deprecated("Use `str.chars()` or `str.char_slices()` instead.")
     fn __iter__(self) -> _StringSliceIter[origin]:
         """Iterate over the string, returning unicode characters.
 
@@ -1401,13 +1400,35 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         .
         """
 
+
         fn _is_space_char(s: StringSlice) -> Bool:
             # sorry for readability, but this has less overhead than memcmp
             # highly performance sensitive code, benchmark before touching
+            alias ` ` = UInt8(ord(" "))
+            alias `\t` = UInt8(ord("\t"))
+            alias `\n` = UInt8(ord("\n"))
+            alias `\r` = UInt8(ord("\r"))
+            alias `\f` = UInt8(ord("\f"))
+            alias `\v` = UInt8(ord("\v"))
+            alias `\x1c` = UInt8(ord("\x1c"))
+            alias `\x1d` = UInt8(ord("\x1d"))
+            alias `\x1e` = UInt8(ord("\x1e"))
+            
             var no_null_len = s.byte_length()
             var ptr = s.unsafe_ptr()
             if likely(no_null_len == 1):
-                return _isspace(ptr[0])
+                var c = ptr[0]
+                return  (
+                    c == ` `
+                    or c == `\t`
+                    or c == `\n`
+                    or c == `\r`
+                    or c == `\f`
+                    or c == `\v`
+                    or c == `\x1c`
+                    or c == `\x1d`
+                    or c == `\x1e`
+                )
             elif no_null_len == 2:
                 return ptr[0] == 0xC2 and ptr[1] == 0x85  # next_line: \x85
             elif no_null_len == 3:
@@ -1815,11 +1836,11 @@ fn _split[
         # FIXME(#3526): use str_span and sep_span
         rhs = src_str.find(sep, lhs)
         # if not found go to the end
-        rhs += -int(rhs == -1) & (str_byte_len + 1)
+        rhs += -Int(rhs == -1) & (str_byte_len + 1)
 
         @parameter
         if has_maxsplit:
-            rhs += -int(items == maxsplit) & (str_byte_len - rhs)
+            rhs += -Int(items == maxsplit) & (str_byte_len - rhs)
             items += 1
 
         output.append(S(ptr=ptr + lhs, length=rhs - lhs))
@@ -1872,7 +1893,7 @@ fn _split[
 
         @parameter
         if has_maxsplit:
-            rhs += -int(items == maxsplit) & (str_byte_len - rhs)
+            rhs += -Int(items == maxsplit) & (str_byte_len - rhs)
             items += 1
 
         output.append(S(ptr=ptr + lhs, length=rhs - lhs))
