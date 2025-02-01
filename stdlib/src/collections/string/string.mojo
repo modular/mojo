@@ -46,7 +46,6 @@ from collections.string.string_slice import (
     _StringSliceIter,
     _to_string_list,
     _utf8_byte_type,
-    _shift_unicode_to_utf8,
 )
 
 # ===----------------------------------------------------------------------=== #

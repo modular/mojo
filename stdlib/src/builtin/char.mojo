@@ -18,6 +18,7 @@ from collections.string import StringSlice
 from bit import count_leading_zeros
 
 from memory import UnsafePointer
+from sys.intrinsics import likely
 
 
 @always_inline
@@ -423,13 +424,13 @@ struct Char(CollectionElement, EqualityComparable, Intable, Stringable):
         return self._scalar_value
 
     @always_inline
-    fn unsafe_write_utf8(self, ptr: UnsafePointer[Byte]) -> UInt:
+    fn unsafe_write_utf8[
+        optimize_ascii: Bool = True
+    ](self, ptr: UnsafePointer[Byte]) -> UInt:
         """Shift unicode to utf8 representation.
 
-        Safety:
-            `ptr` MUST point to at least `self.utf8_byte_length()` allocated
-            bytes or else an out-of-bounds write will occur, which is undefined
-            behavior.
+        Parameters:
+            optimize_ascii: Optimize for languages with mostly ASCII characters.
 
         Args:
             ptr: Pointer value to write the encoded UTF-8 bytes. Must validly
@@ -438,6 +439,11 @@ struct Char(CollectionElement, EqualityComparable, Intable, Stringable):
 
         Returns:
             Returns the number of bytes written.
+
+        Safety:
+            `ptr` MUST point to at least `self.utf8_byte_length()` allocated
+            bytes or else an out-of-bounds write will occur, which is undefined
+            behavior.
 
         ### Unicode (represented as UInt32 BE) to UTF-8 conversion:
         - 1: 00000000 00000000 00000000 0aaaaaaa -> 0aaaaaaa
@@ -456,18 +462,28 @@ struct Char(CollectionElement, EqualityComparable, Intable, Stringable):
 
         var num_bytes = self.utf8_byte_length()
 
-        if num_bytes == 1:
-            ptr[0] = UInt8(c)
-            return 1
-
-        var shift = 6 * (num_bytes - 1)
-        var mask = UInt8(0xFF) >> UInt8(num_bytes + 1)
-        var num_bytes_marker = UInt8(0xFF) << (8 - num_bytes)
-        ptr[0] = ((c >> shift) & mask) | num_bytes_marker
-        for i in range(1, num_bytes):
-            shift -= 6
-            ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
-
+        @parameter
+        if optimize_ascii:
+            if likely(num_bytes == 1):
+                ptr[0] = UInt8(c)
+                return 1
+            var shift = 6 * (num_bytes - 1)
+            var mask = UInt8(0xFF) >> (num_bytes + 1)
+            var num_bytes_marker = UInt8(0xFF) << (8 - num_bytes)
+            ptr[0] = ((c >> shift) & mask) | num_bytes_marker
+            for i in range(1, num_bytes):
+                shift -= 6
+                ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
+        else:
+            var shift = 6 * (num_bytes - 1)
+            var mask = UInt8(0xFF) >> (num_bytes + Int(num_bytes > 1))
+            var num_bytes_marker = UInt8(0xFF) << (8 - num_bytes)
+            ptr[0] = ((c >> shift) & mask) | (
+                num_bytes_marker & -Int(num_bytes != 1)
+            )
+            for i in range(1, num_bytes):
+                shift -= 6
+                ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
         return num_bytes
 
     @always_inline
