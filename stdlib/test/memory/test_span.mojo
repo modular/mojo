@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -115,7 +115,7 @@ def test_indexing():
     var l = InlineArray[Int, 7](1, 2, 3, 4, 5, 6, 7)
     var s = Span[Int](array=l)
     assert_equal(s[True], 2)
-    assert_equal(s[int(0)], 1)
+    assert_equal(s[Int(0)], 1)
     assert_equal(s[3], 4)
 
 
@@ -206,6 +206,19 @@ def test_reversed():
     for num in reversed(s):
         assert_equal(num[], backward[i])
         i += 1
+
+
+# We don't actually need to call this test
+# but we want to make sure it compiles
+def test_span_coerce():
+    var l = List[Int](1, 2, 3)
+    var a = InlineArray[Int, 3](1, 2, 3)
+
+    fn takes_span(s: Span[Int]):
+        pass
+
+    takes_span(l)
+    takes_span(a)
 
 
 def test_count():

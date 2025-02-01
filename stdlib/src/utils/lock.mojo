@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -136,11 +136,11 @@ struct BlockingScopedLock:
         """Acquire the lock on entry.
         This is done by setting the owner of the lock to own address."""
         var address = UnsafePointer[Self].address_of(self)
-        self.lock[].lock(int(address))
+        self.lock[].lock(Int(address))
 
     @no_inline
     fn __exit__(mut self):
         """Release the lock on exit.
         Reset the address on the underlying lock."""
         var address = UnsafePointer[Self].address_of(self)
-        _ = self.lock[].unlock(int(address))
+        _ = self.lock[].unlock(Int(address))

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -175,7 +175,7 @@ def test_array_unsafe_assume_initialized_constructor_string():
     assert_equal(initialized_arr2[2], "world")
 
     # trigger a copy
-    var initialized_arr3 = InlineArray(other=initialized_arr2)
+    var initialized_arr3 = initialized_arr2.copy()
 
     assert_equal(initialized_arr3[0], "hello")
     assert_equal(initialized_arr3[1], "mojo")
@@ -187,8 +187,8 @@ def test_array_unsafe_assume_initialized_constructor_string():
 
 def test_array_contains():
     var arr = InlineArray[String, 3]("hi", "hello", "hey")
-    assert_true(str("hi") in arr)
-    assert_true(not str("greetings") in arr)
+    assert_true(String("hi") in arr)
+    assert_true(not String("greetings") in arr)
 
 
 def test_inline_array_runs_destructors():

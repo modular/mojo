@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -20,7 +20,7 @@ from testing import assert_equal
 fn sum_items(data: List[Int8]) -> Int:
     var sum: Int = 0
     for i in range(len(data)):
-        sum += int(data[i])
+        sum += Int(data[i])
     return sum
 
 
