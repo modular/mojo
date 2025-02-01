@@ -625,7 +625,7 @@ struct LinkedList[
             A pointer to the node at the specified index.
         """
         var l = len(self)
-        var i = normalize_index[container_name="LinkedList"](index, self)
+        var i = normalize_index["LinkedList"](index, l)
         debug_assert(0 <= i < l, "index out of bounds")
         var mid = l // 2
         if i <= mid:
