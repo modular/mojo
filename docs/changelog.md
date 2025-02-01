@@ -62,6 +62,9 @@ what we publish.
         var ptr2 = list2.unsafe_ptr()
     ```
 
+- `List.bytecount()` was changed to `List.byte_length()` to better align with
+  other similar APIs.
+
 ### Tooling changes
 
 - mblack (aka `mojo format`) no longer formats non-mojo files. This prevents
