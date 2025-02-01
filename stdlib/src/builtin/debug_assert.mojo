@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -17,16 +17,17 @@ These are Mojo built-ins, so you don't need to import them.
 
 
 from os import abort
-from sys import is_gpu, is_nvidia_gpu, llvm_intrinsic
+from sys import is_gpu, is_nvidia_gpu, is_amd_gpu, llvm_intrinsic
 from sys._build import is_debug_build
 from sys.ffi import c_char, c_size_t, c_uint, external_call
 from sys.param_env import env_get_string
+from sys.intrinsics import thread_idx, block_idx
 
 from builtin._location import __call_location, _SourceLocation
 from memory import UnsafePointer, Span
 
 from utils.write import (
-    _ArgBytes,
+    _TotalWritableBytes,
     _WriteBufferHeap,
     _WriteBufferStack,
     write_args,
@@ -113,7 +114,7 @@ fn debug_assert[
     ```mojo
     person = "name: john, age: 50"
     name = "john"
-    debug_assert(str("name: ") + name == person, "unexpected name")
+    debug_assert(String("name: ") + name == person, "unexpected name")
     ```
 
     This will have a runtime penality due to allocating a `String` in the
@@ -122,7 +123,7 @@ fn debug_assert[
 
     ```mojo
     fn check_name() capturing -> Bool:
-        return str("name: ") + name == person
+        return String("name: ") + name == person
 
     debug_assert[check_name]("unexpected name")
     ```
@@ -196,7 +197,7 @@ fn debug_assert[
     ```mojo
     person = "name: john, age: 50"
     name = "john"
-    debug_assert(str("name: ") + name == person, "unexpected name")
+    debug_assert(String("name: ") + name == person, "unexpected name")
     ```
 
     This will have a runtime penality due to allocating a `String` in the
@@ -205,7 +206,7 @@ fn debug_assert[
 
     ```mojo
     fn check_name() capturing -> Bool:
-        return str("name: ") + name == person
+        return String("name: ") + name == person
 
     debug_assert[check_name]("unexpected name")
     ```
@@ -241,14 +242,17 @@ fn _debug_assert_msg(
     var stdout = sys.stdout
 
     @parameter
-    if is_gpu():
+    if is_amd_gpu():
+        # FIXME: debug_assert printing is disabled on AMD GPU, see KERN-1448
+        pass
+    elif is_nvidia_gpu():
         # Count the total length of bytes to allocate only once
-        var arg_bytes = _ArgBytes()
+        var arg_bytes = _TotalWritableBytes()
         arg_bytes.write(
             "At ",
             loc,
             ": ",
-            _ThreadContext(),
+            _GPUThreadInfo(),
             " Assert ",
             "Warning: " if defined_mode == "warn" else " Error: ",
         )
@@ -259,7 +263,7 @@ fn _debug_assert_msg(
             "At ",
             loc,
             ": ",
-            _ThreadContext(),
+            _GPUThreadInfo(),
             " Assert ",
             "Warning: " if defined_mode == "warn" else "Error: ",
         )
@@ -268,10 +272,7 @@ fn _debug_assert_msg(
         stdout.write_bytes(
             Span[Byte, ImmutableAnyOrigin](ptr=buffer.data, length=buffer.pos)
         )
-
-        @parameter
-        if defined_mode != "warn":
-            abort()
+        buffer.data.free()
 
     else:
         var buffer = _WriteBufferStack[4096](stdout)
@@ -286,65 +287,26 @@ fn _debug_assert_msg(
         write_args(buffer, messages, end="\n")
         buffer.flush()
 
-        @parameter
-        if defined_mode != "warn":
-            abort()
+    @parameter
+    if defined_mode != "warn":
+        abort()
 
 
-struct _ThreadContext(Writable):
-    var block_x: Int32
-    var block_y: Int32
-    var block_z: Int32
-    var thread_x: Int32
-    var thread_y: Int32
-    var thread_z: Int32
-
-    fn __init__(out self):
-        self.block_x = _get_id["block", "x"]()
-        self.block_y = _get_id["block", "y"]()
-        self.block_z = _get_id["block", "z"]()
-        self.thread_x = _get_id["thread", "x"]()
-        self.thread_y = _get_id["thread", "y"]()
-        self.thread_z = _get_id["thread", "z"]()
-
+@value
+struct _GPUThreadInfo:
     fn write_to[W: Writer](self, mut writer: W):
         writer.write(
             "block: [",
-            self.block_x,
+            block_idx.x,
             ",",
-            self.block_y,
+            block_idx.y,
             ",",
-            self.block_z,
+            block_idx.z,
             "] thread: [",
-            self.thread_x,
+            thread_idx.x,
             ",",
-            self.thread_y,
+            thread_idx.y,
             ",",
-            self.thread_z,
+            thread_idx.z,
             "]",
         )
-
-
-fn _get_id[type: StringLiteral, dim: StringLiteral]() -> Int32:
-    alias intrinsic_name = _get_intrinsic_name[type, dim]()
-    return llvm_intrinsic[intrinsic_name, Int32, has_side_effect=False]()
-
-
-fn _get_intrinsic_name[
-    type: StringLiteral, dim: StringLiteral
-]() -> StringLiteral:
-    @parameter
-    if is_nvidia_gpu():
-
-        @parameter
-        if type == "thread":
-            return "llvm.nvvm.read.ptx.sreg.tid." + dim
-        else:
-            return "llvm.nvvm.read.ptx.sreg.ctaid." + dim
-    else:
-
-        @parameter
-        if type == "thread":
-            return "llvm.amdgcn.workitem.id." + dim
-        else:
-            return "llvm.amdgcn.workgroup.id." + dim
