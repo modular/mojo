@@ -404,9 +404,9 @@ def test_split():
         + "\x1c"
         + "\x1d"
         + "\x1e"
-        + String(next_line)
-        + String(unicode_line_sep)
-        + String(unicode_paragraph_sep)
+        + String(buffer=next_line)
+        + String(buffer=unicode_line_sep)
+        + String(buffer=unicode_paragraph_sep)
     )
     s = univ_sep_var + "hello" + univ_sep_var + "world" + univ_sep_var
     assert_equal(s.split(), L("hello", "world"))
