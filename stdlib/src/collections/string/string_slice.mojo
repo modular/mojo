@@ -1400,7 +1400,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         .
         """
 
-
         fn _is_space_char(s: StringSlice) -> Bool:
             # sorry for readability, but this has less overhead than memcmp
             # highly performance sensitive code, benchmark before touching
@@ -1413,12 +1412,12 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             alias `\x1c` = UInt8(ord("\x1c"))
             alias `\x1d` = UInt8(ord("\x1d"))
             alias `\x1e` = UInt8(ord("\x1e"))
-            
+
             var no_null_len = s.byte_length()
             var ptr = s.unsafe_ptr()
             if likely(no_null_len == 1):
                 var c = ptr[0]
-                return  (
+                return (
                     c == ` `
                     or c == `\t`
                     or c == `\n`
