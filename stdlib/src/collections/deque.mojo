@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -157,14 +157,11 @@ struct Deque[ElementType: CollectionElement](
         self = Self(capacity=capacity)
 
         for i in range(args_length):
-            src = UnsafePointer.address_of(elements[i])
             dst = self._data + i
-            src.move_pointee_into(dst)
+            UnsafePointer.address_of(elements[i]).move_pointee_into(dst)
 
         # Do not destroy the elements when their backing storage goes away.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(elements)
-        )
+        __disable_del elements
 
         self._tail = args_length
 
@@ -444,7 +441,7 @@ struct Deque[ElementType: CollectionElement](
         print(my_deque.__str__())
         ```
 
-        When the compiler supports conditional methods, then a simple `str(my_deque)` will
+        When the compiler supports conditional methods, then a simple `String(my_deque)` will
         be enough.
 
         The elements' type must implement the `__repr__()` method for this to work.
@@ -1016,14 +1013,14 @@ struct _DequeIter[
     fn __iter__(self) -> Self:
         return self
 
-    fn __next__(mut self) -> Pointer[ElementType, deque_lifetime]:
+    fn __next__(mut self, out p: Pointer[ElementType, deque_lifetime]):
         @parameter
         if forward:
+            p = Pointer.address_of(self.src[][self.index])
             self.index += 1
-            return Pointer.address_of(self.src[][self.index - 1])
         else:
             self.index -= 1
-            return Pointer.address_of(self.src[][self.index])
+            p = Pointer.address_of(self.src[][self.index])
 
     fn __len__(self) -> Int:
         @parameter

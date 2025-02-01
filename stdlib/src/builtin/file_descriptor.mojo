@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -24,7 +24,8 @@ f.close()
 
 """
 from sys.ffi import external_call
-from sys.info import is_gpu
+from sys.info import is_nvidia_gpu, is_amd_gpu
+from sys._amdgpu import printf_begin, printf_append_string_n
 
 from builtin.io import _printf
 from memory import UnsafePointer, Span
@@ -67,8 +68,11 @@ struct FileDescriptor(Writer):
         var len_bytes = len(bytes)
 
         @parameter
-        if is_gpu():
+        if is_nvidia_gpu():
             _printf["%*s"](len_bytes, bytes.unsafe_ptr())
+        elif is_amd_gpu():
+            var msg = printf_begin()
+            _ = printf_append_string_n(msg, bytes, is_last=True)
         else:
             written = external_call["write", Int32](
                 self.value, bytes.unsafe_ptr(), len(bytes)
