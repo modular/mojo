@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -48,13 +48,13 @@ struct NoneType(
         self._value = value
 
     @always_inline
-    fn __init__(out self, *, other: Self):
+    fn copy(self) -> Self:
         """Explicit copy constructor.
 
-        Args:
-            other: Another `NoneType` instance to copy.
+        Returns:
+            A copy of the value.
         """
-        self._value = None
+        return Self(None)
 
     @no_inline
     fn __str__(self) -> String:

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -70,44 +70,50 @@ struct _c_stat(Stringable):
         self.st_lspare = 0
         self.st_qspare = InlineArray[Int64, 2](0, 0)
 
+    fn write_to[W: Writer](self, mut writer: W):
+        # fmt: off
+        writer.write(
+            "{\nst_dev: ", self.st_dev,
+            ",\nst_mode: ", self.st_mode,
+            ",\nst_nlink: ", self.st_nlink,
+            ",\nst_ino: ", self.st_ino,
+            ",\nst_uid: ", self.st_uid,
+            ",\nst_gid: ", self.st_gid,
+            ",\nst_rdev: ", self.st_rdev,
+            ",\nst_atimespec: ", self.st_atimespec,
+            ",\nst_mtimespec: ", self.st_mtimespec,
+            ",\nst_ctimespec: ", self.st_ctimespec,
+            ",\nst_birthtimespec: ", self.st_birthtimespec,
+            ",\nst_size: ", self.st_size,
+            ",\nst_blocks: ", self.st_blocks,
+            ",\nst_blksize: ", self.st_blksize,
+            ",\nst_flags: ", self.st_flags,
+            "st_gen: ", self.st_gen,
+            "\n}",
+        )
+        # fmt: on
+
     @no_inline
     fn __str__(self) -> String:
-        var res = String("{\n")
-        res += "st_dev: " + str(self.st_dev) + ",\n"
-        res += "st_mode: " + str(self.st_mode) + ",\n"
-        res += "st_nlink: " + str(self.st_nlink) + ",\n"
-        res += "st_ino: " + str(self.st_ino) + ",\n"
-        res += "st_uid: " + str(self.st_uid) + ",\n"
-        res += "st_gid: " + str(self.st_gid) + ",\n"
-        res += "st_rdev: " + str(self.st_rdev) + ",\n"
-        res += "st_atimespec: " + str(self.st_atimespec) + ",\n"
-        res += "st_mtimespec: " + str(self.st_mtimespec) + ",\n"
-        res += "st_ctimespec: " + str(self.st_ctimespec) + ",\n"
-        res += "st_birthtimespec: " + str(self.st_birthtimespec) + ",\n"
-        res += "st_size: " + str(self.st_size) + ",\n"
-        res += "st_blocks: " + str(self.st_blocks) + ",\n"
-        res += "st_blksize: " + str(self.st_blksize) + ",\n"
-        res += "st_flags: " + str(self.st_flags) + ",\n"
-        res += "st_gen: " + str(self.st_gen) + "\n"
-        return res + "}"
+        return String.write(self)
 
     fn _to_stat_result(self) -> stat_result:
         return stat_result(
-            st_dev=int(self.st_dev),
-            st_mode=int(self.st_mode),
-            st_nlink=int(self.st_nlink),
-            st_ino=int(self.st_ino),
-            st_uid=int(self.st_uid),
-            st_gid=int(self.st_gid),
-            st_rdev=int(self.st_rdev),
+            st_dev=Int(self.st_dev),
+            st_mode=Int(self.st_mode),
+            st_nlink=Int(self.st_nlink),
+            st_ino=Int(self.st_ino),
+            st_uid=Int(self.st_uid),
+            st_gid=Int(self.st_gid),
+            st_rdev=Int(self.st_rdev),
             st_atimespec=self.st_atimespec,
             st_ctimespec=self.st_ctimespec,
             st_mtimespec=self.st_mtimespec,
             st_birthtimespec=self.st_birthtimespec,
-            st_size=int(self.st_size),
-            st_blocks=int(self.st_blocks),
-            st_blksize=int(self.st_blksize),
-            st_flags=int(self.st_flags),
+            st_size=Int(self.st_size),
+            st_blocks=Int(self.st_blocks),
+            st_blksize=Int(self.st_blksize),
+            st_flags=Int(self.st_flags),
         )
 
 

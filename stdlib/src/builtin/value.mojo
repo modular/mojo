@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -112,7 +112,7 @@ trait ExplicitlyCopyable:
     a `read-only` argument of `Self`.
 
     Example implementing the `ExplicitlyCopyable` trait on `Foo` which requires
-    the `__init__(.., Self)` method:
+    the `fn(self) -> Self` method:
 
     ```mojo
     struct Foo(ExplicitlyCopyable):
@@ -122,17 +122,16 @@ trait ExplicitlyCopyable:
         fn __init__(out self, s: String):
             self.s = s
 
-        @implicit
-        fn __init__(out self, copy: Self):
+        fn copy(self) -> Self:
             print("explicitly copying value")
-            self.s = copy.s
+            return Foo(self.s)
     ```
 
     You can now copy objects inside a generic function:
 
     ```mojo
     fn copy_return[T: ExplicitlyCopyable](foo: T) -> T:
-        var copy = T(foo)
+        var copy = foo.copy()
         return copy
 
     var foo = Foo("test")
@@ -144,15 +143,11 @@ trait ExplicitlyCopyable:
     ```
     """
 
-    # Note:
-    #   `other` is a required named argument for the time being to minimize
-    #   implicit conversion overload ambiguity errors, particularly
-    #   with SIMD and Int.
-    fn __init__(out self, *, other: Self):
-        """Explicitly construct a deep copy of the provided value.
+    fn copy(self) -> Self:
+        """Explicitly construct a copy of self.
 
-        Args:
-            other: The value to copy.
+        Returns:
+            A copy of this value.
         """
         ...
 
@@ -212,9 +207,26 @@ trait CollectionElementNew(ExplicitlyCopyable, Movable):
     pass
 
 
+# FIXME(25.2): remove deprecation warning
+@deprecated(
+    "deprecated, use `WritableCollectionElement` which still allows you to"
+    " construct a `String` but can avoid intermediary allocations"
+)
 trait StringableCollectionElement(CollectionElement, Stringable):
     """The StringableCollectionElement trait denotes a trait composition
     of the `CollectionElement` and `Stringable` traits.
+
+    This is useful to have as a named entity since Mojo does not
+    currently support anonymous trait compositions to constrain
+    on `CollectionElement & Stringable` in the parameter.
+    """
+
+    pass
+
+
+trait WritableCollectionElement(CollectionElement, Writable):
+    """The WritableCollectionElement trait denotes a trait composition
+    of the `CollectionElement` and `Writable` traits.
 
     This is useful to have as a named entity since Mojo does not
     currently support anonymous trait compositions to constrain
@@ -293,6 +305,44 @@ trait BoolableKeyElement(Boolable, KeyElement):
     This is useful to have as a named entity since Mojo does not
     currently support anonymous trait compositions to constrain
     on `Boolable & KeyElement` in the parameter.
+    """
+
+    pass
+
+
+trait EqualityComparableWritableCollectionElement(
+    WritableCollectionElement, EqualityComparable
+):
+    """A trait that combines the CollectionElement, Writable and
+    EqualityComparable traits.
+
+    This trait requires types to implement CollectionElement, Writable and
+    EqualityComparable interfaces, allowing them to be used in collections,
+    compared, and written to output.
+    """
+
+    pass
+
+
+trait WritableCollectionElementNew(CollectionElementNew, Writable):
+    """A trait that combines the CollectionElement and Writable traits.
+
+    This trait requires types to implement both CollectionElement and Writable
+    interfaces, allowing them to be used in collections and written to output.
+    """
+
+    pass
+
+
+trait EqualityComparableWritableCollectionElementNew(
+    WritableCollectionElementNew, EqualityComparable
+):
+    """A trait that combines the CollectionElement, Writable and
+    EqualityComparable traits.
+
+    This trait requires types to implement CollectionElement, Writable and
+    EqualityComparable interfaces, allowing them to be used in collections,
+    compared, and written to output.
     """
 
     pass
