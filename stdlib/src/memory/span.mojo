@@ -474,13 +474,13 @@ struct Span[
 
                     @parameter
                     if w >= 256:
-                        amnt += int(func(vec).cast[DType.uint16]().reduce_add())
+                        amnt += Int(func(vec).cast[DType.uint16]().reduce_add())
                     else:
-                        amnt += int(func(vec).cast[DType.uint8]().reduce_add())
+                        amnt += Int(func(vec).cast[DType.uint8]().reduce_add())
                     processed += w
 
         for i in range(length - processed):
-            amnt += int(func(ptr[processed + i]))
+            amnt += Int(func(ptr[processed + i]))
 
         return amnt
 
@@ -516,12 +516,12 @@ struct Span[
 
                     @parameter
                     if w >= 256:
-                        amnt += int(func(vec).cast[DType.uint16]().reduce_add())
+                        amnt += Int(func(vec).cast[DType.uint16]().reduce_add())
                     else:
-                        amnt += int(func(vec).cast[DType.uint8]().reduce_add())
+                        amnt += Int(func(vec).cast[DType.uint8]().reduce_add())
                     processed += w
 
         for i in range(length - processed):
-            amnt += int(func(ptr[processed + i]))
+            amnt += Int(func(ptr[processed + i]))
 
         return amnt
