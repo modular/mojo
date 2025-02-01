@@ -120,37 +120,6 @@ fn _shift_unicode_to_utf8[
             shift -= 6
             ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
 
-fn _shift_unicode_to_utf8[
-    optimize_ascii: Bool = True
-](ptr: UnsafePointer[UInt8], c: Int, num_bytes: Int):
-    """Shift unicode to utf8 representation.
-
-    Parameters:
-        optimize_ascii: Optimize for languages with mostly ASCII characters.
-    """
-
-    @parameter
-    if optimize_ascii:
-        if likely(num_bytes == 1):
-            ptr[0] = UInt8(c)
-            return
-        var shift = 6 * (num_bytes - 1)
-        var mask = UInt8(0xFF) >> (num_bytes + 1)
-        var num_bytes_marker = UInt8(0xFF) << (8 - num_bytes)
-        ptr[0] = ((c >> shift) & mask) | num_bytes_marker
-        for i in range(1, num_bytes):
-            shift -= 6
-            ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
-    else:
-        var shift = 6 * (num_bytes - 1)
-        var mask = UInt8(0xFF) >> (num_bytes + Int(num_bytes > 1))
-        var num_bytes_marker = UInt8(0xFF) << (8 - num_bytes)
-        ptr[0] = ((c >> shift) & mask) | (
-            num_bytes_marker & (Int(num_bytes == 1) - 1)
-        )
-        for i in range(1, num_bytes):
-            shift -= 6
-            ptr[i] = ((c >> shift) & 0b0011_1111) | 0b1000_0000
 
 @always_inline
 fn _utf8_byte_type(b: SIMD[DType.uint8, _], /) -> __type_of(b):
