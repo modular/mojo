@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -22,6 +22,11 @@ Its implementation closely mirrors Python's `dict` implementation:
 - Insertion order is implicitly preserved. Iteration over keys, values, and
   items have a deterministic order based on insertion.
 
+- For more information on the Mojo `Dict` type, see the
+  [Mojo `Dict` manual](/mojo/manual/types/#dict). To learn more about using
+  Python dictionaries from Mojo, see
+  [Python types in Mojo](/mojo/manual/python/types/#python-types-in-mojo).
+
 Key elements must implement the `KeyElement` trait, which encompasses
 Movable, Hashable, and EqualityComparable. It also includes CollectionElement
 and Copyable until we push references through the standard library types.
@@ -34,7 +39,6 @@ See the `Dict` docs for more details.
 from sys.ffi import OpaquePointer
 
 from bit import is_power_of_two
-from builtin.value import StringableCollectionElement
 from memory import UnsafePointer, bitcast, memcpy
 
 from .optional import Optional
@@ -320,16 +324,16 @@ struct _DictIndex:
     fn get_index(self, reserved: Int, slot: UInt64) -> Int:
         if reserved <= 128:
             var data = self.data.bitcast[Int8]()
-            return int(data.load(slot & (reserved - 1)))
+            return Int(data.load(slot & (reserved - 1)))
         elif reserved <= 2**16 - 2:
             var data = self.data.bitcast[Int16]()
-            return int(data.load(slot & (reserved - 1)))
+            return Int(data.load(slot & (reserved - 1)))
         elif reserved <= 2**32 - 2:
             var data = self.data.bitcast[Int32]()
-            return int(data.load(slot & (reserved - 1)))
+            return Int(data.load(slot & (reserved - 1)))
         else:
             var data = self.data.bitcast[Int64]()
-            return int(data.load(slot & (reserved - 1)))
+            return Int(data.load(slot & (reserved - 1)))
 
     fn set_index(mut self, reserved: Int, slot: UInt64, value: Int):
         if reserved <= 128:
@@ -380,6 +384,11 @@ struct Dict[K: KeyElement, V: CollectionElement](
         K: The type of the dictionary key. Must be Hashable and EqualityComparable
            so we can find the key in the map.
         V: The value type of the dictionary. Currently must be CollectionElement.
+
+    For more information on the Mojo `Dict` type, see the
+    [Mojo `Dict` manual](/mojo/manual/types/#dict). To learn more about using
+    Python dictionaries from Mojo, see
+    [Python types in Mojo](/mojo/manual/python/types/#python-types-in-mojo).
     """
 
     # Implementation:
@@ -702,7 +711,7 @@ struct Dict[K: KeyElement, V: CollectionElement](
         # prints "{1: 1.1, 2: 2.2}"
         ```
 
-        When the compiler supports conditional methods, then a simple `str(my_dict)` will
+        When the compiler supports conditional methods, then a simple `String(my_dict)` will
         be enough.
 
         Note that both they keys and values' types must implement the `__repr__()` method
@@ -720,7 +729,7 @@ struct Dict[K: KeyElement, V: CollectionElement](
         var minimum_capacity = self._minimum_size_of_string_representation()
         var string_buffer = List[UInt8](capacity=minimum_capacity)
         string_buffer.append(0)  # Null terminator
-        var result = String(string_buffer^)
+        var result = String(buffer=string_buffer^)
         result += "{"
 
         var i = 0
@@ -738,11 +747,11 @@ struct Dict[K: KeyElement, V: CollectionElement](
 
     fn _minimum_size_of_string_representation(self) -> Int:
         # we do a rough estimation of the minimum number of chars that we'll see
-        # in the string representation, we assume that str(key) and str(value)
+        # in the string representation, we assume that String(key) and String(value)
         # will be both at least one char.
         return (
             2  # '{' and '}'
-            + len(self) * 6  # str(key), str(value) ": " and ", "
+            + len(self) * 6  # String(key), String(value) ": " and ", "
             - 2  # remove the last ", "
         )
 
@@ -1012,7 +1021,7 @@ struct Dict[K: KeyElement, V: CollectionElement](
     fn _next_index_slot(self, mut slot: UInt64, mut perturb: UInt64):
         alias PERTURB_SHIFT = 5
         perturb >>= PERTURB_SHIFT
-        slot = ((5 * slot) + int(perturb + 1)) & (self._reserved() - 1)
+        slot = ((5 * slot) + Int(perturb + 1)) & (self._reserved() - 1)
 
     fn _find_empty_index(self, hash: UInt64) -> UInt64:
         var slot = hash & (self._reserved() - 1)

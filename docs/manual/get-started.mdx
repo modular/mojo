@@ -2,10 +2,20 @@
 title: "Get started with Mojo"
 sidebar_label: "Tutorial: Get started with Mojo"
 description: "Install Mojo and learn the language basics by building a complete Mojo program"
-github_url: https://github.com/modularml/mojo/tree/nightly/examples/life
+github_url: https://github.com/modular/mojo/tree/main/examples/life
+image: /images/artwork/mojo-get-started.jpg
 ---
 
 import GetMagic from '@site/src/includes/get_magic.mdx';
+import Requirements from '@site/src/components/Requirements';
+import { requirementsNoGPU } from '@site/docs/max/requirements';
+
+:::tip
+
+Want to write a GPU function with Mojo? See how to [build a custom op
+with MAX](/max/tutorials/build-custom-ops).
+
+:::
 
 Get ready to learn Mojo! This tutorial is designed to give you a tour of several
 features of Mojo by building a complete program that does much more than simply
@@ -25,43 +35,47 @@ get started so you can learn Mojo programming basics, including the following:
 
 This tutorial might be a little long because there's a lot to learn, but we
 tried to keep the explanations simple, and we included links along the way for
-you to go learn more about each topic.
+you to go learn more about each topic. If you just want to see the finished
+code, you can [get it on
+GitHub](https://github.com/modular/mojo/tree/main/examples/life).
 
-And if you just want to see the finished code, you can [get it on
-GitHub](https://github.com/modularml/mojo/tree/nightly/examples/life).
+System requirements:
+
+<Requirements requirementsData={requirementsNoGPU} />
 
 ## 1. Create a Mojo project with `magic`
 
-We'll start by using the [`magic` CLI](/magic) to create a virtual environment
+We'll start by using the `magic` CLI to create a virtual environment
 and generate our initial project directory.
 
-<GetMagic />
+1. <GetMagic />
 
-In your terminal, go to the directory in which you want to create the project
-and execute:
+2. Navigate to the directory in which you want to create the project
+    and execute:
 
-```bash
-magic init life --format mojoproject
-```
+    ```bash
+    magic init life --format mojoproject
+    ```
 
-This creates a project directory named `life`. Let's go to the directory and
-list its contents:
+    This creates a project directory named `life`.
 
-```bash
-cd life
-```
+3. Let's go into the directory and list its contents:
 
-```bash
-ls -A
-```
+    ```bash
+    cd life
+    ```
 
-```output
-.gitattributes
-.gitignore
-.magic
-magic.lock
-mojoproject.toml
-```
+    ```bash
+    ls -A
+    ```
+
+    ```output
+    .gitattributes
+    .gitignore
+    .magic
+    magic.lock
+    mojoproject.toml
+    ```
 
 You should see that the project directory contains:
 
@@ -175,9 +189,9 @@ Hello, World!
 Let's extend this basic program by prompting the user for their name and
 including that in the greeting printed. The built-in
 [`input()`](/mojo/stdlib/builtin/io/input) function accepts an optional
-[`String`](/mojo/stdlib/collections/string/String) argument to use as a prompt,
-and returns a `String` consisting of the characters the user entered (with the
-newline character at the end stripped off).
+[`String`](/mojo/stdlib/collections/string/string/String) argument to use as a
+prompt, and returns a `String` consisting of the characters the user entered
+(with the newline character at the end stripped off).
 
 So let's declare a variable, assign the return value from `input()` to it, and
 build a customized greeting.
@@ -343,7 +357,7 @@ def main():
 ## 5. Create and use a function to print the grid
 
 Now let's create a function to generate a string representation of the game grid
-that we can print it to the terminal.
+that we can print to the terminal.
 
 There are actually two different keywords that we can use to define functions in
 Mojo: `def` and `fn`. Using `fn` gives us finer level control over the function
@@ -361,7 +375,7 @@ def grid_str(rows: Int, cols: Int, grid: List[List[Int]]) -> String:
 
     # Iterate through rows 0 through rows-1
     for row in range(rows):
-	      # Iterate through columns 0 through cols-1
+        # Iterate through columns 0 through cols-1
         for col in range(cols):
             if grid[row][col] == 1:
                 str += "*"  # If cell is populated, append an asterisk
@@ -539,7 +553,7 @@ def grid_str(grid: Grid) -> String:
 
     # Iterate through rows 0 through rows-1
     for row in range(grid.rows):
-	      # Iterate through columns 0 through cols-1
+        # Iterate through columns 0 through cols-1
         for col in range(grid.cols):
             if grid.data[row][col] == 1:
                 str += "*"  # If cell is populated, append an asterisk
@@ -645,11 +659,11 @@ produces the same output. You can verify that by running the program again.
 
 ## 9. Implement support for the `StringableRaising` trait
 
-You can pass most Mojo types to the built-in `str()` function to produce a
+You can convert most Mojo types to `String` using `String(my_val)` to produce a
 `String` representation of that instance. But you'll get an error if you try to
 do that with our current implementation of `Grid`. So let's fix that.
 
-Because the Mojo compiler performs static type checking, a function like `str()`
+Because the Mojo compiler performs static type checking, a `String` constructor
 can accept a value only if its type implements some required behavior—in this
 case, it only accepts types that can generate a `String` representation.
 
@@ -661,7 +675,7 @@ any type that conform to a specified trait. (This type of function is sometimes
 referred to as a [*generic*
 function](/mojo/manual/parameters/#parameters-and-generics).)
 
-In the case of `str()`, it requires a type to conform to either the `Stringable`
+In the case of `String()`, it requires a type to conform to either the `Stringable`
 or `StringableRaising` trait. Each trait requires a conforming type to implement
 a `__str__()` method that returns a `String` representation. The only difference
 between the two traits is that `Stringable` requires that the method *cannot*
@@ -690,13 +704,13 @@ struct Grid(StringableRaising):
         ...
 ```
 
-Now let's verify that `str()` works with an instance of `Grid`.
+Now let's verify that `String()` works with an instance of `Grid`.
 
 ```mojo title="life.mojo"
 def main():
     ...
     start = Grid(8, 8, glider)
-    print(str(start))
+    print(String(start))
 ```
 
 If you run the program again, you should still see the same glider pattern as before.
@@ -786,8 +800,6 @@ struct Grid(StringableRaising):
   <summary>Click here to see the complete `gridv1.mojo` so far:</summary>
 
 ```mojo title="gridv1.mojo"
-import random
-
 @value
 struct Grid(StringableRaising):
     var rows: Int
@@ -851,7 +863,7 @@ struct Grid(StringableRaising):
             row_data = List[Int]()
             for col in range(cols):
                 # Generate a random 0 or 1 and append it to the row.
-                row_data.append(int(random.random_si64(0, 1)))
+                row_data.append(Int(random.random_si64(0, 1)))
             data.append(row_data)
 
         return Self(rows, cols, data)
@@ -877,8 +889,8 @@ respectively. This function actually returns a value of type `Int64`, which is a
 signed 64-bit integer value. As described in [Numeric
 types](/mojo/manual/types#numeric-types), this is *not* the same as the `Int`
 type whose precision is dependent on the native word size of the system.
-Therefore we're passing this value to the built-in
-[`int()`](/mojo/stdlib/builtin/int/int-function/) function, which explicitly
+Therefore we're passing this value to the
+[`Int()`](/mojo/stdlib/builtin/int/Int/#__init__) constructor, which explicitly
 converts a numeric value to an `Int`.
 
 The return type of the method is `Self`, which is an alias for the type of the
@@ -896,7 +908,7 @@ and print it.
 
 def main():
     start = Grid.random(8, 16)
-    print(str(start))
+    print(String(start))
 ```
 
 Run the program a few times to verify that it generates a different grid each
@@ -1009,7 +1021,7 @@ from gridv1 import Grid
 
 def run_display(owned grid: Grid) -> None:
     while True:
-        print(str(grid))
+        print(String(grid))
         print()
         if input("Enter 'q' to quit or press <Enter> to continue: ") == "q":
             break
@@ -1220,8 +1232,8 @@ way, you got a taste of:
 
 ## Next steps
 
-The [Mojo manual](/mojo/manual/) and the Mojo standard library [API
-reference](/mojo/lib) contains much more information about these and other
-features of Mojo programming. These resources will help prepare you to take full
-advantage of the [MAX platform](/max/) to build and deploy high-performance AI
-pipelines.
+For more detail about all of Mojo's features, explore the other sections of the
+[Mojo manual](/mojo/manual/).
+
+If you want to write a GPU function with Mojo, see how to [build a custom op
+with MAX](/max/tutorials/build-custom-ops).
