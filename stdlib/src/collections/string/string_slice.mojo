@@ -56,7 +56,7 @@ fn _utf8_first_byte_sequence_length(b: Byte) -> Int:
     this does not work correctly if given a continuation byte."""
 
     debug_assert(
-        (b & 0b1100_0000) != 0b1000_0000,
+        not _is_continuation_byte(b),
         "Function does not work correctly if given a continuation byte.",
     )
     return Int(count_leading_zeros(~b)) + Int(b < 0b1000_0000)
@@ -1154,7 +1154,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         # overall length in bytes.
         # For a visual explanation of how this UTF-8 codepoint counting works:
         #   https://connorgray.com/ephemera/project-log#2025-01-13
-        var continuation_count = _count_utf8_continuation_bytes(self)
+        var continuation_count = _count_utf8_continuation_bytes(self.as_bytes())
         return self.byte_length() - continuation_count
 
     fn get_immutable(
