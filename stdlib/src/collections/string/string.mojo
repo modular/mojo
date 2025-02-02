@@ -897,7 +897,7 @@ struct String(
         for i in r:
             buffer.append(ptr[i])
         buffer.append(0)
-        return Self(buffer=buffer^)
+        return String(buffer=buffer^)
 
     @always_inline
     fn __eq__(self, other: String) -> Bool:
@@ -995,7 +995,7 @@ struct String(
         buffer.extend(lhs)
         buffer.extend(rhs)
         buffer.append(0)
-        return Self(buffer^)
+        return String(buffer=buffer^)
 
     @always_inline
     fn __add__(self, other: StringSlice) -> String:
@@ -1975,8 +1975,7 @@ struct String(
         buffer.resize(width, fillbyte)
         buffer.append(0)
         memcpy(buffer.unsafe_ptr().offset(start), self.unsafe_ptr(), len(self))
-        var result = String(buffer=buffer)
-        return result^
+        return String(buffer=buffer)
 
     fn reserve(mut self, new_capacity: Int):
         """Reserves the requested capacity.
