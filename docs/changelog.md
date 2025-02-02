@@ -416,7 +416,8 @@ what we publish.
 
   Examples:
 
-  Extending a List
+  Extending a List:
+
   ```mojo
   base_data = List[Byte](1, 2, 3)
 
@@ -436,7 +437,8 @@ what we publish.
   ext_data_vec_partial.extend(data_vec, count=3) # [1, 2, 3, 4, 5, 6]
   ```
 
-  Slicing and extending a list efficiently
+  Slicing and extending a list efficiently:
+
   ```mojo
   base_data = List[Byte](1, 2, 3, 4, 5, 6)
   n4_n5 = Span(base_data)[3:5]

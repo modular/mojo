@@ -146,7 +146,7 @@ struct _FormatCurlyEntry(CollectionElement, CollectionElementNew):
         var fmt_len = fmt_src.byte_length()
         var buf = String._buffer_type(capacity=fmt_len + size_estimation)
         buf.append(0)
-        var res = String(buf^)
+        var res = String(buffer=buf^)
         var offset = 0
         var ptr = fmt_src.unsafe_ptr()
         alias S = StringSlice[StaticConstantOrigin]
