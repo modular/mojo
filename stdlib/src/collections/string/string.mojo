@@ -847,7 +847,7 @@ struct String(
         if buff[-1]:
             buff.append(0)
 
-        return String(buff^)
+        return String(buffer=buff^)
 
     # ===------------------------------------------------------------------=== #
     # Operator dunders
@@ -867,10 +867,7 @@ struct String(
         """
         # TODO(#933): implement this for unicode when we support llvm intrinsic evaluation at compile time
         var normalized_idx = normalize_index["String"](index(idx), self)
-        var buf = Self._buffer_type(capacity=1)
-        buf.append(self._buffer[normalized_idx])
-        buf.append(0)
-        return String(buf^)
+        return String(buffer=Self._buffer_type(self._buffer[normalized_idx], 0))
 
     fn __getitem__(self, span: Slice) -> String:
         """Gets the sequence of characters at the specified positions.
@@ -895,14 +892,12 @@ struct String(
                 )
             )
 
-        var buffer = Self._buffer_type()
-        var result_len = len(r)
-        buffer.resize(result_len + 1, 0)
+        var buffer = Self._buffer_type(capacity=len(r) + 1)
         var ptr = self.unsafe_ptr()
-        for i in range(result_len):
-            buffer[i] = ptr[r[i]]
-        buffer[result_len] = 0
-        return Self(buffer^)
+        for i in r:
+            buffer.append(ptr[i])
+        buffer.append(0)
+        return Self(buffer=buffer^)
 
     @always_inline
     fn __eq__(self, other: String) -> Bool:
@@ -1980,7 +1975,7 @@ struct String(
         buffer.resize(width, fillbyte)
         buffer.append(0)
         memcpy(buffer.unsafe_ptr().offset(start), self.unsafe_ptr(), len(self))
-        var result = String(buffer)
+        var result = String(buffer=buffer)
         return result^
 
     fn reserve(mut self, new_capacity: Int):
