@@ -753,13 +753,11 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             The string concatenated `n` times.
         """
 
-        var len_self = self.byte_length()
-        var count = len_self * n + 1
-        var b_ptr = UnsafePointer[Byte].alloc(count)
+        var buffer = List[Byte](capacity=self.byte_length() * n + 1)
         for i in range(n):
-            memcpy(b_ptr + len_self * i, self.unsafe_ptr(), len_self)
-        b_ptr[count - 1] = 0
-        return String(List(ptr=b_ptr, length=count, capacity=count))
+            buffer.extend(self.as_bytes())
+        buffer.append(0)
+        return String(buffer=buffer)
 
     # ===------------------------------------------------------------------===#
     # Methods

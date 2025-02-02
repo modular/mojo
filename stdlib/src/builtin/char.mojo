@@ -258,7 +258,7 @@ struct Char(CollectionElement, EqualityComparable, Intable, Stringable):
         var buffer = List[Byte](capacity=char_len + 1)
         _ = self.unsafe_write_utf8(buffer.unsafe_ptr())
         buffer.unsafe_ptr()[char_len] = 0
-        buffer.size = char_len + 1
+        buffer._len = char_len + 1
         return String(buffer=buffer^)
 
     # ===-------------------------------------------------------------------===#

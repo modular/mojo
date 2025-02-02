@@ -995,17 +995,11 @@ struct String(
         if lhs_len == 0:
             return String(S(ptr=rhs.unsafe_ptr(), length=rhs_len))
         elif rhs_len == 0:
-            return String(S(ptr=lhs_ptr, length=lhs_len))
-        var sum_len = lhs_len + rhs_len
-        var buffer = Self._buffer_type(capacity=sum_len + 1)
-        var ptr = buffer.unsafe_ptr()
-        memcpy(ptr, lhs_ptr, lhs_len)
-        memcpy(ptr + lhs_len, rhs_ptr, rhs_len + Int(rhs_has_null))
-        buffer.size = sum_len + 1
-
-        @parameter
-        if not rhs_has_null:
-            ptr[sum_len] = 0
+            return String(S(ptr=lhs.unsafe_ptr(), length=lhs_len))
+        var buffer = Self._buffer_type(capacity=lhs_len + rhs_len + 1)
+        buffer.extend(lhs)
+        buffer.extend(rhs)
+        buffer.append(0)
         return Self(buffer^)
 
     @always_inline
@@ -1036,17 +1030,11 @@ struct String(
         var o_len = len(other)
         if o_len == 0:
             return
-        elif o_len == 0:
-            return
-        var sum_len = s_len + o_len
-        self._buffer.reserve(sum_len + 1)
-        var s_ptr = self.unsafe_ptr()
-        memcpy(s_ptr + s_len, o_ptr, o_len + Int(has_null))
-        self._buffer.size = sum_len + 1
-
-        @parameter
-        if not has_null:
-            s_ptr[sum_len] = 0
+        self._buffer.reserve(self.byte_length() + o_len + 1)
+        if len(self._buffer) > 0:
+            _ = self._buffer.pop()
+        self._buffer.extend(other)
+        self._buffer.append(0)
 
     @always_inline
     fn __iadd__(mut self, other: StringSlice):
