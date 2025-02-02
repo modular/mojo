@@ -182,7 +182,9 @@ fn to_lowercase(s: StringSlice) -> String:
         var lowercase_char_opt = _get_lowercase_mapping(rune_and_size[0])
         if lowercase_char_opt is None:
             output.extend(
-                Span[Byte, s.origin](ptr=input + input_offset, length=rune_and_size[1])
+                Span[Byte, s.origin](
+                    ptr=input + input_offset, length=rune_and_size[1]
+                )
             )
         else:
             var lower_char: Char = lowercase_char_opt.unsafe_value()
@@ -236,7 +238,9 @@ fn to_uppercase(s: StringSlice) -> String:
                 )
         else:
             output.extend(
-                Span[Byte, s.origin](ptr=input + input_offset, length=rune_and_size[1])
+                Span[Byte, s.origin](
+                    ptr=input + input_offset, length=rune_and_size[1]
+                )
             )
 
         input_offset += rune_and_size[1]
