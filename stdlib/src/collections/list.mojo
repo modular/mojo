@@ -898,7 +898,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
                 -self._len <= normalized_idx < self._len,
                 "index: ",
                 normalized_idx,
-                " is out of bounds for `List` of size: ",
+                " is out of bounds for `List` of length: ",
                 self._len,
             )
             if normalized_idx < 0:
