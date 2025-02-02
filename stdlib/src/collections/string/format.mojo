@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -247,7 +247,7 @@ struct _FormatCurlyEntry(CollectionElement, CollectionElementNew):
         elif manual_indexing_count and automatic_indexing_count:
             raise Error("Cannot both use manual and automatic indexing")
         elif raised_manual_index:
-            var val = str(raised_manual_index.value())
+            var val = String(raised_manual_index.value())
             raise Error("Index " + val + " not in *args")
         elif start:
             raise Error(l_err)
@@ -298,13 +298,13 @@ struct _FormatCurlyEntry(CollectionElement, CollectionElementNew):
         else:
             new_idx += 1
 
-        var extra = int(new_idx < field_len)
+        var extra = Int(new_idx < field_len)
         var fmt_field = _build_slice(field_ptr, new_idx + extra, field_len)
         self.format_spec = _FormatSpec.parse(fmt_field)
-        var w = int(self.format_spec.value().width) if self.format_spec else 0
+        var w = Int(self.format_spec.value().width) if self.format_spec else 0
         # fully guessing the byte width here to be at least 8 bytes per entry
         # minus the length of the whole format specification
-        total_estimated_entry_byte_width += 8 * int(w > 0) + w - (field_len + 2)
+        total_estimated_entry_byte_width += 8 * Int(w > 0) + w - (field_len + 2)
 
         if field.byte_length() == 0:
             # an empty field, so it's automatic indexing
@@ -317,7 +317,7 @@ struct _FormatCurlyEntry(CollectionElement, CollectionElementNew):
                 # field is a number for manual indexing:
                 # TODO: add support for "My name is {0.name}".format(Person(name="Fred"))
                 # TODO: add support for "My name is {0[name]}".format({"name": "Fred"})
-                var number = int(field)
+                var number = Int(field)
                 self.field = number
                 if number >= len_pos_args or number < 0:
                     raised_manual_index = number
@@ -325,11 +325,11 @@ struct _FormatCurlyEntry(CollectionElement, CollectionElementNew):
                 manual_indexing_count += 1
             except e:
                 alias unexp = "Not the expected error from atol"
-                debug_assert("not convertible to integer" in str(e), unexp)
+                debug_assert("not convertible to integer" in String(e), unexp)
                 # field is a keyword for **kwargs:
                 # TODO: add support for "My name is {person.name}".format(person=Person(name="Fred"))
                 # TODO: add support for "My name is {person[name]}".format(person={"name": "Fred"})
-                var f = str(field)
+                var f = String(field)
                 self.field = f
                 raised_kwarg_field = f
                 return True
@@ -361,16 +361,16 @@ struct _FormatCurlyEntry(CollectionElement, CollectionElementNew):
 
                     var data: String
                     if empty and type_impls_write_str:
-                        data = str(args[i])  # TODO: use writer and return
+                        data = String(args[i])  # TODO: use writer and return
                     elif empty and type_impls_str:
-                        data = str(args[i])
+                        data = String(args[i])
                     elif flag == `s` and type_impls_write_str:
                         if empty:
                             # TODO: use writer and return
                             pass
-                        data = str(args[i])
+                        data = String(args[i])
                     elif flag == `s` and type_impls_str:
-                        data = str(args[i])
+                        data = String(args[i])
                     elif flag == `r` and type_impls_write_repr:
                         if empty:
                             # TODO: use writer and return
@@ -385,8 +385,8 @@ struct _FormatCurlyEntry(CollectionElement, CollectionElementNew):
                         alias argnum = "Argument number: "
                         alias does_not = " does not implement the trait "
                         alias needed = "needed for conversion_flag: "
-                        var flg = String(List[UInt8](flag, 0))
-                        raise Error(argnum + str(i) + does_not + needed + flg)
+                        var flg = String(buffer=List[UInt8](flag, 0))
+                        raise Error(String(argnum, i, does_not, needed, flg))
 
                     if self.format_spec:
                         self.format_spec.value().format(
@@ -527,7 +527,7 @@ struct _FormatSpec:
 
     In addition to the above presentation types, integers can be formatted with
     the floating-point presentation types listed below (except 'n' and None).
-    When doing so, float() is used to convert the integer to a floating-point
+    When doing so, Float64() is used to convert the integer to a floating-point
     number before formatting.
 
     The available presentation types for float and Decimal values are:
@@ -585,7 +585,7 @@ struct _FormatSpec:
     large as needed to represent the given value faithfully.\
     For Decimal, this is the same as either 'g' or 'G' depending on the value\
     of context.capitals for the current decimal context.\
-    The overall effect is to match the output of str() as altered by the other\
+    The overall effect is to match the output of String() as altered by the other\
     format modifiers.|
     """
 
@@ -698,7 +698,7 @@ struct _FormatSpec:
         # TODO: transform to int/float depending on format spec
         # TODO: send to float/int 's  __format__ method
         # their methods should stringify as hex/bin/oct etc.
-        res += str(item)
+        res += String(item)
 
 
 # ===-----------------------------------------------------------------------===#

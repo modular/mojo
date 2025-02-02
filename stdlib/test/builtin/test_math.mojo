@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -59,6 +59,10 @@ def test_min():
     assert_equal(min(i, I(-9, -6, -4, 11)), I(-10, -6, -4, 10))
     assert_equal(min(i, -4), I(-10, -5, -4, -4))
 
+    assert_equal(min(1), 1)
+    assert_equal(min(1, 2, 3, 4), 1)
+    assert_equal(min(500, 1, 2, 3, 4), 1)
+
 
 def test_max():
     assert_equal(-1, max(-2, -1))
@@ -78,6 +82,10 @@ def test_max():
     var i = I(-10, -5, 5, 10)
     assert_equal(max(i, I(-9, -6, -4, 11)), I(-9, -5, 5, 11))
     assert_equal(max(i, -4), I(-4, -4, 5, 10))
+
+    assert_equal(max(1), 1)
+    assert_equal(max(1, 2, 3, 4), 4)
+    assert_equal(max(-10, 2, 3, 4, -10), 4)
 
 
 def test_round():
@@ -107,9 +115,9 @@ def test_pow():
     alias F = SIMD[DType.float32, 4]
     var base = F(0.0, 1.0, 2.0, 3.0)
     assert_equal(pow(base, 2.0), F(0.0, 1.0, 4.0, 9.0))
-    assert_equal(pow(base, int(2)), F(0.0, 1.0, 4.0, 9.0))
+    assert_equal(pow(base, Int(2)), F(0.0, 1.0, 4.0, 9.0))
     alias I = SIMD[DType.int32, 4]
-    assert_equal(pow(I(0, 1, 2, 3), int(2)), I(0, 1, 4, 9))
+    assert_equal(pow(I(0, 1, 2, 3), Int(2)), I(0, 1, 4, 9))
 
 
 def main():

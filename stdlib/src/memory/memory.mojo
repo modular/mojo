@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -79,7 +79,7 @@ fn _memcmp_impl_unconstrained[
         var s2i = s2.load[width=simd_width](i)
         var diff = s1i != s2i
         if any(diff):
-            var index = int(
+            var index = Int(
                 diff.select(
                     iota, SIMD[DType.uint8, simd_width](255)
                 ).reduce_min()
@@ -90,7 +90,7 @@ fn _memcmp_impl_unconstrained[
     var s2i = s2.load[width=simd_width](last)
     var diff = s1i != s2i
     if any(diff):
-        var index = int(
+        var index = Int(
             diff.select(iota, SIMD[DType.uint8, simd_width](255)).reduce_min()
         )
         return -1 if s1i[index] < s2i[index] else 1
@@ -414,20 +414,33 @@ fn stack_allocation[
     @parameter
     if is_gpu():
         # On NVGPU, SHARED and CONSTANT address spaces lower to global memory.
+
+        alias global_name = name.value() if name else "_global_alloc"
+
         @parameter
-        if address_space in (
-            _GPUAddressSpace.SHARED,
-            _GPUAddressSpace.CONSTANT,
-        ):
-            alias global_name = name.value() if name else "_global_alloc"
+        if address_space == _GPUAddressSpace.SHARED:
+            return __mlir_op.`pop.global_alloc`[
+                name = global_name.value,
+                count = count.value,
+                memoryType = __mlir_attr.`#pop<global_alloc_addr_space gpu_shared>`,
+                _type = UnsafePointer[
+                    type, address_space=address_space, alignment=alignment
+                ]._mlir_type,
+                alignment = alignment.value,
+            ]()
+        elif address_space == _GPUAddressSpace.CONSTANT:
+            # No need to annotation this global_alloc because constants in
+            # GPU shared memory won't prevent llvm module splitting to
+            # happen since they are immutables.
             return __mlir_op.`pop.global_alloc`[
                 name = global_name.value,
                 count = count.value,
                 _type = UnsafePointer[
-                    type, address_space=address_space
+                    type, address_space=address_space, alignment=alignment
                 ]._mlir_type,
                 alignment = alignment.value,
             ]()
+
         # MSTDL-797: The NVPTX backend requires that `alloca` instructions may
         # only have generic address spaces. When allocating LOCAL memory,
         # addrspacecast the resulting pointer.
@@ -446,7 +459,9 @@ fn stack_allocation[
     # Perofrm a stack allocation of the requested size, alignment, and type.
     return __mlir_op.`pop.stack_allocation`[
         count = count.value,
-        _type = UnsafePointer[type, address_space=address_space]._mlir_type,
+        _type = UnsafePointer[
+            type, address_space=address_space, alignment=alignment
+        ]._mlir_type,
         alignment = alignment.value,
     ]()
 

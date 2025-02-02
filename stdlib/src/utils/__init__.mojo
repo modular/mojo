@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -18,6 +18,5 @@ from .lock import BlockingScopedLock, BlockingSpinLock, SpinWaiter
 from .loop import unroll
 from .static_tuple import StaticTuple
 from collections.string.string_slice import StaticString, StringSlice
-from .stringref import StringRef
 from .variant import Variant
 from .write import Writable, Writer, write_args, write_buffered

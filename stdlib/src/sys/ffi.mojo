@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -17,7 +17,7 @@ from sys._libc import dlclose, dlerror, dlopen, dlsym
 
 from memory import UnsafePointer
 
-from utils import StringRef
+from collections.string import StringSlice
 
 from .info import is_64bit, os_is_linux, os_is_macos, os_is_windows
 from .intrinsics import _mlirtype_is_eq
@@ -29,6 +29,9 @@ from .intrinsics import _mlirtype_is_eq
 alias c_char = Int8
 """C `char` type."""
 
+alias c_uchar = UInt8
+"""C `unsigned char` type."""
+
 alias c_int = Int32
 """C `int` type.
 
@@ -38,6 +41,12 @@ today.
 
 alias c_uint = UInt32
 """C `unsigned int` type."""
+
+alias c_short = Int16
+"""C `short` type."""
+
+alias c_ushort = UInt16
+"""C `unsigned short` type."""
 
 alias c_long = Scalar[_c_long_dtype()]
 """C `long` type.
@@ -56,6 +65,12 @@ alias c_size_t = UInt
 
 alias c_ssize_t = Int
 """C `ssize_t` type."""
+
+alias c_float = Float32
+"""C `float` type."""
+
+alias c_double = Float64
+"""C `double` type."""
 
 alias OpaquePointer = UnsafePointer[NoneType]
 """An opaque pointer, equivalent to the C `void*` type."""
@@ -174,7 +189,14 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             var handle = dlopen(path.unsafe_cstr_ptr(), flags)
             if handle == OpaquePointer():
                 var error_message = dlerror()
-                abort("dlopen failed: " + String(error_message))
+                abort(
+                    "dlopen failed: ",
+                    String(
+                        StringSlice[error_message.origin](
+                            unsafe_from_utf8_cstr_ptr=error_message
+                        )
+                    ),
+                )
             self.handle = handle
         else:
             self.handle = OpaquePointer()
@@ -206,7 +228,7 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             name.unsafe_cstr_ptr(),
         )
 
-        return bool(opaque_function_ptr)
+        return Bool(opaque_function_ptr)
 
     # TODO(#15590): Implement support for windows and remove the always_inline.
     @always_inline
@@ -355,7 +377,12 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             var err = dlerror()
 
             if err:
-                abort("dlsym failed: " + String(err))
+                abort(
+                    "dlsym failed: ",
+                    String(
+                        StringSlice[err.origin](unsafe_from_utf8_cstr_ptr=err)
+                    ),
+                )
 
         return res
 
@@ -418,7 +445,7 @@ fn _get_dylib_function[
     var new_func = dylib._get_function[func_name, result_type]()
 
     external_call["KGEN_CompilerRT_InsertGlobal", NoneType](
-        StringRef(func_cache_name),
+        StringSlice(func_cache_name),
         UnsafePointer.address_of(new_func).bitcast[OpaquePointer]()[],
     )
 
@@ -475,7 +502,7 @@ fn _get_global[
     destroy_fn: fn (OpaquePointer) -> None,
 ](payload: OpaquePointer = OpaquePointer()) -> OpaquePointer:
     return external_call["KGEN_CompilerRT_GetGlobalOrCreate", OpaquePointer](
-        StringRef(name),
+        StringSlice(name),
         payload,
         init_fn,
         destroy_fn,

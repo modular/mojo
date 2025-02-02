@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -243,7 +243,7 @@ fn sqrt[
 
         @parameter
         for i in range(simd_width):
-            res[i] = sqrt(int(x[i]))
+            res[i] = sqrt(Int(x[i]))
         return res
     elif is_nvidia_gpu():
 
@@ -421,8 +421,8 @@ fn exp2[
             1.33336498402e-3,
         ),
     ](xc)
-    return __type_of(r)(
-        from_bits=(r.to_bits() + (m << FPUtils[type].mantissa_width()))
+    return __type_of(r).from_bits(
+        (r.to_bits() + (m << FPUtils[type].mantissa_width()))
     )
 
 
@@ -489,7 +489,7 @@ fn _ldexp_impl[
     alias integral_type = FPUtils[type].integral_type
     var m = exp.cast[integral_type]() + FPUtils[type].exponent_bias()
 
-    return x * __type_of(x)(from_bits=m << FPUtils[type].mantissa_width())
+    return x * __type_of(x).from_bits(m << FPUtils[type].mantissa_width())
 
 
 @always_inline
@@ -676,7 +676,7 @@ fn frexp[
         (((mask1 & x_int) >> mantissa_width) - exponent_bias).cast[type](),
         zero,
     )
-    var frac = selector.select(T(from_bits=x_int & ~mask1 | mask2), zero)
+    var frac = selector.select(T.from_bits(x_int & ~mask1 | mask2), zero)
     return StaticTuple[size=2](frac, exp)
 
 
@@ -2588,7 +2588,7 @@ trait CeilDivable:
         var x: Float64
 
         fn __ceildiv__(self, denominator: Self) -> Self:
-            return -(self.x // -denominator.x)
+            return Self(self.x // denominator.x)
     ```
     """
 
@@ -2621,7 +2621,7 @@ trait CeilDivableRaising:
         var x: object
 
         fn __ceildiv__(self, denominator: Self) raises -> Self:
-            return -(self.x // -denominator.x)
+            return Self(self.x // denominator.x)
     ```
     """
 

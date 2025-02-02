@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -22,7 +22,7 @@ var a = Optional(1)
 var b = Optional[Int](None)
 if a:
     print(a.value())  # prints 1
-if b:  # bool(b) is False, so no print
+if b:  # Bool(b) is False, so no print
     print(b.value())
 var c = a.or_else(2)
 var d = b.or_else(2)
@@ -73,7 +73,7 @@ struct Optional[T: CollectionElement](
     var b = Optional[Int](None)
     if a:
         print(a.value())  # prints 1
-    if b:  # bool(b) is False, so no print
+    if b:  # Bool(b) is False, so no print
         print(b.value())
     var c = a.or_else(2)
     var d = b.or_else(2)

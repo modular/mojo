@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -21,5 +21,5 @@ from testing import assert_not_equal, assert_true
 
 def main():
     var st = stat(__source_location().file_name)
-    assert_not_equal(str(st), "")
+    assert_not_equal(String(st), "")
     assert_true(S_ISREG(st.st_mode))

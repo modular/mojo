@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -18,10 +18,6 @@ from .string import (
     atof,
     atol,
     chr,
-    isdigit,
-    islower,
-    isprintable,
-    isupper,
     ord,
 )
-from .string_slice import StringSlice, StaticString
+from .string_slice import StringSlice, StaticString, CharsIter

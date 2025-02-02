@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -122,7 +122,7 @@ struct FloatLiteral(
         Returns:
             A string representation.
         """
-        return str(Float64(self))
+        return String(Float64(self))
 
     @always_inline("nodebug")
     fn __int_literal__(self) -> IntLiteral:
