@@ -19,8 +19,8 @@ from collections import Deque, Dict
 from collections.deque import _DequeIter
 from collections.dict import _DictEntryIter, _DictKeyIter, _DictValueIter
 from collections.list import _ListIter
+from collections.string.string_slice import _StringSliceIter, StringSlice
 from memory.span import Span, _SpanIter
-from utils.string_slice import _StringSliceIter, StringSlice
 
 from .range import _StridedRange
 
