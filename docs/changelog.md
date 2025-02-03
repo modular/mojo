@@ -100,7 +100,18 @@ what we publish.
 
 ### Standard library changes
 
+- `StringRef` has been removed in favor of `StringSlice`.
+  The two types are ABI compatible, and for the exact same
+  behavior one can use `StaticString`, which is an alias
+  to `StringSlice[StaticConstantOrigin]`.
+
 - Add a new `validate` parameter to the `b64decode()` function.
+
+- New `SIMD.from_bytes()` and `SIMD.as_bytes()` functions to convert a list of bytes
+  to a list of scalars and vice versa, accepting the endianess as an argument. Similar
+  to Python `int.from_bytes()` and `int.to_bytes()` functions.
+
+- Added more aliases in `sys.ffi` to round out the usual needs for FFI bindings.
 
 - The free floating functions for constructing different types have been
   deprecated for actual constructors:
@@ -367,6 +378,9 @@ what we publish.
 - Full struct signature information is now exposed in the documentation
   generator, and in the symbol outline and hover markdown via the Mojo Language
   Server.
+
+- The `env_get_dtype` function has been added to the `sys` module. This allows
+  you to get the value of a `DType` from the param environment.
 
 ### ❌ Removed
 
