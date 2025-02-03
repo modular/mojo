@@ -706,9 +706,10 @@ fn iter[
 @always_inline
 fn iter[
     K: KeyElement, V: CollectionElement
-](ref [_]value: _DictValueIter[K, V, *_]) -> _DictValueIter[
-    K, V, __type_of(value).dict_origin
-] as output:
+](
+    ref [_]value: _DictValueIter[K, V, *_],
+    out output: _DictValueIter[K, V, __type_of(value).dict_origin],
+):
     """Get an iterator of the input dict values.
 
     Parameters:
@@ -728,9 +729,10 @@ fn iter[
 fn iter[
     K: KeyElement,
     V: CollectionElement,
-](ref [_]value: _DictEntryIter[K, V, *_]) -> _DictEntryIter[
-    K, V, __type_of(value).dict_origin
-] as output:
+](
+    ref [_]value: _DictEntryIter[K, V, *_],
+    out output: DictEntryIter[K, V, __type_of(value).dict_origin],
+):
     """Get an iterator of the input dict items.
 
     Parameters:
@@ -909,9 +911,10 @@ fn next[
 @always_inline
 fn next[
     K: KeyElement, V: CollectionElement
-](mut value: _DictEntryIter[K, V, *_]) -> Pointer[
-    DictEntry[K, V], __type_of(value).dict_origin
-] as output:
+](
+    mut value: _DictEntryIter[K, V, *_],
+    out output: Pointer[DictEntry[K, V], __type_of(value).dict_origin],
+):
     """Get an iterator of the input dict items.
 
     Parameters:

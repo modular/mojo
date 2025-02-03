@@ -1063,7 +1063,7 @@ struct String(
         """
         self._iadd[False](other.as_bytes())
 
-    fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
+    fn __iter__(ref self) -> _StringSliceIter[__origin_of(self)]:
         """Iterate over the string unicode characters.
 
         Returns:
@@ -1071,7 +1071,7 @@ struct String(
         """
         return self.char_slices()
 
-    fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
+    fn __reversed__(ref self) -> _StringSliceIter[__origin_of(self), False]:
         """Iterate backwards over the string unicode characters.
 
         Returns:
