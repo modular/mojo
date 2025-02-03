@@ -1274,7 +1274,7 @@ struct String(
         """
         return self.as_string_slice().chars()
 
-    fn char_slices(self) -> _StringSliceIter[__origin_of(self)]:
+    fn char_slices(ref self) -> _StringSliceIter[__origin_of(self)]:
         """Returns an iterator over single-character slices of this string.
 
         Each returned slice points to a single Unicode codepoint encoded in the

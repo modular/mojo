@@ -731,7 +731,7 @@ fn iter[
     V: CollectionElement,
 ](
     ref [_]value: _DictEntryIter[K, V, *_],
-    out output: DictEntryIter[K, V, __type_of(value).dict_origin],
+    out output: _DictEntryIter[K, V, __type_of(value).dict_origin],
 ):
     """Get an iterator of the input dict items.
 
