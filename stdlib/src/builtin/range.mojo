@@ -25,7 +25,7 @@ from python import (
 )  # TODO: remove this and fixup downstream imports
 
 from utils._select import _select_register_value as select
-from utils.string_slice import StringSlice, _StringSliceIter
+from collections.string.string_slice import StringSlice, _StringSliceIter
 from collections.list import _ListIter
 from collections.dict import (
     Dict,
