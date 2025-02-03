@@ -1532,9 +1532,7 @@ struct String(
                 output.append(self[str_byte_len])
                 break
             rhs = lhs + num_bytes(self.unsafe_ptr()[lhs])
-            for s in self[
-                lhs + num_bytes(self.unsafe_ptr()[lhs]) :
-            ]:
+            for s in self[lhs + num_bytes(self.unsafe_ptr()[lhs]) :]:
                 if s.isspace():
                     break
                 rhs += s.byte_length()
