@@ -439,7 +439,7 @@ struct StringLiteral(
         """
         return self.__str__()
 
-    fn __iter__(ref self) -> _StringSliceIter[__origin_of(self)]:
+    fn __iter__(self) -> _StringSliceIter[StaticConstantOrigin]:
         """Iterate over the string unicode characters.
 
         Returns:
@@ -449,7 +449,7 @@ struct StringLiteral(
             ptr=self.unsafe_ptr(), length=self.byte_length()
         )
 
-    fn __reversed__(ref self) -> _StringSliceIter[__origin_of(self), False]:
+    fn __reversed__(self) -> _StringSliceIter[StaticConstantOrigin, False]:
         """Iterate backwards over the string unicode characters.
 
         Returns:
