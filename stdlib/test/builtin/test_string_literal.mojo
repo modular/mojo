@@ -286,20 +286,25 @@ def test_iter():
         concat += v
     assert_equal(321, atol(concat))
 
-    idx = -1
+    var idx = -1
     vs = "mojo🔥"
-    for item in iter(vs):
-        idx += 1
-        if idx == 0:
-            assert_equal("m", item)
-        elif idx == 1:
-            assert_equal("o", item)
-        elif idx == 2:
-            assert_equal("j", item)
-        elif idx == 3:
-            assert_equal("o", item)
-        elif idx == 4:
-            assert_equal("🔥", item)
+    var iterator = vs.char_slices()
+    assert_equal(5, len(iterator))
+    var item = next(iterator)
+    assert_equal(String("m"), String(item))
+    assert_equal(4, len(iterator))
+    item = next(iterator)
+    assert_equal(String("o"), String(item))
+    assert_equal(3, len(iterator))
+    item = next(iterator)
+    assert_equal(String("j"), String(item))
+    assert_equal(2, len(iterator))
+    item = next(iterator)
+    assert_equal(String("o"), String(item))
+    assert_equal(1, len(iterator))
+    item = next(iterator)
+    assert_equal(String("🔥"), String(item))
+    assert_equal(0, len(iterator))
     assert_equal(4, idx)
 
 
