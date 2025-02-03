@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -21,10 +21,10 @@ from testing import assert_equal
 
 fn test_python_version(mut python: Python) raises:
     var version = "3.10.8 (main, Nov 24 2022, 08:08:27) [Clang 14.0.6 ]"
-    var pythonVersion = PythonVersion(version)
-    assert_equal(pythonVersion.major, 3)
-    assert_equal(pythonVersion.minor, 10)
-    assert_equal(pythonVersion.patch, 8)
+    var python_version = PythonVersion(version)
+    assert_equal(python_version.major, 3)
+    assert_equal(python_version.minor, 10)
+    assert_equal(python_version.patch, 8)
 
 
 def main():

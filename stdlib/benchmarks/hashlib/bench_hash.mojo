@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -586,7 +586,7 @@ fn gen_word_pairs[words: String = words_en]() -> List[String]:
     try:
         var list = words.split(",")
         for w in list:
-            var w1 = str(w[].strip())
+            var w1 = String(w[].strip())
             for w in list:
                 var w2 = w[].strip()
                 result.append(w1 + " " + w2)

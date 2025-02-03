@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -53,16 +53,14 @@ struct _InlineListIter[
     fn __iter__(self) -> Self:
         return self
 
-    fn __next__(
-        mut self,
-    ) -> Pointer[T, __origin_of(self.src[][0])]:
+    fn __next__(mut self, out p: Pointer[T, __origin_of(self.src[][0])]):
         @parameter
         if forward:
+            p = Pointer.address_of(self.src[][self.index])
             self.index += 1
-            return Pointer.address_of(self.src[][self.index - 1])
         else:
             self.index -= 1
-            return Pointer.address_of(self.src[][self.index])
+            p = Pointer.address_of(self.src[][self.index])
 
     @always_inline
     fn __has_next__(self) -> Bool:
@@ -120,7 +118,7 @@ struct InlineList[ElementType: CollectionElementNew, capacity: Int = 16](Sized):
         debug_assert(len(values) <= capacity, "List is full.")
         self = Self()
         for value in values:
-            self.append(ElementType(other=value[]))
+            self.append(value[].copy())
 
     @always_inline
     fn __del__(owned self):
@@ -133,10 +131,13 @@ struct InlineList[ElementType: CollectionElementNew, capacity: Int = 16](Sized):
     # ===-------------------------------------------------------------------===#
 
     @always_inline
-    fn __getitem__(
-        ref self, owned idx: Int
-    ) -> ref [self._array] Self.ElementType:
+    fn __getitem__[
+        I: Indexer
+    ](ref self, idx: I) -> ref [self._array] Self.ElementType:
         """Get a `Pointer` to the element at the given index.
+
+        Parameters:
+            I: A type that can be used as an index.
 
         Args:
             idx: The index of the item.
@@ -144,14 +145,15 @@ struct InlineList[ElementType: CollectionElementNew, capacity: Int = 16](Sized):
         Returns:
             A reference to the item at the given index.
         """
+        var index = Int(idx)
         debug_assert(
-            -self._size <= idx < self._size, "Index must be within bounds."
+            -self._size <= index < self._size, "Index must be within bounds."
         )
 
-        if idx < 0:
-            idx += len(self)
+        if index < 0:
+            index += len(self)
 
-        return self._array[idx].assume_initialized()
+        return self._array[index].assume_initialized()
 
     # ===-------------------------------------------------------------------===#
     # Trait implementations
@@ -240,7 +242,7 @@ struct InlineList[ElementType: CollectionElementNew, capacity: Int = 16](Sized):
 
         var count = 0
         for e in self:
-            count += int(rebind[C](e[]) == value)
+            count += Int(rebind[C](e[]) == value)
         return count
 
     fn append(mut self, owned value: ElementType):

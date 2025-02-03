@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -115,7 +115,7 @@ def test_indexing():
     var l = InlineArray[Int, 7](1, 2, 3, 4, 5, 6, 7)
     var s = Span[Int](array=l)
     assert_equal(s[True], 2)
-    assert_equal(s[int(0)], 1)
+    assert_equal(s[Int(0)], 1)
     assert_equal(s[3], 4)
 
 
@@ -154,6 +154,15 @@ def test_bool():
     var s = Span[String](l)
     assert_true(s)
     assert_true(not s[0:0])
+
+
+def test_contains():
+    items = List[Byte](1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
+    span = Span(items)
+    assert_true(0 not in span)
+    assert_true(16 not in span)
+    for item in items:
+        assert_true(item[] in span)
 
 
 def test_equality():
@@ -199,6 +208,19 @@ def test_reversed():
         i += 1
 
 
+# We don't actually need to call this test
+# but we want to make sure it compiles
+def test_span_coerce():
+    var l = List[Int](1, 2, 3)
+    var a = InlineArray[Int, 3](1, 2, 3)
+
+    fn takes_span(s: Span[Int]):
+        pass
+
+    takes_span(l)
+    takes_span(a)
+
+
 def main():
     test_span_list_int()
     test_span_list_str()
@@ -208,6 +230,7 @@ def main():
     test_span_slice()
     test_equality()
     test_bool()
+    test_contains()
     test_fill()
     test_ref()
     test_reversed()

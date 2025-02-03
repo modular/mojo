@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -21,10 +21,6 @@ from collections.string import (
     atof,
     atol,
     chr,
-    isdigit,
-    islower,
-    isprintable,
-    isupper,
     ord,
 )
 from hashlib.hash import Hashable, hash
@@ -39,7 +35,14 @@ from builtin.builtin_list import (
     VariadicPack,
 )
 from builtin.builtin_slice import Slice, slice
-from builtin.comparable import Comparable
+from builtin.comparable import (
+    LessThanComparable,
+    GreaterThanComparable,
+    LessThanOrEqualComparable,
+    GreaterThanOrEqualComparable,
+    Comparable,
+)
+from builtin.char import Char
 from builtin.constrained import constrained
 from builtin.coroutine import AnyCoroutine, Coroutine, RaisingCoroutine
 from builtin.debug_assert import debug_assert
@@ -56,8 +59,8 @@ from builtin.int import (
     Indexer,
     Int,
     Intable,
+    ImplicitlyIntable,
     IntableRaising,
-    IntLike,
     index,
     int,
 )
@@ -131,6 +134,7 @@ from builtin.value import (
     ExplicitlyCopyable,
     Movable,
     RepresentableCollectionElement,
+    WritableCollectionElement,
     StringableCollectionElement,
 )
 from documentation import doc_private

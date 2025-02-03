@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -36,27 +36,26 @@ struct UnsafeMaybeUninitialized[ElementType: AnyType](CollectionElementNew):
     @always_inline
     fn __init__(out self):
         """The memory is now considered uninitialized."""
-        self._array = __mlir_op.`kgen.param.constant`[
-            _type = Self.type,
-            value = __mlir_attr[`#kgen.unknown : `, Self.type],
-        ]()
+        __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
     @doc_private
     @always_inline
-    fn __init__(out self, *, other: Self):
-        """It is not possible to call this method.
+    fn copy(self) -> Self:
+        """This method is not intended to be called.
 
         Trying to call this method will abort.
+
+        Returns:
+            Nothing, this method always aborts.
         """
-        abort(
-            "You should never call the explicit copy constructor of"
+        return abort[Self](
+            "You should never call the copy() method of"
             " UnsafeMaybeUninitialized because it's ambiguous to copy"
             " possibly uninitialized memory. Use"
             " `UnsafeMaybeUninitialized.copy_from()` instead if you want to"
             " trigger an explicit copy of the content of"
             " UnsafeMaybeUninitialized. It has very specific semantics."
         )
-        self = Self()
 
     @always_inline
     fn __init__[

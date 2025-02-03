@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -27,7 +27,7 @@ There are a few main tools in this module:
 
 import random
 from collections import InlineArray
-from sys import bitwidthof, simdwidthof
+from sys import bitwidthof, sizeof, simdwidthof
 from sys.ffi import _Global
 
 from builtin.dtype import _uint_type_of_width
@@ -41,11 +41,11 @@ from memory import UnsafePointer, bitcast, memcpy, memset_zero, stack_allocation
 # Doing so can help prevent DDOS attacks on data structures relying on these
 # hash functions. See `hash(bytes, n)` documentation for more details.
 # TODO(27659): This is always 0 right now
-# var HASH_SECRET = int(random.random_ui64(0, UInt64.MAX)
+# var HASH_SECRET = Int(random.random_ui64(0, UInt64.MAX)
 
 
 fn _init_hash_secret() -> Int:
-    return int(random.random_ui64(0, UInt64.MAX))
+    return Int(random.random_ui64(0, UInt64.MAX))
 
 
 alias _HASH_SECRET_VALUE = _Global["HASH_SECRET", Int, _init_hash_secret]
@@ -173,7 +173,7 @@ fn _hash_simd[type: DType, size: Int](data: SIMD[type, size]) -> UInt:
             bitcast[int_type, 1](hash_data[i]).cast[DType.uint64](),
         )
 
-    return int(final_data)
+    return Int(final_data)
 
 
 fn hash(bytes: UnsafePointer[UInt8], n: Int) -> UInt:
@@ -227,7 +227,7 @@ fn hash(bytes: UnsafePointer[UInt8], n: Int) -> UInt:
         hash collision statistical properties for common data structures.
     """
     alias type = DType.uint64
-    alias type_width = bitwidthof[type]() // bitwidthof[DType.int8]()
+    alias type_width = sizeof[type]()
     alias simd_width = simdwidthof[type]()
     # stride is the byte length of the whole SIMD vector
     alias stride = type_width * simd_width

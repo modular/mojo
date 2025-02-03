@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -52,7 +52,7 @@ def test_file_read_bytes_multi():
         assert_equal(len(bytes1), 12, "12 bytes")
         # we add the null terminator
         bytes1.append(0)
-        var string1 = String(bytes1)
+        var string1 = String(buffer=bytes1)
         assert_equal(len(string1), 12, "12 chars")
         assert_equal(string1, String("Lorem ipsum "))
 
@@ -60,7 +60,7 @@ def test_file_read_bytes_multi():
         assert_equal(len(bytes2), 6, "6 bytes")
         # we add the null terminator
         bytes2.append(0)
-        var string2 = String(bytes2)
+        var string2 = String(buffer=bytes2)
         assert_equal(len(string2), 6, "6 chars")
         assert_equal(string2, "dolor ")
 
@@ -164,7 +164,7 @@ def test_file_seek():
             _ = f.seek(-12)
         except e:
             alias expected_msg = "seek error"
-            assert_equal(str(e)[: len(expected_msg)], expected_msg)
+            assert_equal(String(e)[: len(expected_msg)], expected_msg)
 
 
 def test_file_open_nodir():
@@ -224,7 +224,7 @@ struct Word:
         word.append(self.fourth_letter)
         word.append(self.fith_letter)
         word.append(0)
-        return word
+        return String(buffer=word)
 
 
 def test_file_read_to_dtype_pointer():
@@ -232,14 +232,14 @@ def test_file_read_to_dtype_pointer():
         var ptr = UnsafePointer[UInt8].alloc(8)
         var data = f.read(ptr, 8)
         assert_equal(
-            str(ptr.load[width=8](0)),
+            String(ptr.load[width=8](0)),
             "[76, 111, 114, 101, 109, 32, 105, 112]",
         )
 
         var ptr2 = UnsafePointer[Int8].alloc(8)
         var data2 = f.read(ptr2, 8)
         assert_equal(
-            str(ptr2.load[width=8](0)),
+            String(ptr2.load[width=8](0)),
             "[115, 117, 109, 32, 100, 111, 108, 111]",
         )
 

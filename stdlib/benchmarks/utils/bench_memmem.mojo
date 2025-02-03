@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -21,7 +21,7 @@ from bit import count_trailing_zeros
 from builtin.dtype import _uint_type_of_width
 from memory import UnsafePointer, bitcast, memcmp, pack_bits
 
-from utils.stringref import _align_down, _memchr, _memmem
+from collections.string.string_slice import _align_down, _memchr, _memmem
 
 # ===-----------------------------------------------------------------------===#
 # Benchmark Data
@@ -171,7 +171,7 @@ fn _memmem_baseline[
         var bool_mask = haystack.load[width=bool_mask_width](i) == first_needle
         var mask = pack_bits(bool_mask)
         while mask:
-            var offset = int(i + count_trailing_zeros(mask))
+            var offset = Int(i + count_trailing_zeros(mask))
             if memcmp(haystack + offset + 1, needle + 1, needle_len - 1) == 0:
                 return haystack + offset
             mask = mask & (mask - 1)

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -59,7 +59,7 @@ def run_display(
         # Draw each live cell in the grid
         for row in range(grid.rows):
             for col in range(grid.cols):
-                if grid.data[row][col]:
+                if grid[row, col]:
                     x = col * cell_width + border_size
                     y = row * cell_height + border_size
                     width = cell_width - border_size

@@ -16,7 +16,7 @@ There are a some types that aren't defined as structs:
   signal "no value."
 
 Mojo comes with a standard library that provides a number of useful types and
-utility functions. These standard types aren’t privileged. Each of the standard
+utility functions. These standard types aren't privileged. Each of the standard
 library types is defined just like user-defined types—even basic types like
 [`Int`](/mojo/stdlib/builtin/int/Int) and
 [`String`](/mojo/stdlib/collections/string/String). But these standard library
@@ -304,6 +304,57 @@ Min/max finite values for float32
 There are several other data types in the standard library that also use
 the `DType` abstraction.
 
+### Numeric type conversion
+
+[Constructors and implicit conversion](/mojo/manual/lifecycle/life/#constructors-and-implicit-conversion)
+documents the circumstances in which Mojo automatically converts a value from
+one type to another. Importantly, numeric [operators](/mojo/manual/operators)
+**don't** automatically narrow or widen operands to a common type.
+
+You can explicitly convert a `SIMD` value to a different `SIMD` type either
+by invoking its [`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) method or by
+passing it as an argument to the constructor of the target type. For example:
+
+```mojo
+simd1 = SIMD[DType.float32, 4](2.2, 3.3, 4.4, 5.5)
+simd2 = SIMD[DType.int16, 4](-1, 2, -3, 4)
+simd3 = simd1 * simd2.cast[DType.float32]()  # Convert with cast() method
+print("simd3:", simd3)
+simd4 = simd2 + SIMD[DType.int16, 4](simd1)  # Convert with SIMD constructor
+print("simd4:", simd4)
+```
+
+```output
+simd3: [-2.2, 6.6, -13.200001, 22.0]
+simd4: [1, 5, 1, 9]
+```
+
+You can convert a `Scalar` value by passing it as an argument to the constructor
+of the target type. For example:
+
+```mojo
+var my_int: Int16 = 12                 # SIMD[DType.int16, 1]
+var my_float: Float32 = 0.75           # SIMD[DType.float32, 1]
+result = Float32(my_int) * my_float    # Result is SIMD[DType.float32, 1]
+print("Result:", result)
+```
+
+```output
+Result: 9.0
+```
+
+You can convert a scalar value of any numeric type to `Int` by passing the value
+to the [`Int()`](/mojo/stdlib/builtin/int/Int#__init__) constructor method.
+Additionally, you can pass an instance of any struct that implements the
+[`Intable`](/mojo/stdlib/builtin/int/Intable) trait or
+[`IntableRaising`](/mojo/stdlib/builtin/int/IntableRaising) trait to the `Int()`
+constructor to convert that instance to an `Int`.
+
+You can convert an `Int` or `IntLiteral` value to the `UInt` type by passing the
+value to the [`UInt()`](/mojo/stdlib/builtin/uint/UInt#__init__) constructor.
+You can't convert other numeric types to `UInt` directly, though you can first
+convert them to `Int` and then to `UInt`.
+
 ## Strings
 
 Mojo's `String` type represents a mutable string. (For Python programmers, note
@@ -322,11 +373,23 @@ Testing Mojo strings
 
 Most standard library types conform to the
 [`Stringable`](/mojo/stdlib/builtin/str/Stringable) trait, which represents
-a type that can be converted to a string. Use `str(value)` to
+a type that can be converted to a string. Use `String(value)` to
 explicitly convert a value to a string:
 
 ```mojo
-var s = str("Items in list: ") + str(5)
+var s = String("Items in list: ") + String(5)
+print(s)
+```
+
+```output
+Items in list: 5
+```
+
+Or use `String.write` to take variadic `Stringable` types, so you don't have to
+call `String()` on each value:
+
+```mojo
+var s = String("Items in list: ", 5)
 print(s)
 ```
 
@@ -362,9 +425,8 @@ Note that the triple double quote form is also used for API documentation
 strings.
 
 Unlike `IntLiteral` and `FloatLiteral`, `StringLiteral` doesn't automatically
-materialize to a runtime type. In some cases, you may need to manually convert
-`StringLiteral` values to `String` using the built-in
-[`str()`](/mojo/stdlib/builtin/str/str) method.
+materialize to a runtime type. In some cases, you may need to explicitly convert
+`StringLiteral` values to `String`.
 
 ```mojo
 # Variable is type `StringLiteral`
@@ -374,7 +436,7 @@ var s1 = "Example"
 var s2: String = "Example"
 
 # Variable is type `String`
-var s3 = str("Example")
+var s3 = String("Example")
 ```
 
 ## Booleans
@@ -414,7 +476,7 @@ x, y = example_tuple
 print(x, y)
 
 # Get individual values with an index
-s = example_tuple.get[1, String]()
+s = example_tuple[1]
 print(s)
 ```
 
@@ -428,8 +490,8 @@ same tuple from the previous example with implicit typing instead of explicit,
 we must also convert `"Example"` from type `StringLiteral` to type `String`.
 
 ```mojo
-example_tuple = (1, str("Example"))
-s = example_tuple.get[1, String]()
+example_tuple = (1, String("Example"))
+s = example_tuple[1]
 print(s)
 ```
 
@@ -672,7 +734,7 @@ results in undefined behavior, so you should always guard a call to `value()`
 inside a conditional that checks whether a value exists.
 
 ```mojo
-var opt: Optional[String] = str("Testing")
+var opt: Optional[String] = String("Testing")
 if opt:
     var value_ref = opt.value()
     print(value_ref)
@@ -689,7 +751,7 @@ value if there is one, or a user-specified default value otherwise:
 var custom_greeting: Optional[String] = None
 print(custom_greeting.or_else("Hello"))
 
-custom_greeting = str("Hi")
+custom_greeting = String("Hi")
 print(custom_greeting.or_else("Hello"))
 
 ```
