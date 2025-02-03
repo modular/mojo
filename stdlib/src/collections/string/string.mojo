@@ -1069,7 +1069,9 @@ struct String(
         Returns:
             An iterator of references to the string unicode characters.
         """
-        return self.char_slices()
+        return _StringSliceIter[__origin_of(self)](
+            ptr=self.unsafe_ptr(), length=self.byte_length()
+        )
 
     fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
         """Iterate backwards over the string unicode characters.
@@ -1273,33 +1275,6 @@ struct String(
         .
         """
         return self.as_string_slice().chars()
-
-    fn char_slices(self) -> _StringSliceIter[__origin_of(self)]:
-        """Returns an iterator over single-character slices of this string.
-
-        Each returned slice points to a single Unicode codepoint encoded in the
-        underlying UTF-8 representation of this string.
-
-        Returns:
-            An iterator of references to the string elements.
-
-        # Examples
-
-        Iterate over the character slices in a string:
-
-        ```mojo
-        from testing import assert_equal, assert_true
-
-        var s = String("abc")
-        var iter = s.char_slices()
-        assert_true(iter.__next__() == "a")
-        assert_true(iter.__next__() == "b")
-        assert_true(iter.__next__() == "c")
-        assert_equal(iter.__has_next__(), False)
-        ```
-        .
-        """
-        return self.as_string_slice().char_slices()
 
     fn unsafe_ptr(
         ref self,
@@ -1543,7 +1518,7 @@ struct String(
         while lhs <= str_byte_len:
             # Python adds all "whitespace chars" as one separator
             # if no separator was specified
-            for s in self[lhs:].char_slices():
+            for s in self[lhs:]:
                 if not s.isspace():
                     break
                 lhs += s.byte_length()
@@ -1559,7 +1534,7 @@ struct String(
             rhs = lhs + num_bytes(self.unsafe_ptr()[lhs])
             for s in self[
                 lhs + num_bytes(self.unsafe_ptr()[lhs]) :
-            ].char_slices():
+            ]:
                 if s.isspace():
                     break
                 rhs += s.byte_length()

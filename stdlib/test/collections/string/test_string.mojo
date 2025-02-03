@@ -1141,7 +1141,7 @@ def test_string_chars_iter():
 
 def test_string_char_slices_iter():
     var s0 = String("abc")
-    var s0_iter = s0.char_slices()
+    var s0_iter = s0.__iter__()
     assert_true(s0_iter.__next__() == "a")
     assert_true(s0_iter.__next__() == "b")
     assert_true(s0_iter.__next__() == "c")
@@ -1174,7 +1174,7 @@ def test_string_char_slices_iter():
 
     var idx = -1
     vs = String("mojo🔥")
-    var iterator = vs.char_slices()
+    var iterator = vs.__iter__()
     assert_equal(5, len(iterator))
     var item = iterator.__next__()
     assert_equal(String("m"), String(item))

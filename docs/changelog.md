@@ -228,11 +228,12 @@ what we publish.
   - `b16encode()`
   - `b16decode()`
 
-- Added new `String.chars()` and `String.char_slices()` iterator methods.
+- Added new `String.chars()` iterator method.
 
   Different use-cases may prefer iterating over the `Char`s encoded in a string,
   or iterating over subslices containing single characters. The existing
-  `__iter__()` method defaults to `String.char_slices()`.
+  `__iter__()` method defaults to returning `StringSlice`s of the unicode
+  characters.
 
 - The `String.__len__()` and `StringSlice.__len__()` methods now return the
   length of the string in bytes.
