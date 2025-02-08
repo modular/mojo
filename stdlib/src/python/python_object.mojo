@@ -446,15 +446,15 @@ struct PythonObject(
 
             @parameter
             if _type_is_eq[T, PythonObject]():
-                obj = value.get[i, PythonObject]()
+                obj = value.unsafe_get[i, PythonObject]()
             elif _type_is_eq[T, Int]():
-                obj = PythonObject(value.get[i, Int]())
+                obj = PythonObject(value.unsafe_get[i, Int]())
             elif _type_is_eq[T, Float64]():
-                obj = PythonObject(value.get[i, Float64]())
+                obj = PythonObject(value.unsafe_get[i, Float64]())
             elif _type_is_eq[T, Bool]():
-                obj = PythonObject(value.get[i, Bool]())
+                obj = PythonObject(value.unsafe_get[i, Bool]())
             elif _type_is_eq[T, StringLiteral]():
-                obj = PythonObject(value.get[i, StringLiteral]())
+                obj = PythonObject(value.unsafe_get[i, StringLiteral]())
             else:
                 obj = PythonObject(0)
                 constrained[

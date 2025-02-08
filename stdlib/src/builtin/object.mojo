@@ -854,13 +854,13 @@ struct object(
 
             @parameter
             if _type_is_eq[T, Int]():
-                self._append(value.get[i, Int]())
+                self._append(value.unsafe_get[i, Int]())
             elif _type_is_eq[T, Float64]():
-                self._append(value.get[i, Float64]())
+                self._append(value.unsafe_get[i, Float64]())
             elif _type_is_eq[T, Bool]():
-                self._append(value.get[i, Bool]())
+                self._append(value.unsafe_get[i, Bool]())
             elif _type_is_eq[T, StringLiteral]():
-                self._append(value.get[i, StringLiteral]())
+                self._append(value.unsafe_get[i, StringLiteral]())
             else:
                 constrained[
                     False, "cannot convert nested list element to object"

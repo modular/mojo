@@ -91,10 +91,13 @@ struct ListLiteral[*Ts: CollectionElement](Sized, CollectionElement):
     # Methods
     # ===-------------------------------------------------------------------===#
 
-    # FIXME: This should have a getitem like Tuple does, not a "get" method.
     @always_inline
-    fn get[i: Int, T: CollectionElement](self) -> ref [self.storage] T:
+    fn unsafe_get[i: Int, T: CollectionElement](self) -> ref [self.storage] T:
         """Get a list element at the given index.
+
+        Users should consider using `__getitem__` instead of this method as it is
+        unsafe. If type T does not match the actual type at index i, this will
+        result in undefined behavior.
 
         Parameters:
             i: The element index.
@@ -108,6 +111,18 @@ struct ListLiteral[*Ts: CollectionElement](Sized, CollectionElement):
     # ===-------------------------------------------------------------------===#
     # Operator dunders
     # ===-------------------------------------------------------------------===#
+
+    @always_inline
+    fn __getitem__[idx: Int](ref self) -> ref [self.storage] Ts[idx.value]:
+        """Get a reference to an element in the list.
+
+        Parameters:
+            idx: The element to return.
+
+        Returns:
+            A reference to the specified element.
+        """
+        return rebind[Ts[idx.value]](self.storage[idx])
 
     @always_inline
     fn __contains__[
