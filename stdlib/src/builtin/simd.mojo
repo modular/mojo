@@ -34,6 +34,7 @@ from sys import (
     bitwidthof,
     has_neon,
     is_amd_gpu,
+    is_big_endian,
     is_gpu,
     is_nvidia_gpu,
     is_x86,
@@ -45,13 +46,13 @@ from sys import (
 from sys._assembly import inlined_assembly
 from sys.info import _current_arch, _is_sm_9x
 
-from bit import pop_count
+from bit import pop_count, byte_swap
 from builtin._format_float import _write_float
 from builtin.dtype import _uint_type_of_width
 from builtin.format_int import _try_write_int
 from builtin.io import _snprintf
 from documentation import doc_private
-from memory import UnsafePointer, bitcast, Span
+from memory import UnsafePointer, bitcast, memcpy, Span
 
 from utils import IndexList, StaticTuple
 from utils._visualizers import lldb_formatter_wrapping_type
@@ -95,7 +96,7 @@ alias Int64 = Scalar[DType.int64]
 alias UInt64 = Scalar[DType.uint64]
 """Represents a 64-bit unsigned scalar integer."""
 
-alias Float8e5m2 = Scalar[DType.float8e5m2]
+alias Float8_e5m2 = Scalar[DType.float8_e5m2]
 """Represents a FP8E5M2 floating point format from the [OFP8
 standard](https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-ofp8-revision-1-0-2023-12-01-pdf-1).
 
@@ -109,7 +110,7 @@ The 8 bits are encoded as `seeeeemm`:
 - -inf: 11111100
 - -0: 10000000
 """
-alias Float8e5m2fnuz = Scalar[DType.float8e5m2fnuz]
+alias Float8_e5m2fnuz = Scalar[DType.float8_e5m2fnuz]
 """Represents a FP8E5M2FNUZ floating point format.
 
 The 8 bits are encoded as `seeeeemm`:
@@ -121,7 +122,7 @@ The 8 bits are encoded as `seeeeemm`:
 - fn: finite (no inf or -inf encodings)
 - uz: unsigned zero (no -0 encoding)
 """
-alias Float8e4m3 = Scalar[DType.float8e4m3]
+alias Float8_e4m3 = Scalar[DType.float8_e4m3]
 """Represents a FP8E4M3 floating point format from the [OFP8
 standard](https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-ofp8-revision-1-0-2023-12-01-pdf-1).
 
@@ -137,7 +138,7 @@ The 8 bits are encoded as `seeeemmm`:
 - -0: 10000000
 - fn: finite (no inf or -inf encodings)
 """
-alias Float8e4m3fnuz = Scalar[DType.float8e4m3fnuz]
+alias Float8_e4m3fnuz = Scalar[DType.float8_e4m3fnuz]
 """Represents a FP8E4M3FNUZ floating point format.
 
 The 8 bits are encoded as `seeeemmm`:
@@ -207,11 +208,11 @@ fn _unchecked_zero[type: DType, size: Int]() -> SIMD[type, size]:
             value = __mlir_attr[`#pop.simd<0> : !pop.scalar<index>`],
         ]()
     )
-    return SIMD[type, size] {
-        value: __mlir_op.`pop.simd.splat`[
+    return SIMD[type, size](
+        __mlir_op.`pop.simd.splat`[
             _type = __mlir_type[`!pop.simd<`, size.value, `, `, type.value, `>`]
         ](zero)
-    }
+    )
 
 
 @always_inline("nodebug")
@@ -268,6 +269,7 @@ struct SIMD[type: DType, size: Int](
     alias _Mask = SIMD[DType.bool, size]
 
     alias element_type = type
+
     var value: __mlir_type[`!pop.simd<`, size.value, `, `, type.value, `>`]
     """The underlying storage for the vector."""
 
@@ -554,7 +556,7 @@ struct SIMD[type: DType, size: Int](
         # TODO (#36686): This introduces unneeded casts here to work around
         # parameter if issues.
         @parameter
-        if type is DType.float8e4m3:
+        if type is DType.float8_e4m3:
             self = SIMD[type, size](
                 __mlir_op.`pop.simd.splat`[
                     _type = __mlir_type[
@@ -572,7 +574,7 @@ struct SIMD[type: DType, size: Int](
                     )
                 )
             )
-        elif type is DType.float8e4m3fnuz:
+        elif type is DType.float8_e4m3fnuz:
             self = SIMD[type, size](
                 __mlir_op.`pop.simd.splat`[
                     _type = __mlir_type[
@@ -590,7 +592,7 @@ struct SIMD[type: DType, size: Int](
                     )
                 )
             )
-        elif type is DType.float8e5m2:
+        elif type is DType.float8_e5m2:
             self = SIMD[type, size](
                 __mlir_op.`pop.simd.splat`[
                     _type = __mlir_type[
@@ -608,7 +610,7 @@ struct SIMD[type: DType, size: Int](
                     )
                 )
             )
-        elif type is DType.float8e5m2fnuz:
+        elif type is DType.float8_e5m2fnuz:
             self = SIMD[type, size](
                 __mlir_op.`pop.simd.splat`[
                     _type = __mlir_type[
@@ -1828,7 +1830,7 @@ struct SIMD[type: DType, size: Int](
                 return self.cast[DType.float32]().cast[target]()
 
         @parameter
-        if target in (DType.float8e4m3, DType.float8e5m2):
+        if target in (DType.float8_e4m3, DType.float8_e5m2):
             # TODO(KERN-1488): use gpu (H100) instruction to convert from fp16 to fp8
             return rebind[SIMD[target, size]](
                 _convert_f32_to_float8[size=size, target=target](
@@ -1839,7 +1841,7 @@ struct SIMD[type: DType, size: Int](
             )
 
         @parameter
-        if type in (DType.float8e4m3, DType.float8e5m2):
+        if type in (DType.float8_e4m3, DType.float8_e5m2):
             constrained[
                 target in (DType.float32, DType.float16, DType.bfloat16),
                 (
@@ -1955,6 +1957,56 @@ struct SIMD[type: DType, size: Int](
         ]()
 
         return bitcast[_integral_type_of[type](), size](self).cast[int_dtype]()
+
+    @staticmethod
+    fn from_bytes[
+        big_endian: Bool = is_big_endian()
+    ](bytes: InlineArray[Byte, type.sizeof()]) -> Scalar[type]:
+        """Converts a byte array to an scalar integer.
+
+        Args:
+            bytes: The byte array to convert.
+
+        Parameters:
+            big_endian: Whether the byte array is big-endian.
+
+        Returns:
+            The integer value.
+        """
+        var ptr: UnsafePointer[Scalar[type]] = bytes.unsafe_ptr().bitcast[
+            Scalar[type]
+        ]()
+        var value = ptr[]
+
+        @parameter
+        if is_big_endian() != big_endian:
+            return byte_swap(value)
+
+        return value
+
+    fn as_bytes[
+        big_endian: Bool = is_big_endian()
+    ](self) -> InlineArray[Byte, type.sizeof()]:
+        """Convert the scalar integer to a byte array.
+
+        Parameters:
+            big_endian: Whether the byte array should be big-endian.
+
+        Returns:
+            The byte array.
+        """
+        var value = self
+
+        @parameter
+        if is_big_endian() != big_endian:
+            value = byte_swap(value)
+
+        var ptr = UnsafePointer.address_of(value)
+        var array = InlineArray[Byte, type.sizeof()](fill=0)
+
+        memcpy(array.unsafe_ptr(), ptr.bitcast[Byte](), type.sizeof())
+
+        return array^
 
     fn _floor_ceil_trunc_impl[intrinsic: StringLiteral](self) -> Self:
         constrained[
@@ -2195,7 +2247,7 @@ struct SIMD[type: DType, size: Int](
 
     # Not an overload of shuffle because there is ambiguity
     # with fn shuffle[*mask: Int](self, other: Self) -> Self:
-    # TODO: move to the utils directory - see https://github.com/modularml/mojo/issues/3477
+    # TODO: move to the utils directory - see https://github.com/modular/mojo/issues/3477
     @always_inline
     fn _dynamic_shuffle[
         mask_size: Int, //
@@ -3146,7 +3198,7 @@ fn _convert_float8_to_f32_scaler[
 ](x: Scalar[type]) -> Scalar[DType.float32]:
     var kF32_NaN: UInt32 = 0x7FFFFFFF
     var FP8_NUM_BITS = 8
-    var IS_E4M3 = type is DType.float8e4m3
+    var IS_E4M3 = type is DType.float8_e4m3
     var FP8_NUM_MANTISSA_BITS = FPUtils[type].mantissa_width()
     var FP8_NUM_EXPONENT_BITS = FPUtils[type].exponent_width()
     var FP32_NUM_BITS = 32
@@ -3231,7 +3283,7 @@ fn _convert_float8_to_f16[
 ](val: SIMD[type, size],) -> SIMD[DType.float16, size]:
     @parameter
     if is_nvidia_gpu() and _is_sm_9x():
-        alias asm_prefix = "cvt.rn.f16x2.e4m3x2" if type is DType.float8e4m3 else "cvt.rn.f16x2.e5m2x2"
+        alias asm_prefix = "cvt.rn.f16x2.e4m3x2" if type is DType.float8_e4m3 else "cvt.rn.f16x2.e5m2x2"
         var val_uint8 = bitcast[DType.uint8](val)
 
         @parameter
@@ -3273,7 +3325,7 @@ fn _convert_f32_to_float8[
 ](val: SIMD[type, size],) -> SIMD[target, size]:
     @parameter
     if is_nvidia_gpu() and _is_sm_9x():
-        alias asm_prefix = "cvt.rn.satfinite.e4m3x2.f32" if target is DType.float8e4m3 else "cvt.rn.satfinite.e5m2x2.f32"
+        alias asm_prefix = "cvt.rn.satfinite.e4m3x2.f32" if target is DType.float8_e4m3 else "cvt.rn.satfinite.e5m2x2.f32"
 
         @parameter
         if size > 1:
@@ -3322,7 +3374,7 @@ fn _convert_f32_to_float8_scaler[
 ](x: Scalar[type]) -> Scalar[target]:
     # software implementation rounds toward nearest even
 
-    alias IS_E4M3 = target is DType.float8e4m3
+    alias IS_E4M3 = target is DType.float8_e4m3
     alias FP8_NUM_MANTISSA_BITS = FPUtils[target].mantissa_width()
     alias FP8_NUM_EXPONENT_BITS = FPUtils[target].exponent_width()
     alias FP32_NUM_BITS = bitwidthof[type]()
