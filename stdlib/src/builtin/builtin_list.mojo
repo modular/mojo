@@ -113,7 +113,7 @@ struct ListLiteral[*Ts: CollectionElement](Sized, CollectionElement):
     # ===-------------------------------------------------------------------===#
 
     @always_inline
-    fn __getitem__[idx: Int](ref self) -> ref [self.storage] Ts[idx.value]:
+    fn __getitem__[idx: Int](ref self) -> ref [self.storage] Ts[idx]:
         """Get a reference to an element in the list.
 
         Parameters:
@@ -122,7 +122,7 @@ struct ListLiteral[*Ts: CollectionElement](Sized, CollectionElement):
         Returns:
             A reference to the specified element.
         """
-        return rebind[Ts[idx.value]](self.storage[idx])
+        return rebind[Ts[idx]](self.storage[idx])
 
     @always_inline
     fn __contains__[
