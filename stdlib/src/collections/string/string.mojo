@@ -1063,20 +1063,19 @@ struct String(
         """
         self._iadd[False](other.as_bytes())
 
-    @deprecated("Use `str.chars()` or `str.char_slices()` instead.")
-    fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
-        """Iterate over the string, returning immutable references.
+    fn __iter__(ref self) -> _StringSliceIter[__origin_of(self)]:
+        """Iterate over the string unicode characters.
 
         Returns:
-            An iterator of references to the string elements.
+            An iterator of references to the string unicode characters.
         """
         return self.char_slices()
 
-    fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
-        """Iterate backwards over the string, returning immutable references.
+    fn __reversed__(ref self) -> _StringSliceIter[__origin_of(self), False]:
+        """Iterate backwards over the string unicode characters.
 
         Returns:
-            A reversed iterator of references to the string elements.
+            A reversed iterator of references to the string unicode characters.
         """
         return _StringSliceIter[__origin_of(self), forward=False](
             ptr=self.unsafe_ptr(), length=self.byte_length()
@@ -1275,7 +1274,7 @@ struct String(
         """
         return self.as_string_slice().chars()
 
-    fn char_slices(self) -> _StringSliceIter[__origin_of(self)]:
+    fn char_slices(ref self) -> _StringSliceIter[__origin_of(self)]:
         """Returns an iterator over single-character slices of this string.
 
         Each returned slice points to a single Unicode codepoint encoded in the
