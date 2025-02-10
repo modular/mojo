@@ -1063,7 +1063,6 @@ struct String(
         """
         self._iadd[False](other.as_bytes())
 
-    @deprecated("Use `str.chars()` or `str.char_slices()` instead.")
     fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
         """Iterate over the string, returning immutable references.
 
