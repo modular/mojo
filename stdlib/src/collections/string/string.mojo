@@ -103,20 +103,188 @@ fn chr(c: Int) -> String:
 
 
 # ===----------------------------------------------------------------------=== #
-# ascii
+# isdigit
 # ===----------------------------------------------------------------------=== #
 
 
-fn _chr_ascii(c: UInt8) -> String:
-    """Returns a string based on the given ASCII code point.
+@always_inline
+fn _isdigit_vec[w: Int](v: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    alias `0` = SIMD[DType.uint8, w](Byte(ord("0")))
+    alias `9` = SIMD[DType.uint8, w](Byte(ord("9")))
+    return (`0` <= v) & (v <= `9`)
+
+
+@always_inline
+fn isdigit(c: Byte) -> Bool:
+    """Determines whether the given character is a digit: [0, 9].
 
     Args:
-        c: An integer that represents a code point.
+        c: The character to check.
 
     Returns:
-        A string containing a single character based on the given code point.
+        True if the character is a digit.
     """
-    return String(String._buffer_type(c, 0))
+    return _isdigit_vec(c)
+
+
+# ===----------------------------------------------------------------------=== #
+# isprintable
+# ===----------------------------------------------------------------------=== #
+
+
+@always_inline
+fn _is_ascii_printable_vec[
+    w: Int
+](v: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    alias ` ` = SIMD[DType.uint8, w](Byte(ord(" ")))
+    alias `~` = SIMD[DType.uint8, w](Byte(ord("~")))
+    return (` ` <= v) & (v <= `~`)
+
+
+@always_inline
+fn _nonprintable_ascii[w: Int](v: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    return (~_is_ascii_printable_vec(v)) & (v < 0b1000_0000)
+
+
+@always_inline
+fn _is_python_printable_vec[
+    w: Int
+](v: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    alias `\\` = SIMD[DType.uint8, w](Byte(ord(" ")))
+    return (v != `\\`) & _is_ascii_printable_vec(v)
+
+
+@always_inline
+fn _nonprintable_python[w: Int](v: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    return (~_is_python_printable_vec(v)) & (v < 0b1000_0000)
+
+
+@always_inline
+fn isprintable(c: Byte) -> Bool:
+    """Determines whether the given character is ASCII printable.
+
+    Args:
+        c: The character to check.
+
+    Returns:
+        True if the character is printable, otherwise False.
+    """
+    return _is_ascii_printable_vec(c)
+
+
+# ===----------------------------------------------------------------------=== #
+# isupper
+# ===----------------------------------------------------------------------=== #
+
+
+@always_inline
+fn _is_ascii_uppercase_vec[
+    w: Int
+](v: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    alias `A` = SIMD[DType.uint8, w](Byte(ord("A")))
+    alias `Z` = SIMD[DType.uint8, w](Byte(ord("Z")))
+    return (`A` <= v) & (v <= `Z`)
+
+
+@always_inline
+fn _is_ascii_uppercase(c: Byte) -> Bool:
+    return _is_ascii_uppercase_vec(c)
+
+
+@always_inline
+fn isupper(c: Byte) -> Bool:
+    """Determines whether the given character is an ASCII uppercase character:
+    `"ABCDEFGHIJKLMNOPQRSTUVWXYZ"`.
+
+    Args:
+        c: The character to check.
+
+    Returns:
+        True if the character is uppercase.
+    """
+    return _is_ascii_uppercase(c)
+
+
+# ===----------------------------------------------------------------------=== #
+# islower
+# ===----------------------------------------------------------------------=== #
+
+
+@always_inline
+fn _is_ascii_lowercase_vec[
+    w: Int
+](v: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
+    alias `a` = SIMD[DType.uint8, w](Byte(ord("a")))
+    alias `z` = SIMD[DType.uint8, w](Byte(ord("z")))
+    return (`a` <= v) & (v <= `z`)
+
+
+@always_inline
+fn _is_ascii_lowercase(c: Byte) -> Bool:
+    return _is_ascii_lowercase_vec(c)
+
+
+@always_inline
+fn islower(c: Byte) -> Bool:
+    """Determines whether the given character is an ASCII lowercase character:
+    `"abcdefghijklmnopqrstuvwxyz"`.
+
+    Args:
+        c: The character to check.
+
+    Returns:
+        True if the character is lowercase.
+    """
+    return _is_ascii_lowercase(c)
+
+
+# ===----------------------------------------------------------------------=== #
+# isspace
+# ===----------------------------------------------------------------------=== #
+
+
+fn _is_ascii_space(c: Byte) -> Bool:
+    """Determines whether the given character is an ASCII whitespace character:
+    `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e"`.
+
+    Args:
+        c: The character to check.
+
+    Returns:
+        True if the character is one of the ASCII whitespace characters.
+
+    Notes:
+        For semantics similar to Python, use `String.isspace()`.
+    """
+
+    # NOTE: a global LUT doesn't work at compile time so we can't use it here.
+    alias ` ` = Byte(ord(" "))
+    alias `\t` = Byte(ord("\t"))
+    alias `\n` = Byte(ord("\n"))
+    alias `\r` = Byte(ord("\r"))
+    alias `\f` = Byte(ord("\f"))
+    alias `\v` = Byte(ord("\v"))
+    alias `\x1c` = Byte(ord("\x1c"))
+    alias `\x1d` = Byte(ord("\x1d"))
+    alias `\x1e` = Byte(ord("\x1e"))
+
+    # This compiles to something very clever that's even faster than a LUT.
+    return (
+        c == ` `
+        or c == `\t`
+        or c == `\n`
+        or c == `\r`
+        or c == `\f`
+        or c == `\v`
+        or c == `\x1c`
+        or c == `\x1d`
+        or c == `\x1e`
+    )
+
+
+# ===----------------------------------------------------------------------=== #
+# ascii
+# ===----------------------------------------------------------------------=== #
 
 
 fn _repr_ascii(c: UInt8) -> String:
@@ -136,7 +304,7 @@ fn _repr_ascii(c: UInt8) -> String:
     if c == ord_back_slash:
         return r"\\"
     elif Char(c).is_ascii_printable():
-        return _chr_ascii(c)
+        return String(String._buffer_type(c, 0))
     elif c == ord_tab:
         return r"\t"
     elif c == ord_new_line:
