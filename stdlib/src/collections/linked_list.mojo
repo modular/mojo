@@ -420,9 +420,7 @@ struct LinkedList[
             curr = curr[].next
         return new^
 
-    fn insert[
-        I: Indexer
-    ](mut self, owned idx: I, owned elem: ElementType) raises:
+    fn insert[I: Indexer](mut self, idx: I, owned elem: ElementType) raises:
         """
         Insert an element `elem` into the list at index `idx`.
 
