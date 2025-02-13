@@ -88,26 +88,20 @@ struct ListLiteral[*Ts: CollectionElement](Sized, CollectionElement):
         return len(self.storage)
 
     # ===-------------------------------------------------------------------===#
-    # Methods
-    # ===-------------------------------------------------------------------===#
-
-    # FIXME: This should have a getitem like Tuple does, not a "get" method.
-    @always_inline
-    fn get[i: Int, T: CollectionElement](self) -> ref [self.storage] T:
-        """Get a list element at the given index.
-
-        Parameters:
-            i: The element index.
-            T: The element type.
-
-        Returns:
-            The element at the given index.
-        """
-        return rebind[T](self.storage[i])
-
-    # ===-------------------------------------------------------------------===#
     # Operator dunders
     # ===-------------------------------------------------------------------===#
+
+    @always_inline
+    fn __getitem__[idx: Int](ref self) -> ref [self.storage] Ts[idx]:
+        """Get a reference to an element in the list.
+
+        Parameters:
+            idx: The element to return.
+
+        Returns:
+            A reference to the specified element.
+        """
+        return rebind[Ts[idx]](self.storage[idx])
 
     @always_inline
     fn __contains__[
