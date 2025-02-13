@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -25,6 +25,7 @@ from stat import S_ISDIR, S_ISLNK, S_ISREG
 from sys import has_neon, os_is_linux, os_is_macos, os_is_windows
 
 from memory import Span
+
 from utils import StringSlice
 
 from .. import PathLike

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -13,6 +13,7 @@
 # RUN: %mojo %s
 
 
+from collections.string import StringSlice
 from hashlib._ahash import AHasher
 from hashlib._hasher import _hash_with_hasher, _HashableWithHasher, _Hasher
 from pathlib import Path
@@ -20,8 +21,6 @@ from pathlib import Path
 from memory import UnsafePointer
 from python import Python, PythonObject
 from testing import assert_equal, assert_true
-
-from utils import StringRef
 
 
 struct DummyHasher(_Hasher):
@@ -157,7 +156,7 @@ def test_hash_hashable_with_hasher_types():
     assert_equal(_hash_with_hasher(DType.uint64), 6529703120343940753)
     assert_equal(_hash_with_hasher(""), 11583516797109448887)
     assert_equal(_hash_with_hasher(String("")), 11583516797109448887)
-    assert_equal(_hash_with_hasher(StringRef("")), 11583516797109448887)
+    assert_equal(_hash_with_hasher(StringSlice("")), 11583516797109448887)
     assert_equal(_hash_with_hasher(Int(-123)), 4720193641311814362)
     assert_equal(_hash_with_hasher(UInt(123)), 4498397628805512285)
     assert_equal(

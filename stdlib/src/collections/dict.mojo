@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -39,7 +39,6 @@ See the `Dict` docs for more details.
 from sys.ffi import OpaquePointer
 
 from bit import is_power_of_two
-from builtin.value import StringableCollectionElement
 from memory import UnsafePointer, bitcast, memcpy
 
 from .optional import Optional

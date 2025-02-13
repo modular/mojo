@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -26,6 +26,7 @@ from collections.string import StringSlice
 from pathlib import Path
 
 from memory import Span
+
 from utils import write_buffered
 
 alias TMP_MAX = 10_000

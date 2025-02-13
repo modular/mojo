@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -179,9 +179,7 @@ struct InlineArray[
             UnsafePointer.address_of(storage[i]).move_pointee_into(eltptr)
 
         # Do not destroy the elements when their backing storage goes away.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(storage)
-        )
+        __disable_del storage
 
     fn copy(self) -> Self:
         """Explicitly copy the provided value.

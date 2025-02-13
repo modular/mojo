@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -198,48 +198,33 @@ def test_memcmp_extensive[
     assert_equal(
         memcmp(ptr1, ptr1, count),
         0,
-        "for dtype=" + String(type) + ";count=" + String(count),
+        String("for dtype=", type, ";count=", count),
     )
     assert_equal(
         memcmp(ptr1, ptr2, count),
         -1,
-        "for dtype=" + String(type) + ";count=" + String(count),
+        String("for dtype=", type, ";count=", count),
     )
     assert_equal(
         memcmp(ptr2, ptr1, count),
         1,
-        "for dtype=" + String(type) + ";count=" + String(count),
+        String("for dtype=", type, ";count=", count),
     )
 
     assert_equal(
         memcmp(dptr1, dptr1, count),
         0,
-        "for dtype="
-        + String(type)
-        + ";extremes="
-        + String(extermes)
-        + ";count="
-        + String(count),
+        String("for dtype=", type, ";extremes=", extermes, ";count=", count),
     )
     assert_equal(
         memcmp(dptr1, dptr2, count),
         -1,
-        "for dtype="
-        + String(type)
-        + ";extremes="
-        + String(extermes)
-        + ";count="
-        + String(count),
+        String("for dtype=", type, ";extremes=", extermes, ";count=", count),
     )
     assert_equal(
         memcmp(dptr2, dptr1, count),
         1,
-        "for dtype="
-        + String(type)
-        + ";extremes="
-        + String(extermes)
-        + ";count="
-        + String(count),
+        String("for dtype=", type, ";extremes=", extermes, ";count=", count),
     )
 
     ptr1.free()

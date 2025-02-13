@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -17,8 +17,8 @@ from .deque import Deque
 from .dict import Dict, KeyElement
 from .inline_array import InlineArray
 from .inline_list import InlineList
+from .linked_list import LinkedList
 from .list import List
 from .optional import Optional, OptionalReg
 from .set import Set
 from .vector import InlinedFixedVector
-from .linked_list import LinkedList

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -13,27 +13,15 @@
 """Implements basic object methods for working with strings."""
 
 from collections import KeyElement, List, Optional
-from collections.string import CharsIter
 from collections._index_normalization import normalize_index
-from hashlib._hasher import _HashableWithHasher, _Hasher
-from os import abort
-from sys import bitwidthof, llvm_intrinsic
-from sys.ffi import c_char
-from sys.intrinsics import _type_is_eq
-from utils.write import write_buffered
-
-from bit import count_leading_zeros
-from memory import UnsafePointer, memcmp, memcpy, Span
-from python import PythonObject
-
-from utils import (
-    IndexList,
+from collections.string import CharsIter
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string.string_slice import (
     StaticString,
-    StringRef,
-    Variant,
-    Writable,
-    Writer,
-    write_args,
+    StringSlice,
+    _StringSliceIter,
+    _to_string_list,
+    _utf8_byte_type,
 )
 from collections.string._unicode import (
     is_lowercase,
@@ -41,13 +29,18 @@ from collections.string._unicode import (
     to_lowercase,
     to_uppercase,
 )
-from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
-from collections.string.string_slice import (
-    StringSlice,
-    _StringSliceIter,
-    _to_string_list,
-    _utf8_byte_type,
-)
+from hashlib._hasher import _HashableWithHasher, _Hasher
+from os import abort
+from sys import bitwidthof, llvm_intrinsic
+from sys.ffi import c_char
+from sys.intrinsics import _type_is_eq
+
+from bit import count_leading_zeros
+from memory import Span, UnsafePointer, memcmp, memcpy
+from python import PythonObject
+
+from utils import IndexList, Variant, Writable, Writer, write_args
+from utils.write import _TotalWritableBytes, _WriteBufferHeap, write_buffered
 
 # ===----------------------------------------------------------------------=== #
 # ord
@@ -374,12 +367,12 @@ fn _handle_base_prefix(
 
 
 fn _str_to_base_error(base: Int, str_slice: StringSlice) -> String:
-    return (
-        "String is not convertible to integer with base "
-        + String(base)
-        + ": '"
-        + String(str_slice)
-        + "'"
+    return String(
+        "String is not convertible to integer with base ",
+        base,
+        ": '",
+        str_slice,
+        "'",
     )
 
 
@@ -418,9 +411,7 @@ fn _identify_base(str_slice: StringSlice, start: Int) -> Tuple[Int, Int]:
 
 
 fn _atof_error(str_ref: StringSlice) -> Error:
-    return Error(
-        "String is not convertible to float: '" + String(str_ref) + "'"
-    )
+    return Error("String is not convertible to float: '", str_ref, "'")
 
 
 fn atof(str_slice: StringSlice) raises -> Float64:
@@ -468,9 +459,9 @@ fn atof(str_slice: StringSlice) raises -> Float64:
         start += 1
         sign = -1
     if (str_len - start) >= 3:
-        if StringRef(buff + start, 3) == "nan":
+        if StringSlice[buff.origin](ptr=buff + start, length=3) == "nan":
             return FloatLiteral.nan
-        if StringRef(buff + start, 3) == "inf":
+        if StringSlice[buff.origin](ptr=buff + start, length=3) == "inf":
             return FloatLiteral.infinity * sign
     # read before dot
     for pos in range(start, str_len):
@@ -558,19 +549,14 @@ struct String(
     """The underlying storage for the string."""
 
     """ Useful string aliases. """
-    alias ASCII_LOWERCASE = String("abcdefghijklmnopqrstuvwxyz")
-    alias ASCII_UPPERCASE = String("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-    alias ASCII_LETTERS = String.ASCII_LOWERCASE + String.ASCII_UPPERCASE
-    alias DIGITS = String("0123456789")
-    alias HEX_DIGITS = String.DIGITS + String("abcdef") + String("ABCDEF")
-    alias OCT_DIGITS = String("01234567")
-    alias PUNCTUATION = String("""!"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~""")
-    alias PRINTABLE = (
-        String.DIGITS
-        + String.ASCII_LETTERS
-        + String.PUNCTUATION
-        + " \t\n\r\v\f"  # single byte utf8 whitespaces
-    )
+    alias ASCII_LOWERCASE = "abcdefghijklmnopqrstuvwxyz"
+    alias ASCII_UPPERCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    alias ASCII_LETTERS = Self.ASCII_LOWERCASE + Self.ASCII_UPPERCASE
+    alias DIGITS = "0123456789"
+    alias HEX_DIGITS = Self.DIGITS + "abcdef" + "ABCDEF"
+    alias OCT_DIGITS = "01234567"
+    alias PUNCTUATION = """!"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"""
+    alias PRINTABLE = Self.DIGITS + Self.ASCII_LETTERS + Self.PUNCTUATION + " \t\n\r\v\f"
 
     # ===------------------------------------------------------------------=== #
     # Life cycle methods
@@ -835,7 +821,10 @@ struct String(
             buff: The buffer. This should have an existing terminator.
         """
 
-        return String(ptr=buff, length=len(StringRef(ptr=buff)) + 1)
+        return String(
+            ptr=buff,
+            length=len(StringSlice[buff.origin](unsafe_from_utf8_ptr=buff)) + 1,
+        )
 
     @staticmethod
     fn _from_bytes(owned buff: Self._buffer_type) -> String:
@@ -894,7 +883,11 @@ struct String(
         start, end, step = span.indices(self.byte_length())
         var r = range(start, end, step)
         if step == 1:
-            return String(StringRef(self._buffer.data + start, len(r)))
+            return String(
+                StringSlice[__origin_of(self._buffer)](
+                    ptr=self._buffer.data + start, length=len(r)
+                )
+            )
 
         var buffer = Self._buffer_type()
         var result_len = len(r)
@@ -1182,28 +1175,11 @@ struct String(
 
         writer.write_bytes(self.as_bytes())
 
-    fn join(self, *elems: Int) -> String:
-        """Joins the elements from the tuple using the current string as a
-        delimiter.
-
-        Args:
-            elems: The input tuple.
-
-        Returns:
-            The joined string.
-        """
-        if len(elems) == 0:
-            return ""
-        var curr = String(elems[0])
-        for i in range(1, len(elems)):
-            curr += self + String(elems[i])
-        return curr
-
-    fn join[*Types: Writable](self, *elems: *Types) -> String:
+    fn join[*Ts: Writable](self, *elems: *Ts) -> String:
         """Joins string elements using the current string as a delimiter.
 
         Parameters:
-            Types: The types of the elements.
+            Ts: The types of the elements.
 
         Args:
             elems: The input values.
@@ -1211,65 +1187,23 @@ struct String(
         Returns:
             The joined string.
         """
+        var sep = StaticString(ptr=self.unsafe_ptr(), length=len(self))
+        return String(elems, sep=sep)
 
-        var result = String()
-        var is_first = True
-
-        @parameter
-        fn add_elt[T: Writable](a: T):
-            if is_first:
-                is_first = False
-            else:
-                result.write(self)
-            result.write(a)
-
-        elems.each[add_elt]()
-        return result
-
-    fn join[T: StringableCollectionElement](self, elems: List[T, *_]) -> String:
-        """Joins string elements using the current string as a delimiter.
-
-        Parameters:
-            T: The types of the elements.
-
-        Args:
-            elems: The input values.
-
-        Returns:
-            The joined string.
-        """
-
-        # TODO(#3403): Simplify this when the linked conditional conformance
-        # feature is added.  Runs a faster algorithm if the concrete types are
-        # able to be converted to a span of bytes.
-        @parameter
-        if _type_is_eq[T, String]():
-            return self.fast_join(rebind[List[String]](elems))
-        elif _type_is_eq[T, StringLiteral]():
-            return self.fast_join(rebind[List[StringLiteral]](elems))
-        # FIXME(#3597): once StringSlice conforms to CollectionElement trait:
-        # if _type_is_eq[T, StringSlice]():
-        # return self.fast_join(rebind[List[StringSlice]](elems))
-        else:
-            var result: String = ""
-            var is_first = True
-
-            for e in elems:
-                if is_first:
-                    is_first = False
-                else:
-                    result += self
-                result += String(e[])
-
-            return result
-
-    fn fast_join[
-        T: BytesCollectionElement, //,
+    fn join[
+        T: WritableCollectionElement, //, buffer_size: Int = 4096
     ](self, elems: List[T, *_]) -> String:
         """Joins string elements using the current string as a delimiter.
+        Defaults to writing to the stack if total bytes of `elems` is less than
+        `buffer_size`, otherwise will allocate once to the heap and write
+        directly into that. The `buffer_size` defaults to 4096 bytes to match
+        the default page size on arm64 and x86-64, but you can increase this if
+        you're joining a very large `List` of elements to write into the stack
+        instead of the heap.
 
         Parameters:
             T: The types of the elements.
+            buffer_size: The max size of the stack buffer.
 
         Args:
             elems: The input values.
@@ -1277,37 +1211,20 @@ struct String(
         Returns:
             The joined string.
         """
-        var n_elems = len(elems)
-        if n_elems == 0:
-            return String("")
-        var len_self = self.byte_length()
-        var len_elems = 0
-        # Calculate the total size of the elements to join beforehand
-        # to prevent alloc syscalls as we know the buffer size.
-        # This can hugely improve the performance on large lists
-        for e_ref in elems:
-            len_elems += len(e_ref[].as_bytes())
-        var capacity = len_self * (n_elems - 1) + len_elems
-        var buf = Self._buffer_type(capacity=capacity)
-        var self_ptr = self.unsafe_ptr()
-        var ptr = buf.unsafe_ptr()
-        var offset = 0
-        var i = 0
-        var is_first = True
-        while i < n_elems:
-            if is_first:
-                is_first = False
-            else:
-                memcpy(dest=ptr + offset, src=self_ptr, count=len_self)
-                offset += len_self
-            var e = elems[i].as_bytes()
-            var e_len = len(e)
-            memcpy(dest=ptr + offset, src=e.unsafe_ptr(), count=e_len)
-            offset += e_len
-            i += 1
-        buf.size = capacity
-        buf.append(0)
-        return String(buf^)
+        var sep = StaticString(ptr=self.unsafe_ptr(), length=len(self))
+        var total_bytes = _TotalWritableBytes(elems, sep=sep)
+
+        # Use heap if over the stack buffer size
+        if total_bytes.size + 1 > buffer_size:
+            var buffer = _WriteBufferHeap(total_bytes.size + 1)
+            buffer.write_list(elems, sep=sep)
+            buffer.data[total_bytes.size] = 0
+            return String(ptr=buffer.data, length=total_bytes.size + 1)
+        # Use stack otherwise
+        else:
+            var string = String()
+            write_buffered[buffer_size](string, elems, sep=sep)
+            return string
 
     @always_inline
     fn chars(self) -> CharsIter[__origin_of(self)]:
@@ -1524,6 +1441,7 @@ struct String(
         """
         return self.as_string_slice().isspace()
 
+    # TODO(MSTDL-590): String.split() should return `StringSlice`s.
     fn split(self, sep: StringSlice, maxsplit: Int = -1) raises -> List[String]:
         """Split the string by a separator.
 
@@ -1550,36 +1468,9 @@ struct String(
         ```
         .
         """
-        var output = List[String]()
-
-        var str_byte_len = self.byte_length() - 1
-        var lhs = 0
-        var rhs = 0
-        var items = 0
-        var sep_len = sep.byte_length()
-        if sep_len == 0:
-            raise Error("Separator cannot be empty.")
-        if str_byte_len < 0:
-            output.append("")
-
-        while lhs <= str_byte_len:
-            rhs = self.find(sep, lhs)
-            if rhs == -1:
-                output.append(self[lhs:])
-                break
-
-            if maxsplit > -1:
-                if items == maxsplit:
-                    output.append(self[lhs:])
-                    break
-                items += 1
-
-            output.append(self[lhs:rhs])
-            lhs = rhs + sep_len
-
-        if self.endswith(sep) and (len(output) <= maxsplit or maxsplit == -1):
-            output.append("")
-        return output
+        return self.as_string_slice().split[sep.mut, sep.origin](
+            sep, maxsplit=maxsplit
+        )
 
     fn split(self, sep: NoneType = None, maxsplit: Int = -1) -> List[String]:
         """Split the string by every Whitespace separator.
@@ -1609,49 +1500,18 @@ struct String(
         .
         """
 
-        fn num_bytes(b: UInt8) -> Int:
-            var flipped = ~b
-            return Int(count_leading_zeros(flipped) + (flipped >> 7))
+        # TODO(MSTDL-590): Avoid the need to loop to convert `StringSlice` to
+        #   `String` by making `String.split()` return `StringSlice`s.
+        var str_slices = self.as_string_slice()._split_whitespace(
+            maxsplit=maxsplit
+        )
 
-        var output = List[String]()
-        var str_byte_len = self.byte_length() - 1
-        var lhs = 0
-        var rhs = 0
-        var items = 0
-        while lhs <= str_byte_len:
-            # Python adds all "whitespace chars" as one separator
-            # if no separator was specified
-            for s in self[lhs:].char_slices():
-                if not s.isspace():
-                    break
-                lhs += s.byte_length()
-            # if it went until the end of the String, then
-            # it should be sliced up until the original
-            # start of the whitespace which was already appended
-            if lhs - 1 == str_byte_len:
-                break
-            elif lhs == str_byte_len:
-                # if the last char is not whitespace
-                output.append(self[str_byte_len])
-                break
-            rhs = lhs + num_bytes(self.unsafe_ptr()[lhs])
-            for s in self[
-                lhs + num_bytes(self.unsafe_ptr()[lhs]) :
-            ].char_slices():
-                if s.isspace():
-                    break
-                rhs += s.byte_length()
+        var output = List[String](capacity=len(str_slices))
 
-            if maxsplit > -1:
-                if items == maxsplit:
-                    output.append(self[lhs:])
-                    break
-                items += 1
+        for str_slice in str_slices:
+            output.append(String(str_slice[]))
 
-            output.append(self[lhs:rhs])
-            lhs = rhs
-
-        return output
+        return output^
 
     fn splitlines(self, keepends: Bool = False) -> List[String]:
         """Split the string at line boundaries. This corresponds to Python's
@@ -1832,8 +1692,7 @@ struct String(
             A new string where cased letters have been converted to lowercase.
         """
 
-        # TODO: the _unicode module does not support locale sensitive conversions yet.
-        return to_lowercase(self)
+        return self.as_string_slice().lower()
 
     fn upper(self) -> String:
         """Returns a copy of the string with all cased characters
@@ -1843,8 +1702,7 @@ struct String(
             A new string where cased letters have been converted to uppercase.
         """
 
-        # TODO: the _unicode module does not support locale sensitive conversions yet.
-        return to_uppercase(self)
+        return self.as_string_slice().upper()
 
     fn startswith(
         self, prefix: StringSlice, start: Int = 0, end: Int = -1
@@ -1990,12 +1848,7 @@ struct String(
         Returns:
             True if all characters are digits and it's not empty else False.
         """
-        if not self:
-            return False
-        for char in self.chars():
-            if not char.is_ascii_digit():
-                return False
-        return True
+        return self.as_string_slice().is_ascii_digit()
 
     fn isupper(self) -> Bool:
         """Returns True if all cased characters in the string are uppercase and
@@ -2005,7 +1858,7 @@ struct String(
             True if all cased characters in the string are uppercase and there
             is at least one cased character, False otherwise.
         """
-        return len(self) > 0 and is_uppercase(self)
+        return self.as_string_slice().isupper()
 
     fn islower(self) -> Bool:
         """Returns True if all cased characters in the string are lowercase and
@@ -2015,7 +1868,7 @@ struct String(
             True if all cased characters in the string are lowercase and there
             is at least one cased character, False otherwise.
         """
-        return len(self) > 0 and is_lowercase(self)
+        return self.as_string_slice().islower()
 
     fn isprintable(self) -> Bool:
         """Returns True if all characters in the string are ASCII printable.
@@ -2025,10 +1878,7 @@ struct String(
         Returns:
             True if all characters are printable else False.
         """
-        for char in self.chars():
-            if not char.is_ascii_printable():
-                return False
-        return True
+        return self.as_string_slice().is_ascii_printable()
 
     fn rjust(self, width: Int, fillchar: StringLiteral = " ") -> String:
         """Returns the string right justified in a string of specified width.
@@ -2040,7 +1890,7 @@ struct String(
         Returns:
             Returns right justified string, or self if width is not bigger than self length.
         """
-        return self._justify(width - len(self), width, fillchar)
+        return self.as_string_slice().rjust(width, fillchar)
 
     fn ljust(self, width: Int, fillchar: StringLiteral = " ") -> String:
         """Returns the string left justified in a string of specified width.
@@ -2052,7 +1902,7 @@ struct String(
         Returns:
             Returns left justified string, or self if width is not bigger than self length.
         """
-        return self._justify(0, width, fillchar)
+        return self.as_string_slice().ljust(width, fillchar)
 
     fn center(self, width: Int, fillchar: StringLiteral = " ") -> String:
         """Returns the string center justified in a string of specified width.
@@ -2064,23 +1914,7 @@ struct String(
         Returns:
             Returns center justified string, or self if width is not bigger than self length.
         """
-        return self._justify(width - len(self) >> 1, width, fillchar)
-
-    fn _justify(
-        self, start: Int, width: Int, fillchar: StringLiteral
-    ) -> String:
-        if len(self) >= width:
-            return self
-        debug_assert(
-            len(fillchar) == 1, "fill char needs to be a one byte literal"
-        )
-        var fillbyte = fillchar.as_bytes()[0]
-        var buffer = Self._buffer_type(capacity=width + 1)
-        buffer.resize(width, fillbyte)
-        buffer.append(0)
-        memcpy(buffer.unsafe_ptr().offset(start), self.unsafe_ptr(), len(self))
-        var result = String(buffer)
-        return result^
+        return self.as_string_slice().center(width, fillchar)
 
     fn reserve(mut self, new_capacity: Int):
         """Reserves the requested capacity.

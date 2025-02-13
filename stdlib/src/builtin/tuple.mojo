@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -81,9 +81,7 @@ struct Tuple[*element_types: CollectionElement](Sized, CollectionElement):
             )
 
         # Do not destroy the elements when 'storage' goes away.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(storage)
-        )
+        __disable_del storage
 
     fn __del__(owned self):
         """Destructor that destroys all of the elements."""

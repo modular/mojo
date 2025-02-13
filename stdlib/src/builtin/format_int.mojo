@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -225,7 +225,7 @@ fn _try_format_int(
         # incompatible radix and custom digit chars, which we aren't doing
         # above.
         return abort[String](
-            "unexpected exception formatting value as hexadecimal: " + String(e)
+            String("unexpected exception formatting value as hexadecimal: ", e)
         )
 
 

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -107,15 +107,15 @@ fn python_type_object[
     # Zeroed item terminator
     slots.append(PyType_Slot.null())
 
-    var type_spec = PyType_Spec {
+    var type_spec = PyType_Spec(
         # FIXME(MOCO-1306): This should be `T.__name__`.
-        name: type_name.unsafe_cstr_ptr(),
-        basicsize: sizeof[PyMojoObject[T]](),
-        itemsize: 0,
-        flags: Py_TPFLAGS_DEFAULT,
+        type_name.unsafe_cstr_ptr(),
+        sizeof[PyMojoObject[T]](),
+        0,
+        Py_TPFLAGS_DEFAULT,
         # Note: This pointer is only "read-only" by PyType_FromSpec.
-        slots: slots.unsafe_ptr(),
-    }
+        slots.unsafe_ptr(),
+    )
 
     # Construct a Python 'type' object from our type spec.
     var type_obj = cpython.PyType_FromSpec(UnsafePointer.address_of(type_spec))
@@ -249,16 +249,14 @@ fn py_c_function_wrapper[
 
     # Do not destroy the provided PyObjectPtr arguments, since they
     # actually have ownership of the underlying object.
-    __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(py_self))
+    __disable_del py_self
 
     # SAFETY:
     #   Prevent `args` AND `args._obj` from being destroyed, since we don't
     #   own them.
-    # TODO: Use a `mem.forget(args^)` function here in the future.
-    __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(args))
     var _obj = args._obj^
-    __mlir_op.`lit.ownership.mark_destroyed`(__get_mvalue_as_litref(_obj))
-
+    __disable_del args
+    __disable_del _obj
     return result
 
 

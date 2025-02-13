@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -12,9 +12,9 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %bare-mojo %s
 
+from math import floor, log2
+
 from bit import (
-    next_power_of_two,
-    prev_power_of_two,
     bit_not,
     bit_reverse,
     bit_width,
@@ -22,12 +22,13 @@ from bit import (
     count_leading_zeros,
     count_trailing_zeros,
     is_power_of_two,
+    log2_floor,
+    next_power_of_two,
     pop_count,
+    prev_power_of_two,
     rotate_bits_left,
     rotate_bits_right,
-    log2_floor,
 )
-from math import log2, floor
 from testing import assert_equal
 
 
@@ -515,7 +516,7 @@ def test_log2_floor():
         assert_equal(
             log2_floor(i),
             _log2_floor(i),
-            msg="mismatching value for the input value of " + String(i),
+            msg=String("mismatching value for the input value of ", i),
         )
 
     fn _check_alias[n: Int](expected: Int) raises:

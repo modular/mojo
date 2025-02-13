@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,13 +16,12 @@
 
 from collections import Dict, Optional
 from collections.string import String
+from collections.string._utf8_validation import _is_valid_utf8
 from os import abort
 from pathlib import _dir_of_current_file
 from random import random_si64, seed
 
 from benchmark import Bench, BenchConfig, Bencher, BenchId, Unit, keep, run
-
-from collections.string._utf8_validation import _is_valid_utf8
 
 
 # ===-----------------------------------------------------------------------===#
@@ -262,30 +261,30 @@ def main():
             alias fname = filenames[j]
             alias old = old_chars[j]
             alias new = new_chars[j]
-            suffix = "[" + String(length) + "]"  # "(" + fname + ")"
+            alias suffix = String("[", length, "]")  # "(" + fname + ")"
             m.bench_function[bench_string_count[length, fname, old]](
-                BenchId("bench_string_count" + suffix)
+                BenchId(String("bench_string_count", suffix))
             )
             m.bench_function[bench_string_split[length, fname, old]](
-                BenchId("bench_string_split" + suffix)
+                BenchId(String("bench_string_split", suffix))
             )
             m.bench_function[bench_string_split[length, fname]](
-                BenchId("bench_string_split_none" + suffix)
+                BenchId(String("bench_string_split_none", suffix))
             )
             m.bench_function[bench_string_splitlines[length, fname]](
-                BenchId("bench_string_splitlines" + suffix)
+                BenchId(String("bench_string_splitlines" + suffix))
             )
             m.bench_function[bench_string_lower[length, fname]](
-                BenchId("bench_string_lower" + suffix)
+                BenchId(String("bench_string_lower" + suffix))
             )
             m.bench_function[bench_string_upper[length, fname]](
-                BenchId("bench_string_upper" + suffix)
+                BenchId(String("bench_string_upper" + suffix))
             )
             m.bench_function[bench_string_replace[length, fname, old, new]](
-                BenchId("bench_string_replace" + suffix)
+                BenchId(String("bench_string_replace" + suffix))
             )
             m.bench_function[bench_string_is_valid_utf8[length, fname]](
-                BenchId("bench_string_is_valid_utf8" + suffix)
+                BenchId(String("bench_string_is_valid_utf8" + suffix))
             )
 
     results = Dict[String, (Float64, Int)]()

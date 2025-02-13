@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -280,7 +280,7 @@ struct _VariadicListMemIter[
 struct VariadicListMem[
     elt_is_mutable: Bool, //,
     element_type: AnyType,
-    origin: Origin[elt_is_mutable]._mlir_type,
+    origin: Origin[elt_is_mutable],
 ](Sized):
     """A utility class to access variadic function arguments of memory-only
     types that may have ownership. It exposes references to the elements in a
@@ -290,7 +290,7 @@ struct VariadicListMem[
         elt_is_mutable: True if the elements of the list are mutable for an
                         mut or owned argument.
         element_type: The type of the elements in the list.
-        origin: The reference origin of the underlying elements.
+        origin: The origin of the underlying elements.
     """
 
     alias reference_type = Pointer[element_type, origin]
@@ -464,7 +464,7 @@ alias _AnyTypeMetaType = __type_of(AnyType)
 @register_passable
 struct VariadicPack[
     elt_is_mutable: Bool, //,
-    origin: Origin[elt_is_mutable]._mlir_type,
+    origin: Origin[elt_is_mutable],
     element_trait: _AnyTypeMetaType,
     *element_types: element_trait,
 ](Sized):
@@ -474,7 +474,7 @@ struct VariadicPack[
     Parameters:
         elt_is_mutable: True if the elements of the list are mutable for an
                         mut or owned argument pack.
-        origin: The reference origin of the underlying elements.
+        origin: The origin of the underlying elements.
         element_trait: The trait that each element of the pack conforms to.
         element_types: The list of types held by the argument pack.
     """
@@ -485,7 +485,7 @@ struct VariadicPack[
         `> `,
         element_types,
         `, `,
-        origin,
+        origin._mlir_origin,
         `>`,
     ]
 

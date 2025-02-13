@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -134,10 +134,10 @@ def main():
     for i in range(len(sizes)):
         alias size = sizes[i]
         m.bench_function[bench_dict_insert[size]](
-            BenchId("bench_dict_insert[" + String(size) + "]")
+            BenchId(String("bench_dict_insert[", size, "]"))
         )
         m.bench_function[bench_dict_lookup[size]](
-            BenchId("bench_dict_lookup[" + String(size) + "]")
+            BenchId(String("bench_dict_lookup[", size, "]"))
         )
 
     m.dump_report()
@@ -146,10 +146,4 @@ def main():
     for i in range(len(sizes)):
         alias size = sizes[i]
         var mem_s = total_bytes_used(make_dict[size]())
-        print(
-            '"bench_dict_memory_size['
-            + String(size)
-            + ']",'
-            + String(mem_s)
-            + ",0"
-        )
+        print('"bench_dict_memory_size[', size, ']",', mem_s, ",0")

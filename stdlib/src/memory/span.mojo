@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -21,9 +21,9 @@ from memory import Span
 """
 
 from collections import InlineArray
+from sys.info import simdwidthof
 
 from memory import Pointer, UnsafePointer
-from sys.info import simdwidthof
 
 
 trait AsBytes:

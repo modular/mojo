@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -13,9 +13,9 @@
 """Establishes the contract between `Writer` and `Writable` types."""
 
 from collections import InlineArray
-from sys.info import is_gpu, is_nvidia_gpu, is_amd_gpu
+from sys.info import is_amd_gpu, is_gpu, is_nvidia_gpu
 
-from memory import UnsafePointer, memcpy, Span
+from memory import Span, UnsafePointer, memcpy
 
 from utils import StaticString
 
@@ -227,18 +227,30 @@ struct _WriteBufferHeap(Writer):
         ].alloc(size)
         self.pos = 0
 
-    fn __del__(owned self):
-        self.data.free()
+    fn write_list[
+        T: WritableCollectionElement
+    ](mut self, values: List[T, *_], *, sep: StaticString = ""):
+        var length = len(values)
+        if length == 0:
+            return
+        self.write(values[0])
+        if length > 1:
+            for i in range(1, length):
+                self.write(sep, values[i])
 
     @always_inline
     fn write_bytes(mut self, bytes: Span[UInt8, _]):
         len_bytes = len(bytes)
-        # If empty then return
-        if len_bytes == 0:
-            return
         var ptr = bytes.unsafe_ptr()
-        for i in range(len_bytes):
-            self.data[i + self.pos] = ptr[i]
+
+        # TODO: fix memcpy alignment on nvidia GPU
+        @parameter
+        if is_nvidia_gpu():
+            for i in range(len_bytes):
+                self.data[i + self.pos] = ptr[i]
+        else:
+            memcpy(self.data + self.pos, ptr, len_bytes)
+
         self.pos += len_bytes
 
     fn write[*Ts: Writable](mut self, *args: *Ts):
@@ -249,11 +261,23 @@ struct _WriteBufferHeap(Writer):
         args.each[write_arg]()
 
 
-struct _ArgBytes(Writer):
+struct _TotalWritableBytes(Writer):
     var size: Int
 
     fn __init__(out self):
         self.size = 0
+
+    fn __init__[
+        T: WritableCollectionElement
+    ](out self, values: List[T, *_], sep: StaticString = ""):
+        self.size = 0
+        var length = len(values)
+        if length == 0:
+            return
+        self.write(values[0])
+        if length > 1:
+            for i in range(1, length):
+                self.write(sep, values[i])
 
     fn write_bytes(mut self, bytes: Span[UInt8, _]):
         self.size += len(bytes)
@@ -266,9 +290,9 @@ struct _ArgBytes(Writer):
         args.each[write_arg]()
 
 
-struct _WriteBufferStack[origin: MutableOrigin, W: Writer, //, capacity: Int](
-    Writer
-):
+struct _WriteBufferStack[
+    origin: MutableOrigin, W: Writer, //, capacity: Int = 4096
+](Writer):
     var data: InlineArray[UInt8, capacity]
     var pos: Int
     var writer: Pointer[W, origin]
@@ -278,6 +302,17 @@ struct _WriteBufferStack[origin: MutableOrigin, W: Writer, //, capacity: Int](
         self.data = InlineArray[UInt8, capacity](unsafe_uninitialized=True)
         self.pos = 0
         self.writer = Pointer.address_of(writer)
+
+    fn write_list[
+        T: WritableCollectionElement
+    ](mut self, values: List[T, *_], *, sep: StaticString = ""):
+        var length = len(values)
+        if length == 0:
+            return
+        self.write(values[0])
+        if length > 1:
+            for i in range(1, length):
+                self.write(sep, values[i])
 
     fn flush(mut self):
         self.writer[].write_bytes(
@@ -289,16 +324,13 @@ struct _WriteBufferStack[origin: MutableOrigin, W: Writer, //, capacity: Int](
 
     fn write_bytes(mut self, bytes: Span[Byte, _]):
         len_bytes = len(bytes)
-        # If empty then return
-        if len_bytes == 0:
-            return
         # If span is too large to fit in buffer, write directly and return
         if len_bytes > capacity:
             self.flush()
             self.writer[].write_bytes(bytes)
             return
         # If buffer would overflow, flush writer and reset pos to 0.
-        if self.pos + len_bytes > capacity:
+        elif self.pos + len_bytes > capacity:
             self.flush()
         # Continue writing to buffer
         memcpy(self.data.unsafe_ptr() + self.pos, bytes.unsafe_ptr(), len_bytes)
@@ -316,6 +348,7 @@ fn write_buffered[
     W: Writer, //,
     *Ts: Writable,
     buffer_size: Int = 4096,
+    use_heap: Bool = False,
 ](
     mut writer: W,
     args: VariadicPack[_, Writable, *Ts],
@@ -326,13 +359,19 @@ fn write_buffered[
     """
     Use a buffer on the stack to minimize expensive calls to the writer. When
     the buffer would overflow it writes to the `writer` passed in. You can also
-    add seperators between the args, and end characters.
+    add seperators between the args, and end characters. The default stack space
+    used for the buffer is 4096 bytes which matches the default arm64 and x86-64
+    page size, you can modify this e.g. when writing a large amount of data to a
+    file.
 
     Parameters:
         W: The type of the `Writer` to write to.
         Ts: The types of each arg to write. Each type must satisfy `Writable`.
         buffer_size: How many bytes to write to a buffer before writing out to
             the `writer` (default `4096`).
+        use_heap: Buffer to the heap, first calculating the total byte size
+            of all the args and then allocating only once. `buffer_size` is not
+            used in this case as it's dynamically calculated. (default `False`).
 
     Args:
         writer: The `Writer` to write to.
@@ -367,19 +406,63 @@ fn write_buffered[
     """
 
     @parameter
-    if is_nvidia_gpu():
+    if use_heap:
         # Count the total length of bytes to allocate only once
-        var arg_bytes = _ArgBytes()
+        var arg_bytes = _TotalWritableBytes()
         write_args(arg_bytes, args, sep=sep, end=end)
 
-        # Stack space is very small on GPU due to many threads, so use heap
         var buffer = _WriteBufferHeap(arg_bytes.size + 1)
         write_args(buffer, args, sep=sep, end=end)
         buffer.data[buffer.pos] = 0
         writer.write_bytes(
             Span[Byte, ImmutableAnyOrigin](ptr=buffer.data, length=buffer.pos)
         )
+        buffer.data.free()
     else:
         var buffer = _WriteBufferStack[buffer_size](writer)
         write_args(buffer, args, sep=sep, end=end)
         buffer.flush()
+
+
+fn write_buffered[
+    W: Writer,
+    T: WritableCollectionElement, //,
+    buffer_size: Int = 4096,
+](mut writer: W, values: List[T, *_], *, sep: StaticString = ""):
+    """
+    Use a buffer on the stack to minimize expensive calls to the writer. You
+    can also add seperators between the values. The default stack space used for
+    the buffer is 4096 bytes which matches the default arm64 and x86-64 page
+    size, you can modify this e.g. when writing a large amount of data to a
+    file.
+
+    Parameters:
+        W: The type of the `Writer` to write to.
+        T: The `Writable` type of the `List`.
+        buffer_size: How many bytes to write to a buffer before writing out to
+            the `writer` (default `4096`).
+
+    Args:
+        writer: The `Writer` to write to.
+        values: A `List` of Writable arguments.
+        sep: The separator used between elements.
+
+    Example
+
+    ```mojo
+    import sys
+    from utils import write_buffered
+
+    var string = String()
+    var values = List[String]("3", "total", "args")
+    write_buffered(string, values, sep=",")
+    ```
+
+    ```
+    3, total, args
+    ```
+    .
+    """
+    var buffer = _WriteBufferStack(writer)
+    buffer.write_list(values, sep=sep)
+    buffer.flush()

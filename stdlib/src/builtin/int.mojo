@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -340,7 +340,7 @@ struct Int(
     # Life cycle methods
     # ===------------------------------------------------------------------=== #
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __init__(out self):
         """Default constructor that produces zero."""
         self.value = __mlir_op.`index.constant`[value = __mlir_attr.`0:index`]()
@@ -354,7 +354,7 @@ struct Int(
         return self
 
     @doc_private
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: __mlir_type.index):
         """Construct Int from the given index value.
@@ -578,10 +578,7 @@ struct Int(
         Returns:
             The -self value.
         """
-        return __mlir_op.`index.mul`(
-            self.value,
-            __mlir_op.`index.constant`[value = __mlir_attr.`-1:index`](),
-        )
+        return self * -1
 
     @always_inline("nodebug")
     fn __invert__(self) -> Int:
@@ -592,7 +589,7 @@ struct Int(
         """
         return self ^ -1
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __add__(self, rhs: Int) -> Int:
         """Return `self + rhs`.
 
@@ -604,7 +601,7 @@ struct Int(
         """
         return __mlir_op.`index.add`(self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __sub__(self, rhs: Int) -> Int:
         """Return `self - rhs`.
 
@@ -616,7 +613,7 @@ struct Int(
         """
         return __mlir_op.`index.sub`(self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __mul__(self, rhs: Int) -> Int:
         """Return `self * rhs`.
 
@@ -910,7 +907,7 @@ struct Int(
     # Reversed operations
     # ===-------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __radd__(self, value: Int) -> Int:
         """Return `value + self`.
 
@@ -934,7 +931,7 @@ struct Int(
         """
         return value - self
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __rmul__(self, value: Int) -> Int:
         """Return `value * self`.
 

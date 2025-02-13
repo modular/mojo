@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -12,6 +12,14 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
+from collections.string import StringSlice
+from collections.string.string import (
+    _calc_initial_buffer_size_int32,
+    _calc_initial_buffer_size_int64,
+)
+
+from memory import UnsafePointer
+from python import Python
 from testing import (
     assert_equal,
     assert_false,
@@ -19,15 +27,6 @@ from testing import (
     assert_raises,
     assert_true,
 )
-
-from collections.string import StringSlice
-from collections.string.string import (
-    _calc_initial_buffer_size_int32,
-    _calc_initial_buffer_size_int64,
-)
-from memory import UnsafePointer
-from python import Python
-from utils import StringRef
 
 
 @value
@@ -39,7 +38,7 @@ struct AString(Stringable):
 def test_stringable():
     assert_equal("hello", String("hello"))
     assert_equal("0", String(0))
-    assert_equal("AAA", String(StringRef("AAA")))
+    assert_equal("AAA", String(StringSlice("AAA")))
     assert_equal("a string", String(AString()))
 
 
@@ -647,18 +646,20 @@ def test_split():
     # TODO add line and paragraph separator as StringLiteral once unicode
     # escape secuences are accepted
     var univ_sep_var = (
-        String(" ")
-        + String("\t")
-        + String("\n")
-        + String("\r")
-        + String("\v")
-        + String("\f")
-        + String("\x1c")
-        + String("\x1d")
-        + String("\x1e")
-        + String(buffer=next_line)
-        + String(buffer=unicode_line_sep)
-        + String(buffer=unicode_paragraph_sep)
+        String(
+            " ",
+            "\t",
+            "\n",
+            "\r",
+            "\v",
+            "\f",
+            "\x1c",
+            "\x1d",
+            "\x1e",
+            String(buffer=next_line),
+            String(buffer=unicode_line_sep),
+            String(buffer=unicode_paragraph_sep),
+        )
     )
     var s = univ_sep_var + "hello" + univ_sep_var + "world" + univ_sep_var
     d = s.split()
@@ -825,46 +826,6 @@ def test_splitlines():
             item.splitlines(keepends=True),
             L("hello" + u, "world" + u, "mojo" + u, "language" + u),
         )
-
-
-def test_isupper():
-    assert_true(String("ASDG").isupper())
-    assert_false(String("AsDG").isupper())
-    assert_true(String("ABC123").isupper())
-    assert_false(String("1!").isupper())
-    assert_true(String("É").isupper())
-    assert_false(String("é").isupper())
-
-
-def test_islower():
-    assert_true(String("asdfg").islower())
-    assert_false(String("asdFDg").islower())
-    assert_true(String("abc123").islower())
-    assert_false(String("1!").islower())
-    assert_true(String("é").islower())
-    assert_false(String("É").islower())
-
-
-def test_lower():
-    assert_equal(String("HELLO").lower(), "hello")
-    assert_equal(String("hello").lower(), "hello")
-    assert_equal(String("FoOBaR").lower(), "foobar")
-
-    assert_equal(String("MOJO🔥").lower(), "mojo🔥")
-
-    assert_equal(String("É").lower(), "é")
-    assert_equal(String("é").lower(), "é")
-
-
-def test_upper():
-    assert_equal(String("hello").upper(), "HELLO")
-    assert_equal(String("HELLO").upper(), "HELLO")
-    assert_equal(String("FoOBaR").upper(), "FOOBAR")
-
-    assert_equal(String("mojo🔥").upper(), "MOJO🔥")
-
-    assert_equal(String("É").upper(), "É")
-    assert_equal(String("é").upper(), "É")
 
 
 def test_isspace():
@@ -1432,37 +1393,6 @@ def test_format_conversion_flags():
         _ = String("{!r:d}").format(1)
 
 
-def test_isdigit():
-    assert_false(String("").isdigit())
-    assert_true(String("123").isdigit())
-    assert_false(String("asdg").isdigit())
-    assert_false(String("123asdg").isdigit())
-
-
-def test_isprintable():
-    assert_true(String("aasdg").isprintable())
-    assert_false(String("aa\nae").isprintable())
-    assert_false(String("aa\tae").isprintable())
-
-
-def test_rjust():
-    assert_equal(String("hello").rjust(4), "hello")
-    assert_equal(String("hello").rjust(8), "   hello")
-    assert_equal(String("hello").rjust(8, "*"), "***hello")
-
-
-def test_ljust():
-    assert_equal(String("hello").ljust(4), "hello")
-    assert_equal(String("hello").ljust(8), "hello   ")
-    assert_equal(String("hello").ljust(8, "*"), "hello***")
-
-
-def test_center():
-    assert_equal(String("hello").center(4), "hello")
-    assert_equal(String("hello").center(8), " hello  ")
-    assert_equal(String("hello").center(8, "*"), "*hello**")
-
-
 def test_float_conversion():
     # This is basically just a wrapper around atof which is
     # more throughouly tested above
@@ -1526,10 +1456,6 @@ def main():
     test_rfind()
     test_split()
     test_splitlines()
-    test_isupper()
-    test_islower()
-    test_lower()
-    test_upper()
     test_isspace()
     test_ascii_aliases()
     test_rstrip()
@@ -1547,11 +1473,6 @@ def main():
     test_string_char_slices_iter()
     test_format_args()
     test_format_conversion_flags()
-    test_isdigit()
-    test_isprintable()
-    test_rjust()
-    test_ljust()
-    test_center()
     test_float_conversion()
     test_slice_contains()
     test_variadic_ctors()

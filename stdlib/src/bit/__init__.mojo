@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -13,17 +13,17 @@
 """Implements the bit package."""
 
 from .bit import (
-    next_power_of_two,
-    prev_power_of_two,
     bit_not,
     bit_reverse,
     bit_width,
     byte_swap,
     count_leading_zeros,
     count_trailing_zeros,
-    log2_floor,
     is_power_of_two,
+    log2_floor,
+    next_power_of_two,
     pop_count,
+    prev_power_of_two,
     rotate_bits_left,
     rotate_bits_right,
 )

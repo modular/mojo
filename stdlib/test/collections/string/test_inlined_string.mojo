@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -13,12 +13,11 @@
 # REQUIRES: disabled
 # RUN: %mojo --debug-level full %s
 
+from collections.string import InlineString
+from collections.string.inline_string import _FixedString
 from os import abort
 
 from testing import assert_equal, assert_true
-
-from collections.string import InlineString
-from collections.string.inline_string import _FixedString
 
 
 def main():

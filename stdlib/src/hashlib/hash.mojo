@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -27,7 +27,7 @@ There are a few main tools in this module:
 
 import random
 from collections import InlineArray
-from sys import bitwidthof, sizeof, simdwidthof
+from sys import bitwidthof, simdwidthof, sizeof
 from sys.ffi import _Global
 
 from builtin.dtype import _uint_type_of_width

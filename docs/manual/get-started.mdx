@@ -2,11 +2,20 @@
 title: "Get started with Mojo"
 sidebar_label: "Tutorial: Get started with Mojo"
 description: "Install Mojo and learn the language basics by building a complete Mojo program"
-github_url: https://github.com/modular/mojo/tree/nightly/examples/life
+github_url: https://github.com/modular/mojo/tree/main/examples/life
 image: /images/artwork/mojo-get-started.jpg
 ---
 
 import GetMagic from '@site/src/includes/get_magic.mdx';
+import Requirements from '@site/src/components/Requirements';
+import { requirementsNoGPU } from '@site/docs/max/requirements';
+
+:::tip
+
+Want to write a GPU function with Mojo? See how to [build a custom op
+with MAX](/max/tutorials/build-custom-ops).
+
+:::
 
 Get ready to learn Mojo! This tutorial is designed to give you a tour of several
 features of Mojo by building a complete program that does much more than simply
@@ -26,10 +35,13 @@ get started so you can learn Mojo programming basics, including the following:
 
 This tutorial might be a little long because there's a lot to learn, but we
 tried to keep the explanations simple, and we included links along the way for
-you to go learn more about each topic.
+you to go learn more about each topic. If you just want to see the finished
+code, you can [get it on
+GitHub](https://github.com/modular/mojo/tree/main/examples/life).
 
-And if you just want to see the finished code, you can [get it on
-GitHub](https://github.com/modular/mojo/tree/nightly/examples/life).
+System requirements:
+
+<Requirements requirementsData={requirementsNoGPU} />
 
 ## 1. Create a Mojo project with `magic`
 
@@ -1220,8 +1232,8 @@ way, you got a taste of:
 
 ## Next steps
 
-The [Mojo manual](/mojo/manual/) and the Mojo standard library [API
-reference](/mojo/lib) contains much more information about these and other
-features of Mojo programming. These resources will help prepare you to take full
-advantage of the [MAX platform](/max/) to build and deploy high-performance AI
-pipelines.
+For more detail about all of Mojo's features, explore the other sections of the
+[Mojo manual](/mojo/manual/).
+
+If you want to write a GPU function with Mojo, see how to [build a custom op
+with MAX](/max/tutorials/build-custom-ops).

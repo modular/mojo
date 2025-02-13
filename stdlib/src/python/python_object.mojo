@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -26,8 +26,6 @@ from sys.ffi import c_ssize_t
 from sys.intrinsics import _type_is_eq
 
 from memory import UnsafePointer
-
-from utils import StringRef
 
 from ._cpython import CPython, PyObjectPtr
 from .python import Python, _get_global_python_itf
@@ -324,13 +322,10 @@ struct PythonObject(
         Args:
             typed_obj: The typed python object to unwrap.
         """
-
-        # Note: Mark `typed_obj` as destroyed so we can move out of its field.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(typed_obj)
-        )
-
         self = typed_obj._obj^
+
+        # Mark destroyed so we can transfer out its field.
+        __disable_del typed_obj
 
     # TODO(MSTDL-715):
     #   This initializer should not be necessary, we should need
@@ -458,12 +453,6 @@ struct PythonObject(
                 obj = PythonObject(value.get[i, Float64]())
             elif _type_is_eq[T, Bool]():
                 obj = PythonObject(value.get[i, Bool]())
-            elif _type_is_eq[T, StringRef]():
-                obj = PythonObject(
-                    StringSlice[MutableAnyOrigin](
-                        unsafe_from_utf8_strref=value.get[i, StringRef]()
-                    )
-                )
             elif _type_is_eq[T, StringLiteral]():
                 obj = PythonObject(value.get[i, StringLiteral]())
             else:
@@ -506,12 +495,6 @@ struct PythonObject(
                 obj = PythonObject(rebind[Float64](value[i]))
             elif _type_is_eq[T, Bool]():
                 obj = PythonObject(rebind[Bool](value[i]))
-            elif _type_is_eq[T, StringRef]():
-                obj = PythonObject(
-                    StringSlice[MutableAnyOrigin](
-                        unsafe_from_utf8_strref=rebind[StringRef](value[i])
-                    )
-                )
             elif _type_is_eq[T, StringLiteral]():
                 obj = PythonObject(rebind[StringLiteral](value[i]))
             else:
@@ -758,7 +741,7 @@ struct PythonObject(
         cpython.Py_DecRef(value.py_object)
 
     fn _call_zero_arg_method(
-        self, method_name: StringRef
+        self, method_name: StringSlice
     ) raises -> PythonObject:
         var cpython = _get_global_python_itf().cpython()
         var tuple_obj = cpython.PyTuple_New(0)
@@ -773,7 +756,7 @@ struct PythonObject(
         return PythonObject(result)
 
     fn _call_single_arg_method(
-        self, method_name: StringRef, rhs: PythonObject
+        self, method_name: StringSlice, rhs: PythonObject
     ) raises -> PythonObject:
         var cpython = _get_global_python_itf().cpython()
         var tuple_obj = cpython.PyTuple_New(1)
@@ -792,7 +775,7 @@ struct PythonObject(
         return PythonObject(result_obj)
 
     fn _call_single_arg_inplace_method(
-        mut self, method_name: StringRef, rhs: PythonObject
+        mut self, method_name: StringSlice, rhs: PythonObject
     ) raises:
         var cpython = _get_global_python_itf().cpython()
         var tuple_obj = cpython.PyTuple_New(1)

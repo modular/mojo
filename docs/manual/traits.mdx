@@ -97,8 +97,8 @@ trait Quackable:
 ```
 
 A trait looks a lot like a struct, except it's introduced by the `trait`
-keyword. Right now, a trait can only contain method signatures, and cannot
-include method implementations. Each method signature must be followed by
+keyword. A trait can contain method signatures, but it can't implement those
+methods. Each method signature must be followed by
 three dots (`...`) to indicate that the method is unimplemented.
 
 A trait can also include associated aliases—compile-time constant values that
@@ -447,13 +447,13 @@ struct Dog(Stringable, Representable, Writable):
 
     # Alternative full representation when calling `repr`
     fn __repr__(self) -> String:
-        return String("Dog(name=", repr(self.name)", age=", repr(self.age), ")")
+        return String("Dog(name=", repr(self.name), ", age=", repr(self.age), ")")
 
 var dog = Dog("Rex", 5)
 print(repr(dog))
 print(dog)
 
-var dog_info = String("String: {!s}\nRepresentation: {!r}").format(dog, dog)
+var dog_info = "String: {!s}\nRepresentation: {!r}".format(dog, dog)
 print(dog_info)
 ```
 

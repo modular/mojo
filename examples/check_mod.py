@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -18,7 +18,7 @@ from importlib.util import find_spec
 FIX = """
 -------------------------------------------------------------------------
 fix following the steps here:
-    https://github.com/modularml/mojo/issues/1085#issuecomment-1771403719
+    https://github.com/modular/mojo/issues/1085#issuecomment-1771403719
 -------------------------------------------------------------------------
 """
 

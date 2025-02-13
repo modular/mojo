@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -14,14 +14,13 @@
 # NOTE: to test changes on the current branch using run-benchmarks.sh, remove
 # the -t flag. Remember to replace it again before pushing any code.
 
+from collections.string.string_slice import _align_down, _memchr, _memmem
 from sys import simdwidthof
 
 from benchmark import Bench, BenchConfig, Bencher, BenchId, Unit, keep, run
 from bit import count_trailing_zeros
 from builtin.dtype import _uint_type_of_width
 from memory import UnsafePointer, bitcast, memcmp, pack_bits
-
-from utils.stringref import _align_down, _memchr, _memmem
 
 # ===-----------------------------------------------------------------------===#
 # Benchmark Data

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -18,17 +18,19 @@ These are Mojo built-ins, so you don't need to import them.
 from collections import List
 from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
 from collections.string.string_slice import (
-    StringSlice,
     StaticString,
+    StringSlice,
     _StringSliceIter,
     _to_string_list,
 )
 from hashlib._hasher import _HashableWithHasher, _Hasher
-from memory import UnsafePointer, memcpy, Span
 from sys.ffi import c_char
+
+from memory import Span, UnsafePointer, memcpy
+
 from utils import Writable, Writer
 from utils._visualizers import lldb_formatter_wrapping_type
-
+from utils.write import _WriteBufferStack
 
 # ===-----------------------------------------------------------------------===#
 # StringLiteral
@@ -273,7 +275,7 @@ struct StringLiteral(
 
     @always_inline("nodebug")
     fn __lt__(self, rhs: StringLiteral) -> Bool:
-        """Compare this StringLiteral to the RHS using LT comparison.
+        """Compare this StringLiteral to the RHS using lesser than (LT) comparison.
 
         Args:
             rhs: The other StringLiteral to compare against.
@@ -285,7 +287,7 @@ struct StringLiteral(
 
     @always_inline("nodebug")
     fn __le__(self, rhs: StringLiteral) -> Bool:
-        """Compare this StringLiteral to the RHS using LE comparison.
+        """Compare this StringLiteral to the RHS using lesser than or equal to (LE) comparison.
 
         Args:
             rhs: The other StringLiteral to compare against.
@@ -297,7 +299,7 @@ struct StringLiteral(
 
     @always_inline("nodebug")
     fn __gt__(self, rhs: StringLiteral) -> Bool:
-        """Compare this StringLiteral to the RHS using GT comparison.
+        """Compare this StringLiteral to the RHS using greater than (GT) comparison.
 
         Args:
             rhs: The other StringLiteral to compare against.
@@ -309,7 +311,55 @@ struct StringLiteral(
 
     @always_inline("nodebug")
     fn __ge__(self, rhs: StringLiteral) -> Bool:
-        """Compare this StringLiteral to the RHS using GE comparison.
+        """Compare this StringLiteral to the RHS using greater than or equal to (GE) comparison.
+
+        Args:
+            rhs: The other StringLiteral to compare against.
+
+        Returns:
+            True if this StringLiteral is greater than or equal to the RHS StringLiteral and False otherwise.
+        """
+        return not (self < rhs)
+
+    @always_inline("nodebug")
+    fn __lt__(self, rhs: StringSlice) -> Bool:
+        """Compare this StringLiteral to the RHS using lesser than (LT) comparison.
+
+        Args:
+            rhs: The other StringLiteral to compare against.
+
+        Returns:
+            True if this StringLiteral is strictly less than the RHS StringLiteral and False otherwise.
+        """
+        return self.as_string_slice() < rhs
+
+    @always_inline("nodebug")
+    fn __le__(self, rhs: StringSlice) -> Bool:
+        """Compare this StringLiteral to the RHS using lesser than or equal to (LE) comparison.
+
+        Args:
+            rhs: The other StringLiteral to compare against.
+
+        Returns:
+            True if this StringLiteral is less than or equal to the RHS StringLiteral and False otherwise.
+        """
+        return not (rhs < self)
+
+    @always_inline("nodebug")
+    fn __gt__(self, rhs: StringSlice) -> Bool:
+        """Compare this StringLiteral to the RHS using greater than (GT) comparison.
+
+        Args:
+            rhs: The other StringLiteral to compare against.
+
+        Returns:
+            True if this StringLiteral is strictly greater than the RHS StringLiteral and False otherwise.
+        """
+        return rhs < self
+
+    @always_inline("nodebug")
+    fn __ge__(self, rhs: StringSlice) -> Bool:
+        """Compare this StringLiteral to the RHS using greater than or equal to (GE) comparison.
 
         Args:
             rhs: The other StringLiteral to compare against.
@@ -636,7 +686,7 @@ struct StringLiteral(
         """
         return __mlir_op.`pop.string.replace`(self.value, old.value, new.value)
 
-    fn join[T: StringableCollectionElement](self, elems: List[T, *_]) -> String:
+    fn join[T: WritableCollectionElement](self, elems: List[T, *_]) -> String:
         """Joins string elements using the current string as a delimiter.
 
         Parameters:
@@ -648,30 +698,20 @@ struct StringLiteral(
         Returns:
             The joined string.
         """
-        return String(self).join(elems)
+        var string = String()
+        var buffer = _WriteBufferStack(string)
+        for i in range(len(elems)):
+            buffer.write(elems[i])
+            if i < len(elems) - 1:
+                buffer.write(self)
+        buffer.flush()
+        return string
 
-    fn join(self, *elems: Int) -> String:
-        """Joins the elements from the tuple using the current string literal as a
-        delimiter.
-
-        Args:
-            elems: The input tuple.
-
-        Returns:
-            The joined string.
-        """
-        if len(elems) == 0:
-            return ""
-        var curr = String(elems[0])
-        for i in range(1, len(elems)):
-            curr += self + String(elems[i])
-        return curr
-
-    fn join[*Types: Stringable](self, *elems: *Types) -> String:
+    fn join[*Ts: Writable](self, *elems: *Ts) -> String:
         """Joins string elements using the current string as a delimiter.
 
         Parameters:
-            Types: The types of the elements.
+            Ts: The types of the elements.
 
         Args:
             elems: The input values.
@@ -679,20 +719,7 @@ struct StringLiteral(
         Returns:
             The joined string.
         """
-
-        var result: String = ""
-        var is_first = True
-
-        @parameter
-        fn add_elt[T: Stringable](a: T):
-            if is_first:
-                is_first = False
-            else:
-                result += self
-            result += String(a)
-
-        elems.each[add_elt]()
-        return result
+        return String(elems, sep=self)
 
     fn split(self, sep: StringSlice, maxsplit: Int = -1) raises -> List[String]:
         """Split the string literal by a separator.

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -20,12 +20,11 @@ from os import listdir
 """
 
 from collections import InlineArray, List
+from collections.string import StringSlice
 from sys import external_call, is_gpu, os_is_linux, os_is_windows
 from sys.ffi import OpaquePointer, c_char
 
 from memory import UnsafePointer
-
-from utils import StringRef
 
 from .path import isdir, split
 from .pathlike import PathLike
@@ -149,8 +148,9 @@ struct _DirHandle:
                 break
             var name = ep.take_pointee().name
             var name_ptr = name.unsafe_ptr()
-            var name_str = StringRef(
-                name_ptr, _strnlen(name_ptr, _dirent_linux.MAX_NAME_SIZE)
+            var name_str = StringSlice[__origin_of(name)](
+                ptr=name_ptr.bitcast[UInt8](),
+                length=_strnlen(name_ptr, _dirent_linux.MAX_NAME_SIZE),
             )
             if name_str == "." or name_str == "..":
                 continue
@@ -175,8 +175,9 @@ struct _DirHandle:
                 break
             var name = ep.take_pointee().name
             var name_ptr = name.unsafe_ptr()
-            var name_str = StringRef(
-                name_ptr, _strnlen(name_ptr, _dirent_macos.MAX_NAME_SIZE)
+            var name_str = StringSlice[__origin_of(name)](
+                ptr=name_ptr.bitcast[UInt8](),
+                length=_strnlen(name_ptr, _dirent_macos.MAX_NAME_SIZE),
             )
             if name_str == "." or name_str == "..":
                 continue
@@ -367,11 +368,12 @@ def makedirs[
         mkdir(path, mode)
     except e:
         if not exist_ok:
-            raise String(
-                e
-            ) + "\nset `makedirs(path, exist_ok=True)` to allow existing dirs"
+            raise Error(
+                e,
+                "\nset `makedirs(path, exist_ok=True)` to allow existing dirs",
+            )
         if not os.path.isdir(path):
-            raise "path not created: " + path.__fspath__() + "\n" + String(e)
+            raise Error("path not created: ", path.__fspath__(), "\n", e)
 
 
 fn rmdir[PathLike: os.PathLike](path: PathLike) raises:

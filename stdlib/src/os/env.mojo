@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -19,12 +19,11 @@ from os import setenv
 ```
 """
 
+from collections.string import StringSlice
 from sys import external_call, os_is_linux, os_is_macos, os_is_windows
 from sys.ffi import c_int
 
 from memory import UnsafePointer
-
-from utils import StringRef
 
 
 fn setenv(name: String, value: String, overwrite: Bool = True) -> Bool:
@@ -96,4 +95,4 @@ fn getenv(name: String, default: String = "") -> String:
     )
     if not ptr:
         return default
-    return String(StringRef(ptr=ptr))
+    return String(StringSlice[ptr.origin](unsafe_from_utf8_ptr=ptr))

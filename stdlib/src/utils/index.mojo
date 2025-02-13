@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -21,6 +21,7 @@ from utils import IndexList
 """
 
 from collections.string.string import _calc_initial_buffer_size
+from hashlib._hasher import _Hasher
 from sys import bitwidthof
 
 from builtin.dtype import _int_type_of_width, _uint_type_of_width
@@ -28,7 +29,6 @@ from builtin.io import _get_dtype_printf_format, _snprintf
 
 from . import unroll
 from .static_tuple import StaticTuple
-from hashlib._hasher import _Hasher
 
 # ===-----------------------------------------------------------------------===#
 # Utilities

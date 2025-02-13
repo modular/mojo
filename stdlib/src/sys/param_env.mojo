@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -53,6 +53,17 @@ fn is_defined[name: StringLiteral]() -> Bool:
     return __mlir_attr[`#kgen.param.expr<get_env, `, name.value, `> : i1`]
 
 
+fn _is_bool_like(val: String) -> Bool:
+    return val.lower() in (
+        String("true"),
+        String("1"),
+        String("on"),
+        String("false"),
+        String("0"),
+        String("off"),
+    )
+
+
 fn env_get_bool[name: StringLiteral]() -> Bool:
     """Try to get an boolean-valued define. Compilation fails if the
     name is not defined or the value is neither `True` or `False`.
@@ -63,20 +74,20 @@ fn env_get_bool[name: StringLiteral]() -> Bool:
     Returns:
         An boolean parameter value.
     """
-    alias val = env_get_string[name]()
-
-    @parameter
-    if val in ("True", "true"):
-        return True
-
-    @parameter
-    if val in ("False", "false"):
-        return False
+    alias val = StringLiteral.get[env_get_string[name]().lower()]()
 
     constrained[
-        False, "the boolean environment value is neither `True` nor `False`"
+        _is_bool_like(val),
+        String(
+            "the boolean environment value of `",
+            name,
+            "` with value `",
+            env_get_string[name](),
+            "` is not recognized",
+        ),
     ]()
-    return False
+
+    return val in ("true", "1", "on")
 
 
 fn env_get_bool[name: StringLiteral, default: Bool]() -> Bool:
@@ -183,5 +194,24 @@ fn env_get_string[
     @parameter
     if is_defined[name]():
         return env_get_string[name]()
+    else:
+        return default
+
+
+fn env_get_dtype[name: StringLiteral, default: DType]() -> DType:
+    """Try to get an DType-valued define. If the name is not defined, return
+    a default value instead.
+
+    Parameters:
+        name: The name of the define.
+        default: The default value to use.
+
+    Returns:
+        An DType parameter value.
+    """
+
+    @parameter
+    if is_defined[name]():
+        return DType._from_str(env_get_string[name]())
     else:
         return default

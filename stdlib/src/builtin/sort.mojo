@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -20,7 +20,7 @@ from math import ceil
 from sys import bitwidthof
 
 from bit import count_leading_zeros
-from memory import UnsafePointer, Span
+from memory import Span, UnsafePointer
 
 # ===-----------------------------------------------------------------------===#
 # sort

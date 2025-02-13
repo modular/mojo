@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -24,8 +24,6 @@ from sys.ffi import c_char
 from builtin._location import __call_location, _SourceLocation
 from memory import UnsafePointer, stack_allocation
 
-from utils import StringRef
-
 alias DIR_SEPARATOR = "\\" if os_is_windows() else "/"
 
 
@@ -46,7 +44,7 @@ fn cwd() raises -> Path:
     if res == UnsafePointer[c_char]():
         raise Error("unable to query the current directory")
 
-    return String(StringRef(ptr=buf))
+    return String(StringSlice[buf.origin](unsafe_from_utf8_cstr_ptr=buf))
 
 
 @always_inline
@@ -62,7 +60,7 @@ fn _dir_of_current_file() raises -> Path:
 @no_inline
 fn _dir_of_current_file_impl(file_name: StringLiteral) raises -> Path:
     var i = String(file_name).rfind(DIR_SEPARATOR)
-    return Path(String(file_name)[0:i])
+    return Path(StringSlice(file_name)[0:i])
 
 
 @value
@@ -94,13 +92,13 @@ struct Path(
         self.path = String(path)
 
     @implicit
-    fn __init__(out self, path: String):
+    fn __init__(out self, owned path: String):
         """Initializes a path with the provided path.
 
         Args:
           path: The file system path.
         """
-        self.path = path
+        self.path = path^
 
     fn copy(self) -> Self:
         """Copy the object.

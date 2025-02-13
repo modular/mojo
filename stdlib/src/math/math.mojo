@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -36,7 +36,7 @@ from sys.info import _current_arch
 from bit import count_trailing_zeros
 from builtin.dtype import _integral_type_of
 from builtin.simd import _modf, _simd_apply
-from memory import UnsafePointer, Span
+from memory import Span, UnsafePointer
 
 from utils.index import IndexList
 from utils.numerics import FPUtils, isnan, nan

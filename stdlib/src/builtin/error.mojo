@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -15,14 +15,13 @@
 These are Mojo built-ins, so you don't need to import them.
 """
 
+from collections.string import StringSlice
 from sys import alignof, sizeof
 from sys.ffi import c_char
 
 from memory import UnsafePointer, memcpy
 from memory.memory import _free
-from collections.string import StringSlice
 
-from utils import StringRef
 from utils.write import write_buffered
 
 # ===-----------------------------------------------------------------------===#
@@ -96,7 +95,7 @@ struct Error(
         self.loaded_length = -length
 
     @implicit
-    fn __init__(out self, src: StringRef):
+    fn __init__(out self, src: StringSlice):
         """Construct an Error object with a given string ref.
 
         Args:
@@ -194,9 +193,13 @@ struct Error(
         Args:
             writer: The object to write to.
         """
-
-        # TODO: Avoid this unnecessary intermediate String allocation.
-        writer.write(self._message())
+        if not self:
+            return
+        writer.write(
+            StringSlice[__origin_of(self)](
+                unsafe_from_utf8_cstr_ptr=self.unsafe_cstr_ptr()
+            )
+        )
 
     @no_inline
     fn __repr__(self) -> String:
@@ -205,7 +208,17 @@ struct Error(
         Returns:
             A printable representation of the error message.
         """
-        return String("Error(", repr(self._message()), ")")
+        return String(
+            "Error(",
+            repr(
+                String(
+                    StringSlice[__origin_of(self)](
+                        unsafe_from_utf8_cstr_ptr=self.unsafe_cstr_ptr()
+                    )
+                )
+            ),
+            ")",
+        )
 
     # ===-------------------------------------------------------------------===#
     # Methods
@@ -220,20 +233,6 @@ struct Error(
             The pointer to the underlying memory.
         """
         return self.data.bitcast[c_char]()
-
-    fn _message(self) -> String:
-        """Converts the Error to string representation.
-
-        Returns:
-            A String of the error message.
-        """
-        if not self:
-            return ""
-
-        var length = self.loaded_length
-        if length < 0:
-            length = -length
-        return String(StringRef(self.data, length))
 
 
 @doc_private

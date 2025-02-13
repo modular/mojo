@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -13,7 +13,9 @@
 """Implements Formatting utilities."""
 
 from collections import Optional
+
 from memory import UnsafePointer
+
 from utils import Variant
 
 # TODO: _FormatCurlyEntry and _FormatSpec should be public in the future for

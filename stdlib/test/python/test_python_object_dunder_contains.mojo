@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -13,9 +13,10 @@
 # XFAIL: asan && !system-darwin
 # RUN: %mojo %s
 
+from collections import Dict
+
 from python import Python, PythonObject
 from testing import assert_equal, assert_false, assert_raises, assert_true
-from collections import Dict
 
 
 def test_contains_dunder(mut python: Python):

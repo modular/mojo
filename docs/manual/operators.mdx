@@ -1,6 +1,7 @@
 ---
 title: Operators, expressions, and dunder methods
 sidebar_label: Operators and expressions
+github_url: https://github.com/modular/mojo/tree/main/examples/operators
 ---
 
 Mojo includes a variety of operators for manipulating values of different types.
@@ -217,19 +218,22 @@ error: invalid call to '__mul__': could not deduce parameter 'type' of parent st
 ```
 
 If you need to perform an arithmetic or bitwise operator on two `SIMD` values of
-different types, you can explicitly
-[`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) a `SIMD` so that they have the
-same type.
+different types, you can explicitly convert a value to the desired type either
+by invoking its [`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) method or by
+passing it as an argument to the constructor of the target type.
 
 ```mojo
 simd1 = SIMD[DType.float32, 4](2.2, 3.3, 4.4, 5.5)
 simd2 = SIMD[DType.int16, 4](-1, 2, -3, 4)
-simd3 = simd1 * simd2.cast[DType.float32]()  # Result is SIMD[DType.float32, 4]
-print(simd3)
+simd3 = simd1 * simd2.cast[DType.float32]()  # Convert with cast() method
+print("simd3:", simd3)
+simd4 = simd2 + SIMD[DType.int16, 4](simd1)  # Convert with SIMD constructor
+print("simd4:", simd4)
 ```
 
 ```output
-[-2.2000000476837158, 6.5999999046325684, -13.200000762939453, 22.0]
+simd3: [-2.2, 6.6, -13.200001, 22.0]
+simd4: [1, 5, 1, 9]
 ```
 
 One exception is that the exponentiation operator, `**`, is overloaded so that
@@ -270,7 +274,7 @@ There are three operators related to division:
     ```
 
     ```output
-    True float16 division: [1.400390625, -1.400390625, -1.400390625, 1.400390625]
+    True float16 division: [1.4003906, -1.4003906, -1.4003906, 1.4003906]
     True int32 division: [2, -2, -1, 1]
     ```
 
@@ -380,9 +384,10 @@ compared.
   `Int` or `UInt` do standard numerical comparison with a `Bool` result.
 - Two `SIMD` values can be compared only if they are the same `DType` and size.
   (If you need to compare two `SIMD` values of different types, you can
-  explicitly [`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) a `SIMD` so that
-  they have the same type.) Mojo performs elementwise comparison with a
-  `SIMD[DType.bool]` result. For example:
+  explicitly convert a value so that they have the same type either by invoking
+  its [`cast()`](/mojo/stdlib/builtin/simd/SIMD#cast) method or by passing it as
+  an argument to the constructor of the target type.) Mojo performs elementwise
+  comparison with a `SIMD[DType.bool]` result. For example:
 
     ```mojo
     simd1 = SIMD[DType.int16, 4](-1, 2, -3, 4)
@@ -428,12 +433,13 @@ compared.
 - `Scalar` values are simply aliases for single-element `SIMD` vectors.
   Therefore, the same restrictions apply against comparing different types. In
   other words, you can't compare a `Float16` value to a `Float32` value unless
-  you cast the values to the same type. For example:
+  you convert the values to the same type. You can convert a `Scalar` value by
+  passing it as an argument to the constructor of the target type:
 
     ```mojo
-    var float1: Float16 = 12.345  # SIMD[DType.float16, 1]
-    var float2: Float32 = 0.5     # SIMD[DType.float32, 1]
-    result = float1.cast[DType.float32]() > float2  # SIMD[DType.bool, 1]
+    var float1: Float16 = 12.345         # SIMD[DType.float16, 1]
+    var float2: Float32 = 0.5            # SIMD[DType.float32, 1]
+    result = Float32(float1) > float2    # Result is SIMD[DType.bool, 1]
     print(result)
     ```
 
@@ -522,6 +528,24 @@ Grace Hopper
 Grace Slick
 ```
 
+:::tip
+When concatenating multiple values together to form a `String`, using the
+multi-argument `String()` constructor is more performant than using multiple
+`+` concatenation operators and can improve code readability. For example,
+instead of writing this:
+
+```mojo
+result = "The point at (" + String(x) + ", " + String(y) + ")"
+```
+
+you can write:
+
+```mojo
+result = String("The point at (", x, ", ", y, ")")
+```
+
+:::
+
 #### String replication
 
 The `*` operator replicates a `String` a specified number of times. For example:
@@ -536,8 +560,9 @@ print(str2)
 lalalalala
 ```
 
-`StringLiteral` supports the `*` operator for string replication *only* at
-compile time. So the following examples compile and run successfully:
+`StringLiteral` supports the `*` operator for both compile-time and run-time
+string replication. The following examples perform compile-time string
+replication resulting in `StringLiteral` values:
 
 ```mojo
 alias divider1 = "=" * 40
@@ -546,7 +571,7 @@ alias divider2 = symbol * 40
 
 # You must define the following function using `fn` because an alias
 # initializer cannot call a function that can potentially raise an error.
-fn generate_divider(char: StringLiteral, repeat: Int) -> StringLiteral:
+fn generate_divider(char: StringLiteral, repeat: IntLiteral) -> StringLiteral:
     return char * repeat
 
 alias divider3 = generate_divider("~", 40)  # Evaluated at compile-time
@@ -562,36 +587,53 @@ print(divider3)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ```
 
-However, the following examples fail to compile because the replication
-operators would be evaluated at run-time:
+In contrast, the following examples perform run-time string replication
+resulting in `String` values:
 
 ```mojo
-# Both of these statements would fail to compile
-var div1 = "^" * 40
-print("_" * 40)
+repeat = 40
+div1 = "^" * repeat
+print(div1)
+print("_" * repeat)
+```
+
+```output
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+________________________________________
 ```
 
 #### String comparison
 
-`String` values can be compared using standard lexicographical ordering,
-producing a `Bool`. (For example, "Zebra" is treated as less than "ant" because
-upper case letters occur before lower case letters in the character encoding.)
-`StringLiteral` values can be directly compared against each other as well.
-However when comparing a `String` to a `StringLiteral` value, the `String` value
-**must** be the left-hand operand to avoid a compilation error. For example:
+`String` and `StringLiteral` values can be compared using standard
+lexicographical ordering, producing a `Bool`. For example, "Zebra" is treated as
+less than "ant" because upper case letters occur before lower case letters in
+the character encoding.
 
 ```mojo
-var str: String = "bird"
-# Compilation error:
-# result = "cat" >= str
-# You could explicitly convert the StringLiteral to a String:
-# result = String("cat") >= str
-result = str < "cat"  # Successful comparison
-print(result)
+var animal: String = "bird"
+
+is_cat_eq = "cat" == animal
+print('Is "cat" equal to "{}"?'.format(animal), is_cat_eq)
+
+is_cat_ne = "cat" != animal
+print('Is "cat" not equal to "{}"?'.format(animal), is_cat_ne)
+
+is_bird_eq = "bird" == animal
+print('Is "bird" equal to "{}"?'.format(animal), is_bird_eq)
+
+is_cat_gt = "CAT" > animal
+print('Is "CAT" greater than "{}"?'.format(animal), is_cat_gt)
+
+is_ge_cat = animal >= "CAT"
+print('Is "{}" greater than or equal to "CAT"?'.format(animal), is_ge_cat)
 ```
 
 ```output
-True
+Is "cat" equal to "bird"? False
+Is "cat" not equal to "bird"? True
+Is "bird" equal to "bird"? True
+Is "CAT" greater than "bird"? False
+Is "bird" greater than or equal to "CAT"? True
 ```
 
 #### Substring testing
@@ -1030,7 +1072,7 @@ operations like printing complex values. We'll also allow mixing `Complex` and
 
 This example builds our `Complex` struct incrementally. You can also find the
 [complete example in the public Mojo GitHub
-repo](https://github.com/modular/mojo/tree/nightly/examples/operators).
+repo](https://github.com/modular/mojo/tree/main/examples/operators).
 
 :::note
 
@@ -1063,7 +1105,7 @@ real and imaginary fields.
 
 ```mojo
 c1 = Complex(-1.2, 6.5)
-print(String("c1: Real: {}; Imaginary: {}").format(c1.re, c1.im))
+print("c1: Real: {}; Imaginary: {}".format(c1.re, c1.im))
 ```
 
 ```output
@@ -1088,7 +1130,7 @@ Now we can create a `Complex` instance and provide just a real component.
 
 ```mojo
 c2 = Complex(3.14159)
-print(String("c2: Real: {}; Imaginary: {}").format(c2.re, c2.im))
+print("c2: Real: {}; Imaginary: {}".format(c2.re, c2.im))
 ```
 
 ```output
@@ -1184,7 +1226,7 @@ Now let's try getting and setting the real and imaginary components of a
 
 ```mojo
 c2 = Complex(3.14159)
-print(String("c2[0]: {}; c2[1]: {}").format(c2[0], c2[1]))
+print("c2[0]: {}; c2[1]: {}".format(c2[0], c2[1]))
 c2[0] = 2.71828
 c2[1] = 42
 print("c2[0] = 2.71828; c2[1] = 42; c2:", c2)

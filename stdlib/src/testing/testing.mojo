@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -32,8 +32,10 @@ def main():
 """
 from collections import Optional
 from math import isclose
-from memory import memcmp
+
 from builtin._location import __call_location, _SourceLocation
+from memory import memcmp
+
 from utils import StringSlice
 
 # ===----------------------------------------------------------------------=== #
@@ -42,8 +44,8 @@ from utils import StringSlice
 
 
 @always_inline
-fn _assert_error[T: Stringable](msg: T, loc: _SourceLocation) -> String:
-    return loc.prefix("AssertionError: " + String(msg))
+fn _assert_error[T: Writable](msg: T, loc: _SourceLocation) -> String:
+    return loc.prefix(String("AssertionError: ", msg))
 
 
 @always_inline
@@ -502,14 +504,14 @@ fn assert_almost_equal[
     )
 
     if not all(almost_equal):
-        var err = String(lhs) + " is not close to " + String(rhs)
+        var err = String(lhs, " is not close to ", rhs)
 
         @parameter
         if type.is_integral() or type.is_floating_point():
-            err += " with a diff of " + String(abs(lhs - rhs))
+            err += String(" with a diff of ", abs(lhs - rhs))
 
         if msg:
-            err += " (" + msg + ")"
+            err += String(" (", msg, ")")
 
         raise _assert_error(err, location.or_else(__call_location()))
 
@@ -661,9 +663,7 @@ struct assert_raises:
         Raises:
             AssertionError: Always. The block must raise to pass the test.
         """
-        raise Error(
-            "AssertionError: Didn't raise at " + String(self.call_location)
-        )
+        raise Error("AssertionError: Didn't raise at ", self.call_location)
 
     fn __exit__(self, error: Error) raises -> Bool:
         """Exit the context manager with an error.

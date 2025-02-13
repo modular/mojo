@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -24,8 +24,8 @@ from os import abort
 from sys import (
     external_call,
     is_amd_gpu,
-    is_nvidia_gpu,
     is_gpu,
+    is_nvidia_gpu,
     llvm_intrinsic,
     os_is_linux,
     os_is_windows,
@@ -61,7 +61,7 @@ alias _WINDOWS_LARGE_INTEGER = Int64
 
 @value
 @register_passable("trivial")
-struct _CTimeSpec(Stringable):
+struct _CTimeSpec(Stringable, Writable):
     var tv_sec: Int  # Seconds
     var tv_subsec: Int  # subsecond (nanoseconds on linux and usec on mac)
 
@@ -78,7 +78,11 @@ struct _CTimeSpec(Stringable):
 
     @no_inline
     fn __str__(self) -> String:
-        return String(self.as_nanoseconds()) + "ns"
+        return String.write(self)
+
+    @no_inline
+    fn write_to[W: Writer](self, mut writer: W):
+        writer.write(self.as_nanoseconds(), "ns")
 
 
 @value

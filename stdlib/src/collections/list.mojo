@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -24,7 +24,7 @@ from os import abort
 from sys import sizeof
 from sys.intrinsics import _type_is_eq
 
-from memory import Pointer, UnsafePointer, memcpy, Span
+from memory import Pointer, Span, UnsafePointer, memcpy
 
 from .optional import Optional
 
@@ -159,9 +159,7 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
             src.move_pointee_into(dest)
 
         # Do not destroy the elements when their backing storage goes away.
-        __mlir_op.`lit.ownership.mark_destroyed`(
-            __get_mvalue_as_litref(elements)
-        )
+        __disable_del elements
 
         self.size = length
 

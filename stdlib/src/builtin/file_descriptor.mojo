@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -23,12 +23,12 @@ f.close()
 ```
 
 """
+from sys._amdgpu import printf_append_string_n, printf_begin
 from sys.ffi import external_call
-from sys.info import is_nvidia_gpu, is_amd_gpu
-from sys._amdgpu import printf_begin, printf_append_string_n
+from sys.info import is_amd_gpu, is_nvidia_gpu
 
 from builtin.io import _printf
-from memory import UnsafePointer, Span
+from memory import Span, UnsafePointer
 
 
 @value

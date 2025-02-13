@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -28,6 +28,7 @@ from sys.intrinsics import (
     strided_load,
     strided_store,
 )
+
 from bit import is_power_of_two
 from memory.memory import _free, _malloc
 
@@ -538,7 +539,7 @@ struct UnsafePointer[
         else:
             return __mlir_op.`pop.load`[alignment = alignment.value](address)
 
-    @always_inline
+    @always_inline("nodebug")
     fn load[
         type: DType, //,
         width: Int = 1,
@@ -612,7 +613,7 @@ struct UnsafePointer[
             invariant=invariant,
         ]()
 
-    @always_inline
+    @always_inline("nodebug")
     fn store[
         I: Indexer,
         type: DType, //,
@@ -639,7 +640,7 @@ struct UnsafePointer[
         constrained[mut, _must_be_mut_err]()
         self.offset(offset)._store[alignment=alignment, volatile=volatile](val)
 
-    @always_inline
+    @always_inline("nodebug")
     fn store[
         I: Indexer,
         type: DType,
@@ -672,7 +673,7 @@ struct UnsafePointer[
         constrained[mut, _must_be_mut_err]()
         self.offset(offset).store[alignment=alignment, volatile=volatile](val)
 
-    @always_inline
+    @always_inline("nodebug")
     fn store[
         type: DType,
         offset_type: DType, //,
@@ -705,7 +706,7 @@ struct UnsafePointer[
             val
         )
 
-    @always_inline
+    @always_inline("nodebug")
     fn store[
         type: DType,
         width: Int,

@@ -1,5 +1,5 @@
 # ===----------------------------------------------------------------------=== #
-# Copyright (c) 2024, Modular Inc. All rights reserved.
+# Copyright (c) 2025, Modular Inc. All rights reserved.
 #
 # Licensed under the Apache License v2.0 with LLVM Exceptions:
 # https://llvm.org/LICENSE.txt
@@ -16,12 +16,13 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import Dict, List
+from collections.string import StringSlice
 from sys.ffi import OpaquePointer
 from sys.intrinsics import _type_is_eq
 
 from memory import ArcPointer, UnsafePointer, memcmp, memcpy
 
-from utils import StringRef, Variant
+from utils import Variant
 
 # ===----------------------------------------------------------------------=== #
 # _ObjectImpl
@@ -32,8 +33,11 @@ from utils import StringRef, Variant
 struct _NoneMarker(CollectionElementNew):
     """This is a trivial class to indicate that an object is `None`."""
 
+    fn __init__(out self):
+        pass
+
     fn copy(self) -> Self:
-        return _NoneMarker {}
+        return _NoneMarker()
 
 
 @register_passable("trivial")
@@ -95,9 +99,13 @@ struct _RefCountedListRef(CollectionElement, CollectionElementNew):
         self.lst = ptr.bitcast[NoneType]()
 
     @always_inline
+    fn __init__(out self, *, lst: OpaquePointer):
+        self.lst = lst
+
+    @always_inline
     fn copy(self) -> Self:
         _ = self.lst.bitcast[_RefCountedList]()[].impl
-        return Self {lst: self.lst}
+        return Self(lst=self.lst)
 
     fn release(self):
         var ptr = self.lst.bitcast[_RefCountedList]()[].impl
@@ -185,9 +193,13 @@ struct _RefCountedAttrsDictRef(CollectionElement, CollectionElementNew):
         self.attrs = ptr.bitcast[Int8]()
 
     @always_inline
+    fn __init__(out self, *, attrs: UnsafePointer[Int8]):
+        self.attrs = attrs
+
+    @always_inline
     fn copy(self) -> Self:
         _ = self.attrs.bitcast[_RefCountedAttrsDict]()[].impl
-        return Self {attrs: self.attrs}
+        return Self(attrs=self.attrs)
 
     fn release(self):
         var ptr = self.attrs.bitcast[_RefCountedAttrsDict]()[].impl
@@ -304,7 +316,7 @@ struct _ObjectImpl(
 
     @always_inline
     fn __init__(out self):
-        self.value = Self.type(_NoneMarker {})
+        self.value = Self.type(_NoneMarker())
 
     @always_inline
     @implicit
@@ -577,14 +589,13 @@ struct _ObjectImpl(
             writer.write(String(self.get_as_float()))
             return
         if self.is_str():
+            var string = self.get_as_string()
             writer.write(
-                "'"
-                + String(
-                    StringRef(
-                        self.get_as_string().data, self.get_as_string().length
-                    )
-                )
-                + "'"
+                "'",
+                StringSlice[__origin_of(string)](
+                    ptr=string.data, length=string.length
+                ),
+                "'",
             )
             return
         if self.is_func():
@@ -607,12 +618,7 @@ struct _ObjectImpl(
         for entry in ptr[].impl[].items():
             if print_sep:
                 writer.write(", ")
-            writer.write(
-                "'"
-                + String(entry[].key)
-                + "' = "
-                + String(object(entry[].value.copy()))
-            )
+            writer.write("'", entry[].key, "' = ", object(entry[].value.copy()))
             print_sep = True
         writer.write("}")
         return
@@ -811,24 +817,20 @@ struct object(
         Args:
             value: The string value.
         """
-        self = object(StringRef(value))
+        self = object(StringSlice(value))
 
     @always_inline
     @implicit
-    fn __init__(out self, value: StringRef):
+    fn __init__(out self, value: StringSlice):
         """Initializes the object from a string reference.
 
         Args:
             value: The string value.
         """
         var impl = _ImmutableString(
-            UnsafePointer[UInt8].alloc(value.length), value.length
+            UnsafePointer[UInt8].alloc(len(value)), len(value)
         )
-        memcpy(
-            dest=impl.data,
-            src=value.unsafe_ptr(),
-            count=value.length,
-        )
+        memcpy(dest=impl.data, src=value.unsafe_ptr(), count=len(value))
         self._value = impl
 
     @always_inline
@@ -857,8 +859,6 @@ struct object(
                 self._append(value.get[i, Float64]())
             elif _type_is_eq[T, Bool]():
                 self._append(value.get[i, Bool]())
-            elif _type_is_eq[T, StringRef]():
-                self._append(value.get[i, StringRef]())
             elif _type_is_eq[T, StringLiteral]():
                 self._append(value.get[i, StringLiteral]())
             else:
