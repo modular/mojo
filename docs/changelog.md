@@ -64,6 +64,9 @@ You should now pass the function directly to
       ctx.enqueue_function[func](grid_dim=1, block_dim=4)
 ```
 
+- `List.bytecount()` was changed to `List.byte_length()` to better align with
+  other similar APIs.
+
 ### Tooling changes
 
 #### Mojo Compiler
