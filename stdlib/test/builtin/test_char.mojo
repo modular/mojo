@@ -93,6 +93,34 @@ def test_char_is_posix_space():
     assert_false(Char.ord("n").is_posix_space())
     assert_false(Char.ord("z").is_posix_space())
     assert_false(Char.ord(".").is_posix_space())
+    assert_false(Char.ord("\x1c").is_posix_space())
+    assert_false(Char.ord("\x1d").is_posix_space())
+    assert_false(Char.ord("\x1e").is_posix_space())
+
+
+def test_char_is_ascii_space():
+    # checking true cases
+    assert_true(Char.ord(" ").is_ascii_space())
+    assert_true(Char.ord("\n").is_ascii_space())
+    assert_true(Char.ord("\n").is_ascii_space())
+    assert_true(Char.ord("\t").is_ascii_space())
+    assert_true(Char.ord("\r").is_ascii_space())
+    assert_true(Char.ord("\v").is_ascii_space())
+    assert_true(Char.ord("\f").is_ascii_space())
+    assert_true(Char.ord("\x1c").is_ascii_space())
+    assert_true(Char.ord("\x1d").is_ascii_space())
+    assert_true(Char.ord("\x1e").is_ascii_space())
+
+    # Checking false cases
+    assert_false(Char.ord("a").is_ascii_space())
+    assert_false(Char.ord("a").is_ascii_space())
+    assert_false(Char.ord("u").is_ascii_space())
+    assert_false(Char.ord("s").is_ascii_space())
+    assert_false(Char.ord("t").is_ascii_space())
+    assert_false(Char.ord("i").is_ascii_space())
+    assert_false(Char.ord("n").is_ascii_space())
+    assert_false(Char.ord("z").is_ascii_space())
+    assert_false(Char.ord(".").is_ascii_space())
 
 
 def test_char_is_lower():
@@ -234,6 +262,7 @@ def main():
     test_char_formatting()
     test_char_properties()
     test_char_is_posix_space()
+    test_char_is_ascii_space()
     test_char_is_lower()
     test_char_is_upper()
     test_char_is_digit()

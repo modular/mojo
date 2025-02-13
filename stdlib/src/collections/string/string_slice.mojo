@@ -1012,7 +1012,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #     if not s.isspace():
         #         break
         #     r_idx -= 1
-        while r_idx > 0 and Char(self.as_bytes()[r_idx - 1]).is_posix_space():
+        while r_idx > 0 and Char(self.as_bytes()[r_idx - 1]).is_ascii_space():
             r_idx -= 1
         return Self(unsafe_from_utf8=self.as_bytes()[:r_idx])
 
@@ -1064,7 +1064,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         #     l_idx += 1
         while (
             l_idx < self.byte_length()
-            and Char(self.as_bytes()[l_idx]).is_posix_space()
+            and Char(self.as_bytes()[l_idx]).is_ascii_space()
         ):
             l_idx += 1
         return Self(unsafe_from_utf8=self.as_bytes()[l_idx:])
