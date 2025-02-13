@@ -22,10 +22,16 @@ from collections.string import StringSlice
 """
 
 from collections import List, Optional
-from collections.string._utf8_validation import _is_valid_utf8
 from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string._utf8_validation import _is_valid_utf8
+from collections.string._unicode import (
+    is_lowercase,
+    is_uppercase,
+    to_lowercase,
+    to_uppercase,
+)
 from hashlib._hasher import _HashableWithHasher, _Hasher
-from os import PathLike
+from os import PathLike, abort
 from sys import bitwidthof, simdwidthof
 from sys.ffi import c_char
 from sys.intrinsics import likely, unlikely
@@ -768,6 +774,159 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
     # Methods
     # ===------------------------------------------------------------------===#
 
+    fn split[
+        sep_mut: Bool,
+        sep_origin: Origin[sep_mut], //,
+    ](
+        self,
+        sep: StringSlice[sep_origin],
+        maxsplit: Int = -1,
+    ) raises -> List[
+        String
+    ]:
+        """Split the string by a separator.
+
+        Parameters:
+            sep_mut: Mutability of the `sep` string slice.
+            sep_origin: Origin of the `sep` string slice.
+
+        Args:
+            sep: The string to split on.
+            maxsplit: The maximum amount of items to split from String.
+                Defaults to unlimited.
+
+        Returns:
+            A List of Strings containing the input split by the separator.
+
+        Raises:
+            If the separator is empty.
+
+        Examples:
+
+        ```mojo
+        # Splitting a space
+        _ = StringSlice("hello world").split(" ") # ["hello", "world"]
+        # Splitting adjacent separators
+        _ = StringSlice("hello,,world").split(",") # ["hello", "", "world"]
+        # Splitting with maxsplit
+        _ = StringSlice("1,2,3").split(",", 1) # ['1', '2,3']
+        ```
+        .
+        """
+        var output = List[String]()
+
+        var str_byte_len = self.byte_length() - 1
+        var lhs = 0
+        var rhs = 0
+        var items = 0
+        var sep_len = sep.byte_length()
+        if sep_len == 0:
+            raise Error("Separator cannot be empty.")
+        if str_byte_len < 0:
+            output.append(String(""))
+
+        while lhs <= str_byte_len:
+            rhs = self.find(sep, lhs)
+            if rhs == -1:
+                output.append(String(self[lhs:]))
+                break
+
+            if maxsplit > -1:
+                if items == maxsplit:
+                    output.append(String(self[lhs:]))
+                    break
+                items += 1
+
+            output.append(String(self[lhs:rhs]))
+            lhs = rhs + sep_len
+
+        if self.endswith(sep) and (len(output) <= maxsplit or maxsplit == -1):
+            output.append(String(""))
+
+        return output^
+
+    fn split(
+        self, sep: NoneType = None, maxsplit: Int = -1
+    ) -> List[StringSlice[origin]]:
+        """Split the string by every Whitespace separator.
+
+        Args:
+            sep: None.
+            maxsplit: The maximum amount of items to split from String. Defaults
+                to unlimited.
+
+        Returns:
+            A List of Strings containing the input split by the separator.
+
+        Examples:
+
+        ```mojo
+        # Splitting an empty string or filled with whitespaces
+        _ = StringSlice("      ").split() # []
+        _ = StringSlice("").split() # []
+
+        # Splitting a string with leading, trailing, and middle whitespaces
+        _ = StringSlice("      hello    world     ").split() # ["hello", "world"]
+        # Splitting adjacent universal newlines:
+        _ = StringSlice(
+            "hello \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e\\x85\\u2028\\u2029world"
+        ).split()  # ["hello", "world"]
+        ```
+        .
+        """
+
+        return self._split_whitespace()
+
+    fn _split_whitespace(self, maxsplit: Int = -1) -> List[StringSlice[origin]]:
+        fn num_bytes(b: UInt8) -> Int:
+            var flipped = ~b
+            return Int(count_leading_zeros(flipped) + (flipped >> 7))
+
+        var output = List[StringSlice[origin]]()
+        var str_byte_len = self.byte_length() - 1
+        var lhs = 0
+        var rhs = 0
+        var items = 0
+        while lhs <= str_byte_len:
+            try:
+                # Python adds all "whitespace chars" as one separator
+                # if no separator was specified
+                for s in self[lhs:].char_slices():
+                    if not s.isspace():
+                        break
+                    lhs += s.byte_length()
+                # if it went until the end of the String, then
+                # it should be sliced up until the original
+                # start of the whitespace which was already appended
+                if lhs - 1 == str_byte_len:
+                    break
+                elif lhs == str_byte_len:
+                    # if the last char is not whitespace
+                    output.append(self[str_byte_len:])
+                    break
+                rhs = lhs + num_bytes(self.unsafe_ptr()[lhs])
+                for s in self[
+                    lhs + num_bytes(self.unsafe_ptr()[lhs]) :
+                ].char_slices():
+                    if s.isspace():
+                        break
+                    rhs += s.byte_length()
+
+                if maxsplit > -1:
+                    if items == maxsplit:
+                        output.append(self[lhs:])
+                        break
+                    items += 1
+
+                output.append(self[lhs:rhs])
+                lhs = rhs
+            except e:
+                return abort[List[StringSlice[origin]]](
+                    "unexpected exception during split()"
+                )
+
+        return output
+
     @always_inline
     fn strip(self, chars: StringSlice) -> Self:
         """Return a copy of the string with leading and trailing characters
@@ -1408,6 +1567,129 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             offset = pos + substr.byte_length()
 
         return res
+
+    fn is_ascii_digit(self) -> Bool:
+        """A string is a digit string if all characters in the string are digits
+        and there is at least one character in the string.
+
+        Note that this currently only works with ASCII strings.
+
+        Returns:
+            True if all characters are digits and it's not empty else False.
+        """
+        if not self:
+            return False
+        for char in self.chars():
+            if not char.is_ascii_digit():
+                return False
+        return True
+
+    fn isupper(self) -> Bool:
+        """Returns True if all cased characters in the string are uppercase and
+        there is at least one cased character.
+
+        Returns:
+            True if all cased characters in the string are uppercase and there
+            is at least one cased character, False otherwise.
+        """
+        return len(self) > 0 and is_uppercase(self)
+
+    fn islower(self) -> Bool:
+        """Returns True if all cased characters in the string are lowercase and
+        there is at least one cased character.
+
+        Returns:
+            True if all cased characters in the string are lowercase and there
+            is at least one cased character, False otherwise.
+        """
+        return len(self) > 0 and is_lowercase(self)
+
+    fn lower(self) -> String:
+        """Returns a copy of the string with all cased characters
+        converted to lowercase.
+
+        Returns:
+            A new string where cased letters have been converted to lowercase.
+        """
+
+        # TODO: the _unicode module does not support locale sensitive conversions yet.
+        return to_lowercase(self)
+
+    fn upper(self) -> String:
+        """Returns a copy of the string with all cased characters
+        converted to uppercase.
+
+        Returns:
+            A new string where cased letters have been converted to uppercase.
+        """
+
+        # TODO: the _unicode module does not support locale sensitive conversions yet.
+        return to_uppercase(self)
+
+    fn is_ascii_printable(self) -> Bool:
+        """Returns True if all characters in the string are ASCII printable.
+
+        Note that this currently only works with ASCII strings.
+
+        Returns:
+            True if all characters are printable else False.
+        """
+        for char in self.chars():
+            if not char.is_ascii_printable():
+                return False
+        return True
+
+    fn rjust(self, width: Int, fillchar: StringLiteral = " ") -> String:
+        """Returns the string right justified in a string of specified width.
+
+        Args:
+            width: The width of the field containing the string.
+            fillchar: Specifies the padding character.
+
+        Returns:
+            Returns right justified string, or self if width is not bigger than self length.
+        """
+        return self._justify(width - len(self), width, fillchar)
+
+    fn ljust(self, width: Int, fillchar: StringLiteral = " ") -> String:
+        """Returns the string left justified in a string of specified width.
+
+        Args:
+            width: The width of the field containing the string.
+            fillchar: Specifies the padding character.
+
+        Returns:
+            Returns left justified string, or self if width is not bigger than self length.
+        """
+        return self._justify(0, width, fillchar)
+
+    fn center(self, width: Int, fillchar: StringLiteral = " ") -> String:
+        """Returns the string center justified in a string of specified width.
+
+        Args:
+            width: The width of the field containing the string.
+            fillchar: Specifies the padding character.
+
+        Returns:
+            Returns center justified string, or self if width is not bigger than self length.
+        """
+        return self._justify(width - len(self) >> 1, width, fillchar)
+
+    fn _justify(
+        self, start: Int, width: Int, fillchar: StringLiteral
+    ) -> String:
+        if len(self) >= width:
+            return String(self)
+        debug_assert(
+            len(fillchar) == 1, "fill char needs to be a one byte literal"
+        )
+        var fillbyte = fillchar.as_bytes()[0]
+        var buffer = List[Byte](capacity=width + 1)
+        buffer.resize(width, fillbyte)
+        buffer.append(0)
+        memcpy(buffer.unsafe_ptr().offset(start), self.unsafe_ptr(), len(self))
+        var result = String(buffer=buffer)
+        return result^
 
 
 # ===-----------------------------------------------------------------------===#
