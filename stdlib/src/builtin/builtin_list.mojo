@@ -88,27 +88,6 @@ struct ListLiteral[*Ts: CollectionElement](Sized, CollectionElement):
         return len(self.storage)
 
     # ===-------------------------------------------------------------------===#
-    # Methods
-    # ===-------------------------------------------------------------------===#
-
-    @always_inline
-    fn unsafe_get[i: Int, T: CollectionElement](self) -> ref [self.storage] T:
-        """Get a list element at the given index.
-
-        Users should consider using `__getitem__` instead of this method as it is
-        unsafe. If type T does not match the actual type at index i, this will
-        result in undefined behavior.
-
-        Parameters:
-            i: The element index.
-            T: The element type.
-
-        Returns:
-            The element at the given index.
-        """
-        return rebind[T](self.storage[i])
-
-    # ===-------------------------------------------------------------------===#
     # Operator dunders
     # ===-------------------------------------------------------------------===#
 
