@@ -114,8 +114,8 @@ fn execvp(file: UnsafePointer[c_char], argv: UnsafePointer[c_str_ptr]) -> c_int:
 
 
 @always_inline
-fn fork() -> c_int:
-    return external_call["fork", c_int]()
+fn vfork() -> c_int:
+    return external_call["vfork", c_int]()
 
 
 struct SignalCodes:
@@ -129,8 +129,8 @@ struct SignalCodes:
 
 
 @always_inline
-fn kill(pid: c_int, sig: c_int):
-    external_call["kill", NoneType](pid, sig)
+fn kill(pid: c_int, sig: c_int) -> c_int:
+    return external_call["kill", c_int](pid, sig)
 
 
 # ===-----------------------------------------------------------------------===#
