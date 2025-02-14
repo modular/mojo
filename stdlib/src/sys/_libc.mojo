@@ -18,7 +18,7 @@ functionality in the rest of the Mojo standard library.
 """
 
 from sys import os_is_windows
-from sys.ffi import OpaquePointer, c_char, c_int, c_size_t
+from sys.ffi import OpaquePointer, c_char, c_int, c_size_t, c_str_ptr
 
 from memory import UnsafePointer
 
@@ -104,6 +104,33 @@ fn dup(oldfd: c_int) -> c_int:
     alias name = "_dup" if os_is_windows() else "dup"
 
     return external_call[name, c_int](oldfd)
+
+
+@always_inline
+fn execvp(file: UnsafePointer[c_char], argv: UnsafePointer[c_str_ptr]) -> c_int:
+    """`execvp` expects that the c_str_ptr array is terminated with a NULL pointer.
+    """
+    return external_call["execvp", c_int](file, argv)
+
+
+@always_inline
+fn fork() -> c_int:
+    return external_call["fork", c_int]()
+
+
+struct SignalCodes:
+    alias HUP = 1  # (hang up)
+    alias INT = 2  # (interrupt)
+    alias QUIT = 3  # (quit)
+    alias ABRT = 6  # (abort)
+    alias KILL = 9  # (non-catchable, non-ignorable kill)
+    alias ALRM = 14  # (alarm clock)
+    alias TERM = 15  # (software termination signal)
+
+
+@always_inline
+fn kill(pid: c_int, sig: c_int):
+    external_call["kill", NoneType](pid, sig)
 
 
 # ===-----------------------------------------------------------------------===#
