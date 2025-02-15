@@ -20,6 +20,7 @@ from memory import Span
 ```
 """
 
+from collections._index_normalization import normalize_index
 from collections import InlineArray
 from sys.info import simdwidthof
 
@@ -178,15 +179,8 @@ struct Span[
         Returns:
             An element reference.
         """
-        # TODO: Simplify this with a UInt type.
-        debug_assert(
-            -self._len <= Int(idx) < self._len, "index must be within bounds"
-        )
-        # TODO(MSTDL-1086): optimize away SIMD/UInt normalization check
-        var offset = Int(idx)
-        if offset < 0:
-            offset += len(self)
-        return self._data[offset]
+        var normalized_index = normalize_index["Span"](idx, self._len)
+        return self._data[normalized_index]
 
     @always_inline
     fn __getitem__(self, slc: Slice) -> Self:

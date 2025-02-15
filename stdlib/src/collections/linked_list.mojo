@@ -284,7 +284,7 @@ struct LinkedList[
         elem.free()
         return value^
 
-    fn pop[I: Indexer](mut self, owned i: I) raises -> ElementType:
+    fn pop[I: Indexer](mut self, idx: I) raises -> ElementType:
         """
         Remove the ith element of the list, counting from the tail if
         given a negative index.
@@ -295,12 +295,12 @@ struct LinkedList[
             I: The type of index to use.
 
         Args:
-            i: The index of the element to get.
+            idx: The index of the element to get.
 
         Returns:
             Ownership of the indicated element.
         """
-        var current = self._get_node_ptr(Int(i))
+        var current = self._get_node_ptr(idx)
 
         if current:
             var node = current[]
@@ -323,7 +323,7 @@ struct LinkedList[
             self._size -= 1
             return data^
 
-        raise String("Invalid index for pop: {}").format(Int(i))
+        raise String("Invalid index for pop: ", Int(idx))
 
     fn maybe_pop(mut self) -> Optional[ElementType]:
         """
@@ -347,7 +347,7 @@ struct LinkedList[
         elem.free()
         return value^
 
-    fn maybe_pop[I: Indexer](mut self, owned i: I) -> Optional[ElementType]:
+    fn maybe_pop[I: Indexer](mut self, idx: I) -> Optional[ElementType]:
         """
         Remove the ith element of the list, counting from the tail if
         given a negative index.
@@ -358,12 +358,12 @@ struct LinkedList[
             I: The type of index to use.
 
         Args:
-            i: The index of the element to get.
+            idx: The index of the element to get.
 
         Returns:
             The element, if it was found.
         """
-        var current = self._get_node_ptr(Int(i))
+        var current = self._get_node_ptr(idx)
 
         if not current:
             return Optional[ElementType]()
