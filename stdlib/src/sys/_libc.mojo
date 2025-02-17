@@ -133,6 +133,40 @@ fn kill(pid: c_int, sig: c_int) -> c_int:
     return external_call["kill", c_int](pid, sig)
 
 
+@always_inline
+fn pipe(fildes: UnsafePointer[c_int]) -> c_int:
+    return external_call["pipe", c_int](fildes)
+
+
+@always_inline
+fn close(fd: c_int) -> c_int:
+    return external_call["close", c_int](fd)
+
+
+@always_inline
+fn write(fd: c_int, buf: OpaquePointer, nbyte: c_size_t) -> c_int:
+    return external_call["write", c_int](fd, buf, nbyte)
+
+
+# ===-----------------------------------------------------------------------===#
+# fcntl.h - Control over file descriptors
+# ===-----------------------------------------------------------------------===#
+
+
+struct FcntlCommands:
+    alias F_GETFD: c_int = 1
+    alias F_SETFD: c_int = 2
+
+
+struct FcntlFDFlags:
+    alias FD_CLOEXEC: c_int = 1
+
+
+@always_inline
+fn fcntl[*types: Intable](fd: c_int, cmd: c_int, *args: *types) -> c_int:
+    return external_call["fcntl", c_int](fd, cmd, args)
+
+
 # ===-----------------------------------------------------------------------===#
 # dlfcn.h — dynamic library operations
 # ===-----------------------------------------------------------------------===#
