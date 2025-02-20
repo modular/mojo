@@ -114,4 +114,6 @@ a different threshold or to `0` to disable the warning.
 
 ### ❌ Removed
 
+- Removed `ListLiteral.get[i, T]()`. `ListLiteral` is now subscriptable.
+
 ### 🛠️ Fixed
