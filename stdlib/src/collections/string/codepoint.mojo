@@ -393,15 +393,10 @@ struct Codepoint(CollectionElement, EqualityComparable, Intable, Stringable):
         )
 
     fn is_posix_space(self) -> Bool:
-<<<<<<< HEAD:stdlib/src/builtin/char.mojo
         """Returns True if this `Char` is a **space** (aka. whitespace)
         character according to the [POSIX locale](
         https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap07.html#tag_07_03_01
         ): `" \\t\\n\\v\\f\\r"`.
-=======
-        """Returns True if this `Codepoint` is a **space** character according to the
-        [POSIX locale][1].
->>>>>>> upstream/main:stdlib/src/collections/string/codepoint.mojo
 
         Returns:
             True iff the character is one of the whitespace characters listed

@@ -86,8 +86,6 @@ def test_char_is_posix_space():
     assert_true(Codepoint.ord("\f").is_posix_space())
 
     # Checking false cases
-<<<<<<< HEAD:stdlib/test/builtin/test_char.mojo
-    assert_false(Char.ord("a").is_posix_space())
     assert_false(Char.ord("a").is_posix_space())
     assert_false(Char.ord("u").is_posix_space())
     assert_false(Char.ord("s").is_posix_space())
@@ -116,7 +114,6 @@ def test_char_is_ascii_space():
 
     # Checking false cases
     assert_false(Char.ord("a").is_ascii_space())
-    assert_false(Char.ord("a").is_ascii_space())
     assert_false(Char.ord("u").is_ascii_space())
     assert_false(Char.ord("s").is_ascii_space())
     assert_false(Char.ord("t").is_ascii_space())
@@ -124,17 +121,6 @@ def test_char_is_ascii_space():
     assert_false(Char.ord("n").is_ascii_space())
     assert_false(Char.ord("z").is_ascii_space())
     assert_false(Char.ord(".").is_ascii_space())
-=======
-    assert_false(Codepoint.ord("a").is_posix_space())
-    assert_false(Codepoint.ord("a").is_posix_space())
-    assert_false(Codepoint.ord("u").is_posix_space())
-    assert_false(Codepoint.ord("s").is_posix_space())
-    assert_false(Codepoint.ord("t").is_posix_space())
-    assert_false(Codepoint.ord("i").is_posix_space())
-    assert_false(Codepoint.ord("n").is_posix_space())
-    assert_false(Codepoint.ord("z").is_posix_space())
-    assert_false(Codepoint.ord(".").is_posix_space())
->>>>>>> upstream/main:stdlib/test/collections/test_codepoint.mojo
 
 
 def test_char_is_lower():
