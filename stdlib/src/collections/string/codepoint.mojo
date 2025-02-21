@@ -393,7 +393,7 @@ struct Codepoint(CollectionElement, EqualityComparable, Intable, Stringable):
         )
 
     fn is_posix_space(self) -> Bool:
-        """Returns True if this `Char` is a **space** (aka. whitespace)
+        """Returns True if this `Codepoint` is a **space** (aka. whitespace)
         character according to the [POSIX locale](
         https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap07.html#tag_07_03_01
         ): `" \\t\\n\\v\\f\\r"`.
@@ -428,7 +428,7 @@ struct Codepoint(CollectionElement, EqualityComparable, Intable, Stringable):
         )
 
     fn is_ascii_space(self) -> Bool:
-        """Determines whether the given character is an ASCII whitespace
+        """Determines whether the given `Codepoint` is an ASCII whitespace
         character: `" \\t\\n\\v\\f\\r\\x1c\\x1d\\x1e"`.
 
         Returns:
