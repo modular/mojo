@@ -43,16 +43,6 @@ def test_floor():
     assert_equal(IntLiteral.__floor__(-5), -5)
 
 
-def test_round():
-    assert_equal(IntLiteral.__round__(5), 5)
-    assert_equal(IntLiteral.__round__(0), 0)
-    assert_equal(IntLiteral.__round__(-5), -5)
-    assert_equal(IntLiteral.__round__(5, 1), 5)
-    assert_equal(IntLiteral.__round__(0, 1), 0)
-    assert_equal(IntLiteral.__round__(-5, 1), -5)
-    assert_equal(IntLiteral.__round__(100, -2), 100)
-
-
 def test_trunc():
     assert_equal(IntLiteral.__trunc__(5), 5)
     assert_equal(IntLiteral.__trunc__(0), 0)
@@ -76,13 +66,6 @@ def test_mod():
     assert_equal(IntLiteral.__mod__(2, -2), 0)
     assert_equal(IntLiteral.__mod__(3, -2), -1)
     assert_equal(IntLiteral.__mod__(-3, 2), 1)
-
-
-def test_bit_width():
-    assert_equal((0)._bit_width(), 1)
-    assert_equal((-1)._bit_width(), 1)
-    assert_equal((255)._bit_width(), 9)
-    assert_equal((-256)._bit_width(), 9)
 
 
 def test_abs():
@@ -160,12 +143,10 @@ def main():
     test_sub()
     test_ceil()
     test_floor()
-    test_round()
     test_trunc()
     test_floordiv()
     test_mod()
     test_divmod()
-    test_bit_width()
     test_abs()
     test_indexer()
     test_bool()

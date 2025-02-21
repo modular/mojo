@@ -13,14 +13,17 @@
 
 from .test_utils import libm_call
 from .types import (
+    CopyCountedStruct,
     CopyCounter,
+    DelCounter,
+    MoveCopyCounter,
     ExplicitCopyOnly,
     ImplicitCopyOnly,
     MoveCounter,
     MoveOnly,
+    ObservableMoveOnly,
     ObservableDel,
-    ValueDestructorRecorder,
-    DtorCounter,
+    DelRecorder,
+    AbortOnDel,
     g_dtor_count,
-    CopyCountedStruct,
 )

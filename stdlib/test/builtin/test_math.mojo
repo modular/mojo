@@ -97,6 +97,8 @@ def test_round():
     assert_equal(2, round(2.0))
     assert_equal(1, round(1.4, 0))
     assert_equal(2, round(2.5))
+    assert_equal(-2, round(-2.5))
+
     assert_equal(1.5, round(1.5, 1))
     assert_equal(1.61, round(1.613, 2))
 
@@ -105,9 +107,9 @@ def test_round():
     assert_equal(expected, round(lhs))
 
     # Ensure that round works on float literal
-    alias r1: FloatLiteral = round(2.3)
+    alias r1 = round(2.3)
     assert_equal(r1, 2.0)
-    alias r2: FloatLiteral = round(2.3324, 2)
+    alias r2 = round(2.3324, 2)
     assert_equal(r2, 2.33)
 
 
