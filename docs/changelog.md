@@ -26,6 +26,8 @@ what we publish.
 
 ### Standard library changes
 
+- The `Buffer` struct has been removed in favor of `Span` and `NDBuffer`.
+
 - A new `IntervalTree` data structure has been added to the standard library.
   This is a tree data structure that allows for efficient range queries.
 
@@ -75,9 +77,14 @@ what we publish.
 - The `SIMD.roundeven()` method has been removed from the standard library.
   This functionality is now handled by the `round()` function.
 
+- The `UnsafePointer.alloc()` method has changed to produce pointers with an
+  empty `Origin` parameter, instead of with `MutableAnyOrigin`. This mitigates
+  an issue with the any origin parameter extending the lifetime of unrelated
+  local variables for this common method.
+
 ### GPU changes
 
-- `ctx.enqueue_function(compiled_func, ...)` is deprecated:
+- You can now skip compiling a GPU kernel first and then enqueueing it:
 
 ```mojo
   from gpu import thread_idx
@@ -91,23 +98,42 @@ what we publish.
       ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=4)
 ```
 
-You should now pass the function directly to
-`DeviceContext.enqueue_function[func](...)`:
+- You can now skip compiling a GPU kernel first before enqueueing it, and pass
+a function directly to `ctx.enqueue_function[func](...)`:
 
 ```mojo
-  with DeviceContext() as ctx:
-      ctx.enqueue_function[func](grid_dim=1, block_dim=4)
+from gpu.host import DeviceContext
+
+fn func():
+    print("Hello from GPU")
+
+with DeviceContext() as ctx:
+    ctx.enqueue_function[func](grid_dim=1, block_dim=1)
+```
+
+However, if you're reusing the same function and parameters multiple times, this
+incurs some overhead of around 50-500 nanoseconds per enqueue. So you can still
+compile the function first and pass it to ctx.enqueue_function in this scenario:
+
+```mojo
+var compiled_func = ctx.compile_function[func]()
+# Multiple kernel launches with the same function/parameters
+ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
+ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 ```
 
 - The `shuffle` module has been rename to `warp` to better
   reflect its purpose. To uses now you will have to do
-  
+
   ```mojo
   import gpu.warp as warp
 
   var val0 = warp.shuffle_down(x, offset)
   var val1 = warp.broadcast(x)
   ```
+
+- `List.bytecount()` has been renamed to `List.byte_length()` for consistency
+  with the String-like APIs.
 
 ### Tooling changes
 

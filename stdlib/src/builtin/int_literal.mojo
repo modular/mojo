@@ -175,20 +175,6 @@ struct IntLiteral(
         """
         return Self() - self
 
-    @always_inline("nodebug")
-    fn __divmod__(self, rhs: Self) -> Tuple[Self, Self]:
-        """Return the quotient and remainder of the division of self by rhs.
-
-        Args:
-            rhs: The value to divide on.
-
-        Returns:
-            The quotient and remainder of the division.
-        """
-        var quotient: Self = self.__floordiv__(rhs)
-        var remainder: Self = self - (quotient * rhs)
-        return quotient, remainder
-
     @always_inline("builtin")
     fn __invert__(self) -> Self:
         """Return ~self.
@@ -248,7 +234,7 @@ struct IntLiteral(
 
     # TODO: implement __pow__
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __floordiv__(self, rhs: Self) -> Self:
         """Return `self // rhs`.
 
@@ -258,16 +244,14 @@ struct IntLiteral(
         Returns:
             `self // rhs` value.
         """
-        if rhs == Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind floordiv>`
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __mod__(self, rhs: Self) -> Self:
         """Return the remainder of self divided by rhs.
 
@@ -277,16 +261,14 @@ struct IntLiteral(
         Returns:
             The remainder of dividing self by rhs.
         """
-        if rhs == Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind mod>`
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __lshift__(self, rhs: Self) -> Self:
         """Return `self << rhs`.
 
@@ -296,16 +278,14 @@ struct IntLiteral(
         Returns:
             `self << rhs`.
         """
-        if rhs < Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind lshift>`
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __rshift__(self, rhs: Self) -> Self:
         """Return `self >> rhs`.
 
@@ -315,9 +295,7 @@ struct IntLiteral(
         Returns:
             `self >> rhs`.
         """
-        if rhs < Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind rshift>`
@@ -470,7 +448,7 @@ struct IntLiteral(
         """
         return String(Int(self))
 
-    @always_inline
+    @always_inline("builtin")
     fn __ceildiv__(self, denominator: Self) -> Self:
         """Return the rounded-up result of dividing self by denominator.
 
