@@ -12,16 +12,15 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from testing import assert_equal, assert_false, assert_true, assert_raises
-
+from collections.string._utf8_validation import _is_valid_utf8
 from collections.string.string_slice import (
     StringSlice,
     _count_utf8_continuation_bytes,
 )
-from collections.string._utf8_validation import _is_valid_utf8
-from memory import Span, UnsafePointer
+from sys.info import alignof, sizeof
 
-from sys.info import sizeof, alignof
+from memory import Span, UnsafePointer
+from testing import assert_equal, assert_false, assert_raises, assert_true
 
 
 fn test_string_slice_layout() raises:
@@ -219,12 +218,12 @@ fn test_slice_len() raises:
     # String length is in bytes, not codepoints.
     var s0 = String("ನಮಸ್ಕಾರ")
     assert_equal(len(s0), 21)
-    assert_equal(len(s0.chars()), 7)
+    assert_equal(len(s0.codepoints()), 7)
 
     # For ASCII string, the byte and codepoint length are the same:
     var s1 = String("abc")
     assert_equal(len(s1), 3)
-    assert_equal(len(s1.chars()), 3)
+    assert_equal(len(s1.codepoints()), 3)
 
 
 fn test_slice_char_length() raises:
@@ -435,6 +434,28 @@ def test_find():
     )
 
 
+def test_is_codepoint_boundary():
+    var abc = StringSlice("abc")
+    assert_equal(len(abc), 3)
+    assert_true(abc.is_codepoint_boundary(0))
+    assert_true(abc.is_codepoint_boundary(1))
+    assert_true(abc.is_codepoint_boundary(2))
+    assert_true(abc.is_codepoint_boundary(3))
+
+    var thumb = StringSlice("👍")
+    assert_equal(len(thumb), 4)
+    assert_true(thumb.is_codepoint_boundary(0))
+    assert_false(thumb.is_codepoint_boundary(1))
+    assert_false(thumb.is_codepoint_boundary(2))
+    assert_false(thumb.is_codepoint_boundary(3))
+
+    var empty = StringSlice("")
+    assert_equal(len(empty), 0)
+    assert_true(empty.is_codepoint_boundary(0))
+    # Also tests that positions greater then the length don't raise/abort.
+    assert_false(empty.is_codepoint_boundary(1))
+
+
 alias GOOD_SEQUENCES = List[String](
     "a",
     "\xc3\xb1",
@@ -568,6 +589,157 @@ def test_count_utf8_continuation_bytes():
     _test(3, List[UInt8](b4, c, c, c, b1))
     _test(3, List[UInt8](b3, c, c, b2, c))
     _test(3, List[UInt8](b2, c, b3, c, c))
+
+
+def test_split():
+    # empty separators default to whitespace
+    var d0 = StringSlice("hello world").split()
+    assert_true(len(d0) == 2)
+    assert_true(d0[0] == "hello")
+    assert_true(d0[1] == "world")
+    var d = StringSlice("hello \t\n\n\v\fworld").split(sep="\n")
+    assert_true(len(d) == 3)
+    assert_true(d[0] == "hello \t" and d[1] == "" and d[2] == "\v\fworld")
+
+    # Should add all whitespace-like chars as one
+    # test all unicode separators
+    # 0 is to build a String with null terminator
+    alias next_line = List[UInt8](0xC2, 0x85, 0)
+    """TODO: \\x85"""
+    alias unicode_line_sep = List[UInt8](0xE2, 0x80, 0xA8, 0)
+    """TODO: \\u2028"""
+    alias unicode_paragraph_sep = List[UInt8](0xE2, 0x80, 0xA9, 0)
+    """TODO: \\u2029"""
+    # TODO add line and paragraph separator as StringLiteral once unicode
+    # escape secuences are accepted
+    var univ_sep_var = (
+        String(
+            " ",
+            "\t",
+            "\n",
+            "\r",
+            "\v",
+            "\f",
+            "\x1c",
+            "\x1d",
+            "\x1e",
+            String(buffer=next_line),
+            String(buffer=unicode_line_sep),
+            String(buffer=unicode_paragraph_sep),
+        )
+    )
+    var s = univ_sep_var + "hello" + univ_sep_var + "world" + univ_sep_var
+    var ds1 = StringSlice(s).split()
+    assert_true(len(ds1) == 2)
+    assert_true(ds1[0] == "hello" and ds1[1] == "world")
+
+    # should split into empty strings between separators
+    d = StringSlice("1,,,3").split(",")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "1" and d[1] == "" and d[2] == "" and d[3] == "3")
+    d = StringSlice(",,,").split(",")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "" and d[1] == "" and d[2] == "" and d[3] == "")
+    d = StringSlice(" a b ").split(" ")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "" and d[1] == "a" and d[2] == "b" and d[3] == "")
+    d = StringSlice("abababaaba").split("aba")
+    assert_true(len(d) == 4)
+    assert_true(d[0] == "" and d[1] == "b" and d[2] == "" and d[3] == "")
+
+    # should split into maxsplit + 1 items
+    d = StringSlice("1,2,3").split(",", 0)
+    assert_true(len(d) == 1)
+    assert_true(d[0] == "1,2,3")
+    d = StringSlice("1,2,3").split(",", 1)
+    assert_true(len(d) == 2)
+    assert_true(d[0] == "1" and d[1] == "2,3")
+
+    assert_true(len(StringSlice("").split()) == 0)
+    assert_true(len(StringSlice(" ").split()) == 0)
+    assert_true(len(StringSlice("").split(" ")) == 1)
+    assert_true(len(StringSlice(" ").split(" ")) == 2)
+    assert_true(len(StringSlice("  ").split(" ")) == 3)
+    assert_true(len(StringSlice("   ").split(" ")) == 4)
+
+    with assert_raises():
+        _ = StringSlice("").split("")
+
+    # Split in middle
+    var d1 = StringSlice("n")
+    var in1 = StringSlice("faang")
+    var res1 = in1.split(d1)
+    assert_equal(len(res1), 2)
+    assert_equal(res1[0], "faa")
+    assert_equal(res1[1], "g")
+
+    # Matches should be properly split in multiple case
+    var d2 = StringSlice(" ")
+    var in2 = StringSlice("modcon is coming soon")
+    var res2 = in2.split(d2)
+    assert_equal(len(res2), 4)
+    assert_equal(res2[0], "modcon")
+    assert_equal(res2[1], "is")
+    assert_equal(res2[2], "coming")
+    assert_equal(res2[3], "soon")
+
+    # No match from the delimiter
+    var d3 = StringSlice("x")
+    var in3 = StringSlice("hello world")
+    var res3 = in3.split(d3)
+    assert_equal(len(res3), 1)
+    assert_equal(res3[0], "hello world")
+
+    # Multiple character delimiter
+    var d4 = StringSlice("ll")
+    var in4 = StringSlice("hello")
+    var res4 = in4.split(d4)
+    assert_equal(len(res4), 2)
+    assert_equal(res4[0], "he")
+    assert_equal(res4[1], "o")
+
+    # related to #2879
+    # TODO: replace string comparison when __eq__ is implemented for List
+    assert_equal(
+        StringSlice("abbaaaabbba").split("a").__str__(),
+        "['', 'bb', '', '', '', 'bbb', '']",
+    )
+    assert_equal(
+        StringSlice("abbaaaabbba").split("a", 8).__str__(),
+        "['', 'bb', '', '', '', 'bbb', '']",
+    )
+    assert_equal(
+        StringSlice("abbaaaabbba").split("a", 5).__str__(),
+        "['', 'bb', '', '', '', 'bbba']",
+    )
+    assert_equal(StringSlice("aaa").split("a", 0).__str__(), "['aaa']")
+    assert_equal(StringSlice("a").split("a").__str__(), "['', '']")
+    assert_equal(StringSlice("1,2,3").split("3", 0).__str__(), "['1,2,3']")
+    assert_equal(StringSlice("1,2,3").split("3", 1).__str__(), "['1,2,', '']")
+    assert_equal(
+        StringSlice("1,2,3,3").split("3", 2).__str__(), "['1,2,', ',', '']"
+    )
+    assert_equal(
+        StringSlice("1,2,3,3,3").split("3", 2).__str__(), "['1,2,', ',', ',3']"
+    )
+
+    var in5 = StringSlice("Hello 🔥!")
+    var res5 = in5.split()
+    assert_equal(len(res5), 2)
+    assert_equal(res5[0], "Hello")
+    assert_equal(res5[1], "🔥!")
+
+    var in6 = StringSlice("Лорем ипсум долор сит амет")
+    var res6 = in6.split(" ")
+    assert_equal(len(res6), 5)
+    assert_equal(res6[0], "Лорем")
+    assert_equal(res6[1], "ипсум")
+    assert_equal(res6[2], "долор")
+    assert_equal(res6[3], "сит")
+    assert_equal(res6[4], "амет")
+
+    with assert_raises(contains="Separator cannot be empty."):
+        _ = StringSlice("1, 2, 3").split("")
 
 
 def test_splitlines():
@@ -770,6 +942,77 @@ def test_endswith():
     assert_true(ab.endswith("ab"))
 
 
+def test_isupper():
+    assert_true(StringSlice("ASDG").isupper())
+    assert_false(StringSlice("AsDG").isupper())
+    assert_true(StringSlice("ABC123").isupper())
+    assert_false(StringSlice("1!").isupper())
+    assert_true(StringSlice("É").isupper())
+    assert_false(StringSlice("é").isupper())
+
+
+def test_islower():
+    assert_true(StringSlice("asdfg").islower())
+    assert_false(StringSlice("asdFDg").islower())
+    assert_true(StringSlice("abc123").islower())
+    assert_false(StringSlice("1!").islower())
+    assert_true(StringSlice("é").islower())
+    assert_false(StringSlice("É").islower())
+
+
+def test_lower():
+    assert_equal(StringSlice("HELLO").lower(), "hello")
+    assert_equal(StringSlice("hello").lower(), "hello")
+    assert_equal(StringSlice("FoOBaR").lower(), "foobar")
+
+    assert_equal(StringSlice("MOJO🔥").lower(), "mojo🔥")
+
+    assert_equal(StringSlice("É").lower(), "é")
+    assert_equal(StringSlice("é").lower(), "é")
+
+
+def test_upper():
+    assert_equal(StringSlice("hello").upper(), "HELLO")
+    assert_equal(StringSlice("HELLO").upper(), "HELLO")
+    assert_equal(StringSlice("FoOBaR").upper(), "FOOBAR")
+
+    assert_equal(StringSlice("mojo🔥").upper(), "MOJO🔥")
+
+    assert_equal(StringSlice("É").upper(), "É")
+    assert_equal(StringSlice("é").upper(), "É")
+
+
+def test_is_ascii_digit():
+    assert_false(StringSlice("").is_ascii_digit())
+    assert_true(StringSlice("123").is_ascii_digit())
+    assert_false(StringSlice("asdg").is_ascii_digit())
+    assert_false(StringSlice("123asdg").is_ascii_digit())
+
+
+def test_is_ascii_printable():
+    assert_true(StringSlice("aasdg").is_ascii_printable())
+    assert_false(StringSlice("aa\nae").is_ascii_printable())
+    assert_false(StringSlice("aa\tae").is_ascii_printable())
+
+
+def test_rjust():
+    assert_equal(StringSlice("hello").rjust(4), "hello")
+    assert_equal(StringSlice("hello").rjust(8), "   hello")
+    assert_equal(StringSlice("hello").rjust(8, "*"), "***hello")
+
+
+def test_ljust():
+    assert_equal(StringSlice("hello").ljust(4), "hello")
+    assert_equal(StringSlice("hello").ljust(8), "hello   ")
+    assert_equal(StringSlice("hello").ljust(8, "*"), "hello***")
+
+
+def test_center():
+    assert_equal(StringSlice("hello").center(4), "hello")
+    assert_equal(StringSlice("hello").center(8), " hello  ")
+    assert_equal(StringSlice("hello").center(8, "*"), "*hello**")
+
+
 def test_count():
     var str = StringSlice("Hello world")
 
@@ -786,12 +1029,14 @@ def test_count():
 
 def test_chars_iter():
     # Test `for` loop iteration support
-    for char in StringSlice("abc").chars():
-        assert_true(char in (Char.ord("a"), Char.ord("b"), Char.ord("c")))
+    for char in StringSlice("abc").codepoints():
+        assert_true(
+            char in (Codepoint.ord("a"), Codepoint.ord("b"), Codepoint.ord("c"))
+        )
 
     # Test empty string chars
     var s0 = StringSlice("")
-    var s0_iter = s0.chars()
+    var s0_iter = s0.codepoints()
 
     assert_false(s0_iter.__has_next__())
     assert_true(s0_iter.peek_next() is None)
@@ -799,11 +1044,11 @@ def test_chars_iter():
 
     # Test simple ASCII string chars
     var s1 = StringSlice("abc")
-    var s1_iter = s1.chars()
+    var s1_iter = s1.codepoints()
 
-    assert_equal(s1_iter.next().value(), Char.ord("a"))
-    assert_equal(s1_iter.next().value(), Char.ord("b"))
-    assert_equal(s1_iter.next().value(), Char.ord("c"))
+    assert_equal(s1_iter.next().value(), Codepoint.ord("a"))
+    assert_equal(s1_iter.next().value(), Codepoint.ord("b"))
+    assert_equal(s1_iter.next().value(), Codepoint.ord("c"))
     assert_true(s1_iter.next() is None)
 
     # Multibyte character decoding: A visual character composed of a combining
@@ -812,8 +1057,8 @@ def test_chars_iter():
     assert_equal(s2.byte_length(), 3)
     assert_equal(s2.char_length(), 2)
 
-    var iter = s2.chars()
-    assert_equal(iter.__next__(), Char.ord("a"))
+    var iter = s2.codepoints()
+    assert_equal(iter.__next__(), Codepoint.ord("a"))
     # U+0301 Combining Acute Accent
     assert_equal(iter.__next__().to_u32(), 0x0301)
     assert_equal(iter.__has_next__(), False)
@@ -825,32 +1070,32 @@ def test_chars_iter():
     var s3 = StringSlice("߷കൈ🔄!")
     assert_equal(s3.byte_length(), 13)
     assert_equal(s3.char_length(), 5)
-    var s3_iter = s3.chars()
+    var s3_iter = s3.codepoints()
 
     # Iterator __len__ returns length in codepoints, not bytes.
     assert_equal(s3_iter.__len__(), 5)
     assert_equal(s3_iter._slice.byte_length(), 13)
     assert_equal(s3_iter.__has_next__(), True)
-    assert_equal(s3_iter.__next__(), Char.ord("߷"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("߷"))
 
     assert_equal(s3_iter.__len__(), 4)
     assert_equal(s3_iter._slice.byte_length(), 11)
-    assert_equal(s3_iter.__next__(), Char.ord("ക"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("ക"))
 
     # Combining character, visually comes first, but codepoint-wise comes
     # after the character it combines with.
     assert_equal(s3_iter.__len__(), 3)
     assert_equal(s3_iter._slice.byte_length(), 8)
-    assert_equal(s3_iter.__next__(), Char.ord("ൈ"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("ൈ"))
 
     assert_equal(s3_iter.__len__(), 2)
     assert_equal(s3_iter._slice.byte_length(), 5)
-    assert_equal(s3_iter.__next__(), Char.ord("🔄"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("🔄"))
 
     assert_equal(s3_iter.__len__(), 1)
     assert_equal(s3_iter._slice.byte_length(), 1)
     assert_equal(s3_iter.__has_next__(), True)
-    assert_equal(s3_iter.__next__(), Char.ord("!"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("!"))
 
     assert_equal(s3_iter.__len__(), 0)
     assert_equal(s3_iter._slice.byte_length(), 0)
@@ -891,6 +1136,7 @@ def main():
     test_slice_repr()
     test_utf8_validation()
     test_find()
+    test_is_codepoint_boundary()
     test_good_utf8_sequences()
     test_bad_utf8_sequences()
     test_stringslice_from_utf8()
@@ -900,12 +1146,22 @@ def main():
     test_combination_10_good_utf8_sequences()
     test_combination_10_good_10_bad_utf8_sequences()
     test_count_utf8_continuation_bytes()
-    test_count()
+    test_split()
     test_splitlines()
     test_rstrip()
     test_lstrip()
     test_strip()
     test_startswith()
     test_endswith()
+    test_isupper()
+    test_islower()
+    test_lower()
+    test_upper()
+    test_is_ascii_digit()
+    test_is_ascii_printable()
+    test_rjust()
+    test_ljust()
+    test_center()
+    test_count()
     test_chars_iter()
     test_string_slice_from_pointer()

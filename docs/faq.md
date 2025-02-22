@@ -31,7 +31,7 @@ name for a language that brings magical powers to Python, including unlocking
 an innovative programming model for accelerators and other heterogeneous
 systems pervasive in AI today.
 
-### Why does mojo have the 🔥 file extension?
+### Why does Mojo have the 🔥 file extension?
 
 We paired Mojo with fire emoji 🔥 as a fun visual way to impart onto users that
 Mojo empowers them to get their Mojo on—to develop faster and more efficiently
@@ -152,11 +152,10 @@ examples](https://github.com/modular/mojo/tree/main/examples).
 
 ### Is Mojo interpreted or compiled?
 
-Mojo supports both just-in-time (JIT) and ahead-of-time (AOT) compilation. In
-either a REPL environment or Jupyter notebook, Mojo is JIT’d. However, for AI
-deployment, it’s important that Mojo also supports AOT compilation instead of
-having to JIT compile everything. You can compile your Mojo programs using the
-[`mojo` CLI](/mojo/cli/).
+Mojo is a compiled language. [`mojo build`](/mojo/cli/build) performs
+ahead-of-time (AOT) compilation to save an executable program. [`mojo
+run`](/mojo/cli/run) performs just-in-time (JIT) compilation to execute a Mojo
+source file without saving the compiled result.
 
 ### How does Mojo compare to Triton Lang?
 

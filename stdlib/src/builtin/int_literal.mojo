@@ -27,7 +27,6 @@ struct IntLiteral(
     ImplicitlyBoolable,
     ImplicitlyIntable,
     Indexer,
-    Roundable,
     Stringable,
     Truncable,
 ):
@@ -52,13 +51,13 @@ struct IntLiteral(
     # Life cycle methods
     # ===-------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __init__(out self):
         """Default constructor."""
         self.value = __mlir_attr.`#kgen.int_literal<0> : !kgen.int_literal`
 
     @doc_private
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: __mlir_type.`!kgen.int_literal`):
         """Construct IntLiteral from the given mlir !kgen.int_literal value.
@@ -72,7 +71,7 @@ struct IntLiteral(
     # Operator dunders
     # ===-------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __lt__(self, rhs: Self) -> Bool:
         """Compare this IntLiteral to the RHS using LT comparison.
 
@@ -86,7 +85,7 @@ struct IntLiteral(
             pred = __mlir_attr.`#kgen<int_literal.cmp_pred lt>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __le__(self, rhs: Self) -> Bool:
         """Compare this IntLiteral to the RHS using LE comparison.
 
@@ -101,7 +100,7 @@ struct IntLiteral(
             pred = __mlir_attr.`#kgen<int_literal.cmp_pred le>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __eq__(self, rhs: Self) -> Bool:
         """Compare this IntLiteral to the RHS using EQ comparison.
 
@@ -115,7 +114,7 @@ struct IntLiteral(
             pred = __mlir_attr.`#kgen<int_literal.cmp_pred eq>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __ne__(self, rhs: Self) -> Bool:
         """Compare this IntLiteral to the RHS using NE comparison.
 
@@ -129,7 +128,7 @@ struct IntLiteral(
             pred = __mlir_attr.`#kgen<int_literal.cmp_pred ne>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __gt__(self, rhs: Self) -> Bool:
         """Compare this IntLiteral to the RHS using GT comparison.
 
@@ -143,7 +142,7 @@ struct IntLiteral(
             pred = __mlir_attr.`#kgen<int_literal.cmp_pred gt>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __ge__(self, rhs: Self) -> Bool:
         """Compare this IntLiteral to the RHS using GE comparison.
 
@@ -158,7 +157,7 @@ struct IntLiteral(
             pred = __mlir_attr.`#kgen<int_literal.cmp_pred ge>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __pos__(self) -> Self:
         """Return +self.
 
@@ -167,7 +166,7 @@ struct IntLiteral(
         """
         return self
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __neg__(self) -> Self:
         """Return -self.
 
@@ -176,21 +175,7 @@ struct IntLiteral(
         """
         return Self() - self
 
-    @always_inline("nodebug")
-    fn __divmod__(self, rhs: Self) -> Tuple[Self, Self]:
-        """Return the quotient and remainder of the division of self by rhs.
-
-        Args:
-            rhs: The value to divide on.
-
-        Returns:
-            The quotient and remainder of the division.
-        """
-        var quotient: Self = self.__floordiv__(rhs)
-        var remainder: Self = self - (quotient * rhs)
-        return quotient, remainder
-
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __invert__(self) -> Self:
         """Return ~self.
 
@@ -199,7 +184,7 @@ struct IntLiteral(
         """
         return self ^ (Self() - Self._one)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __add__(self, rhs: Self) -> Self:
         """Return `self + rhs`.
 
@@ -215,7 +200,7 @@ struct IntLiteral(
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __sub__(self, rhs: Self) -> Self:
         """Return `self - rhs`.
 
@@ -231,7 +216,7 @@ struct IntLiteral(
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __mul__(self, rhs: Self) -> Self:
         """Return `self * rhs`.
 
@@ -249,7 +234,7 @@ struct IntLiteral(
 
     # TODO: implement __pow__
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __floordiv__(self, rhs: Self) -> Self:
         """Return `self // rhs`.
 
@@ -259,16 +244,14 @@ struct IntLiteral(
         Returns:
             `self // rhs` value.
         """
-        if rhs == Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind floordiv>`
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __mod__(self, rhs: Self) -> Self:
         """Return the remainder of self divided by rhs.
 
@@ -278,16 +261,14 @@ struct IntLiteral(
         Returns:
             The remainder of dividing self by rhs.
         """
-        if rhs == Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind mod>`
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __lshift__(self, rhs: Self) -> Self:
         """Return `self << rhs`.
 
@@ -297,16 +278,14 @@ struct IntLiteral(
         Returns:
             `self << rhs`.
         """
-        if rhs < Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind lshift>`
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __rshift__(self, rhs: Self) -> Self:
         """Return `self >> rhs`.
 
@@ -316,16 +295,14 @@ struct IntLiteral(
         Returns:
             `self >> rhs`.
         """
-        if rhs < Self():
-            # this should raise an exception.
-            return Self()
+        # This handles the case where rhs is 0.
         return Self(
             __mlir_op.`kgen.int_literal.binop`[
                 oper = __mlir_attr.`#kgen<int_literal.binop_kind rshift>`
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __and__(self, rhs: Self) -> Self:
         """Return `self & rhs`.
 
@@ -341,7 +318,7 @@ struct IntLiteral(
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __xor__(self, rhs: Self) -> Self:
         """Return `self ^ rhs`.
 
@@ -357,7 +334,7 @@ struct IntLiteral(
             ](self.value, rhs.value)
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __or__(self, rhs: Self) -> Self:
         """Return `self | rhs`.
 
@@ -374,207 +351,10 @@ struct IntLiteral(
         )
 
     # ===-------------------------------------------------------------------===#
-    # In place operations.
-    # ===-------------------------------------------------------------------===#
-
-    @always_inline("nodebug")
-    fn __iadd__(mut self, rhs: Self):
-        """Compute `self + rhs` and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self + rhs
-
-    @always_inline("nodebug")
-    fn __isub__(mut self, rhs: Self):
-        """Compute `self - rhs` and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self - rhs
-
-    @always_inline("nodebug")
-    fn __imul__(mut self, rhs: Self):
-        """Compute self*rhs and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self * rhs
-
-    @always_inline("nodebug")
-    fn __ifloordiv__(mut self, rhs: Self):
-        """Compute self//rhs and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self // rhs
-
-    @always_inline("nodebug")
-    fn __ilshift__(mut self, rhs: Self):
-        """Compute `self << rhs` and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self << rhs
-
-    @always_inline("nodebug")
-    fn __irshift__(mut self, rhs: Self):
-        """Compute `self >> rhs` and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self >> rhs
-
-    @always_inline("nodebug")
-    fn __iand__(mut self, rhs: Self):
-        """Compute `self & rhs` and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self & rhs
-
-    @always_inline("nodebug")
-    fn __ixor__(mut self, rhs: Self):
-        """Compute `self ^ rhs` and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self ^ rhs
-
-    @always_inline("nodebug")
-    fn __ior__(mut self, rhs: Self):
-        """Compute self|rhs and save the result in self.
-
-        Args:
-            rhs: The RHS value.
-        """
-        self = self | rhs
-
-    # ===-------------------------------------------------------------------===#
-    # Reversed operations
-    # ===-------------------------------------------------------------------===#
-
-    @always_inline("nodebug")
-    fn __radd__(self, value: Self) -> Self:
-        """Return `value + self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value + self`.
-        """
-        return self + value
-
-    @always_inline("nodebug")
-    fn __rsub__(self, value: Self) -> Self:
-        """Return `value - self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value - self`.
-        """
-        return value - self
-
-    @always_inline("nodebug")
-    fn __rmul__(self, value: Self) -> Self:
-        """Return `value * self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value * self`.
-        """
-        return self * value
-
-    @always_inline("nodebug")
-    fn __rfloordiv__(self, value: Self) -> Self:
-        """Return `value // self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value // self`.
-        """
-        return value // self
-
-    @always_inline("nodebug")
-    fn __rlshift__(self, value: Self) -> Self:
-        """Return `value << self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value << self`.
-        """
-        return value << self
-
-    @always_inline("nodebug")
-    fn __rrshift__(self, value: Self) -> Self:
-        """Return `value >> self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value >> self`.
-        """
-        return value >> self
-
-    @always_inline("nodebug")
-    fn __rand__(self, value: Self) -> Self:
-        """Return `value & self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value & self`.
-        """
-        return value & self
-
-    @always_inline("nodebug")
-    fn __ror__(self, value: Self) -> Self:
-        """Return `value | self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value | self`.
-        """
-        return value | self
-
-    @always_inline("nodebug")
-    fn __rxor__(self, value: Self) -> Self:
-        """Return `value ^ self`.
-
-        Args:
-            value: The other value.
-
-        Returns:
-            `value ^ self`.
-        """
-        return value ^ self
-
-    # ===-------------------------------------------------------------------===#
     # Trait implementations
     # ===-------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __bool__(self) -> Bool:
         """Convert this IntLiteral to Bool.
 
@@ -583,7 +363,7 @@ struct IntLiteral(
         """
         return self != Self()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __as_bool__(self) -> Bool:
         """Convert this IntLiteral to Bool.
 
@@ -592,7 +372,7 @@ struct IntLiteral(
         """
         return self.__bool__()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __int__(self) -> Int:
         """Convert from IntLiteral to Int.
 
@@ -601,7 +381,7 @@ struct IntLiteral(
         """
         return self.__index__()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __as_int__(self) -> Int:
         """Implicitly convert to an Int.
 
@@ -610,7 +390,7 @@ struct IntLiteral(
         """
         return self.__int__()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __uint__(self) -> UInt:
         """Convert from IntLiteral to UInt.
 
@@ -632,7 +412,7 @@ struct IntLiteral(
             return self
         return -self
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __ceil__(self) -> Self:
         """Return the ceiling of the IntLiteral value, which is itself.
 
@@ -641,7 +421,7 @@ struct IntLiteral(
         """
         return self
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __floor__(self) -> Self:
         """Return the floor of the IntLiteral value, which is itself.
 
@@ -650,16 +430,7 @@ struct IntLiteral(
         """
         return self
 
-    @always_inline("nodebug")
-    fn __round__(self) -> Self:
-        """Return the rounded value of the IntLiteral value, which is itself.
-
-        Returns:
-            The IntLiteral value itself.
-        """
-        return self
-
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __trunc__(self) -> Self:
         """Return the truncated of the IntLiteral value, which is itself.
 
@@ -667,32 +438,6 @@ struct IntLiteral(
             The IntLiteral value itself.
         """
         return self
-
-    @always_inline("nodebug")
-    fn __round__(self, ndigits: Int) -> Self:
-        """Return the rounded value of the IntLiteral value, which is itself.
-
-        Args:
-            ndigits: The number of digits to round to.
-
-        Returns:
-            The IntLiteral value itself if ndigits >= 0 else the rounded value.
-        """
-        if ndigits >= 0:
-            return self
-        alias one = __mlir_attr.`#kgen.int_literal<1> : !kgen.int_literal`
-        alias ten = __mlir_attr.`#kgen.int_literal<10> : !kgen.int_literal`
-        var multiplier = one
-        # TODO: Use IntLiteral.__pow__() when it's implemented.
-        for _ in range(-ndigits):
-            multiplier = __mlir_op.`kgen.int_literal.binop`[
-                oper = __mlir_attr.`#kgen<int_literal.binop_kind mul>`
-            ](multiplier, ten)
-        alias Pair = Tuple[Self, Self]
-        var mod: IntLiteral = self % Self(multiplier)
-        if mod * 2 >= multiplier:
-            mod -= multiplier
-        return self - mod
 
     @no_inline
     fn __str__(self) -> String:
@@ -703,7 +448,7 @@ struct IntLiteral(
         """
         return String(Int(self))
 
-    @always_inline
+    @always_inline("builtin")
     fn __ceildiv__(self, denominator: Self) -> Self:
         """Return the rounded-up result of dividing self by denominator.
 
@@ -720,16 +465,7 @@ struct IntLiteral(
     # Methods
     # ===-------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
-    fn _bit_width(self) -> IntLiteral:
-        """Get the (signed) bit width of the IntLiteral.
-
-        Returns:
-            The bit width.
-        """
-        return __mlir_op.`kgen.int_literal.bit_width`(self.value)
-
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __index__(self) -> __mlir_type.index:
         """Convert from IntLiteral to index.
 
