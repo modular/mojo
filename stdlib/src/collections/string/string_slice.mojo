@@ -39,7 +39,6 @@ from sys.intrinsics import likely, unlikely
 from bit import count_leading_zeros, count_trailing_zeros
 from memory import Span, UnsafePointer, memcmp, memcpy, pack_bits
 from memory.memory import _memcmp_impl_unconstrained
-from os import PathLike, abort
 
 
 alias StaticString = StringSlice[StaticConstantOrigin]
