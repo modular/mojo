@@ -934,7 +934,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
     # Methods
     # ===------------------------------------------------------------------===#
 
-
     @always_inline
     fn strip(self, chars: StringSlice) -> Self:
         """Return a copy of the string with leading and trailing characters
