@@ -63,9 +63,7 @@ struct _SplitlinesIter[
     alias `\r` = UInt8(ord("\r"))
     alias `\n` = UInt8(ord("\n"))
 
-    var index: Int
-    var ptr: UnsafePointer[Byte]
-    var length: Int
+    var _slice: StringSlice[origin]
     var keepends: Bool
 
     fn __iter__(self) -> Self:
@@ -75,22 +73,24 @@ struct _SplitlinesIter[
         # highly performance sensitive code, benchmark before touching
         @parameter
         if forward:
-            var eol_start = self.index
+            var eol_start = 0
             var eol_length = 0
+            var length = self._slice.byte_length()
+            var ptr = self._slice.unsafe_ptr()
 
-            while eol_start < self.length:
-                var b0 = self.ptr[eol_start]
+            while eol_start < length:
+                var b0 = ptr[eol_start]
                 var char_len = _utf8_first_byte_sequence_length(b0)
                 debug_assert(
-                    eol_start + char_len <= self.length,
+                    eol_start + char_len <= length,
                     "corrupted sequence causing unsafe memory access",
                 )
                 var isnewline = unlikely(
-                    _is_newline_char(self.ptr, eol_start, b0, char_len)
+                    _is_newline_char(ptr, eol_start, b0, char_len)
                 )
                 var char_end = Int(isnewline) * (eol_start + char_len)
-                var next_idx = char_end * Int(char_end < self.length)
-                var is_r_n = b0 == Self.`\r` and next_idx != 0 and self.ptr[
+                var next_idx = char_end * Int(char_end < length)
+                var is_r_n = b0 == Self.`\r` and next_idx != 0 and ptr[
                     next_idx
                 ] == Self.`\n`
                 eol_length = Int(isnewline) * char_len + Int(is_r_n)
@@ -98,13 +98,14 @@ struct _SplitlinesIter[
                     break
                 eol_start += char_len
 
-            var str_len = eol_start - self.index + Int(
-                self.keepends
-            ) * eol_length
+            var str_len = eol_start + Int(self.keepends) * eol_length
             var s = StringSlice[origin](
-                ptr=self.ptr + self.index, length=str_len
+                ptr=self._slice.unsafe_ptr(), length=str_len
             )
-            self.index = eol_start + eol_length
+            var offset = eol_start + eol_length
+            self._slice = StringSlice[origin](
+                ptr=self._slice.unsafe_ptr() + offset, length=length - offset
+            )
             return s
         else:
             constrained[False, "reversed splitlines not yet implemented"]()
@@ -112,11 +113,7 @@ struct _SplitlinesIter[
 
     @always_inline
     fn __has_next__(self) -> Bool:
-        @parameter
-        if forward:
-            return self.index < self.length
-        else:
-            return self.index > 0
+        return self._slice.byte_length() > 0
 
 
 @value
@@ -358,9 +355,10 @@ struct CodepointSliceIter[
         Returns:
             An iterator of StringSlices over the input split by line boundaries.
         """
-        return _SplitlinesIter[origin, True](
-            self.index, self.ptr, self.length, keepends
-        )
+        # FIXME: some weird lowering issue
+        # argument #0 cannot be converted from 'StringSlice[origin]' to 'StringSlice[origin]'
+        alias S = _SplitlinesIter[origin, True]
+        return S(rebind[StringSlice[S.origin]](self._slice), keepends)
 
 
 @value
