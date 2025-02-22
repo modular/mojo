@@ -25,9 +25,8 @@ from testing import (
     assert_true,
 )
 
-from utils import StringSlice
-from utils.numerics import inf, nan
 from collections.string import StringSlice
+from utils.numerics import inf, nan
 
 
 def test_assert_messages():
