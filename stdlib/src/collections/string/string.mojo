@@ -51,7 +51,6 @@ from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
 from collections.string.string_slice import (
     StringSlice,
     StaticString,
-    _StringSliceIter,
     to_string_list,
     _utf8_byte_type,
 )
