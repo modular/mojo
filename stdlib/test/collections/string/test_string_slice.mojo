@@ -12,16 +12,15 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from testing import assert_equal, assert_false, assert_true, assert_raises
-
+from collections.string._utf8_validation import _is_valid_utf8
 from collections.string.string_slice import (
     StringSlice,
     _count_utf8_continuation_bytes,
 )
-from collections.string._utf8_validation import _is_valid_utf8
-from memory import Span, UnsafePointer
+from sys.info import alignof, sizeof
 
-from sys.info import sizeof, alignof
+from memory import Span, UnsafePointer
+from testing import assert_equal, assert_false, assert_raises, assert_true
 
 
 fn test_string_slice_layout() raises:
@@ -219,12 +218,12 @@ fn test_slice_len() raises:
     # String length is in bytes, not codepoints.
     var s0 = String("ನಮಸ್ಕಾರ")
     assert_equal(len(s0), 21)
-    assert_equal(len(s0.chars()), 7)
+    assert_equal(len(s0.codepoints()), 7)
 
     # For ASCII string, the byte and codepoint length are the same:
     var s1 = String("abc")
     assert_equal(len(s1), 3)
-    assert_equal(len(s1.chars()), 3)
+    assert_equal(len(s1.codepoints()), 3)
 
 
 fn test_slice_char_length() raises:
@@ -433,6 +432,28 @@ def test_find():
     assert_equal(
         String("").as_string_slice().find(String("abc").as_string_slice()), -1
     )
+
+
+def test_is_codepoint_boundary():
+    var abc = StringSlice("abc")
+    assert_equal(len(abc), 3)
+    assert_true(abc.is_codepoint_boundary(0))
+    assert_true(abc.is_codepoint_boundary(1))
+    assert_true(abc.is_codepoint_boundary(2))
+    assert_true(abc.is_codepoint_boundary(3))
+
+    var thumb = StringSlice("👍")
+    assert_equal(len(thumb), 4)
+    assert_true(thumb.is_codepoint_boundary(0))
+    assert_false(thumb.is_codepoint_boundary(1))
+    assert_false(thumb.is_codepoint_boundary(2))
+    assert_false(thumb.is_codepoint_boundary(3))
+
+    var empty = StringSlice("")
+    assert_equal(len(empty), 0)
+    assert_true(empty.is_codepoint_boundary(0))
+    # Also tests that positions greater then the length don't raise/abort.
+    assert_false(empty.is_codepoint_boundary(1))
 
 
 alias GOOD_SEQUENCES = List[String](
@@ -852,6 +873,77 @@ def test_endswith():
     assert_true(ab.endswith("ab"))
 
 
+def test_isupper():
+    assert_true(StringSlice("ASDG").isupper())
+    assert_false(StringSlice("AsDG").isupper())
+    assert_true(StringSlice("ABC123").isupper())
+    assert_false(StringSlice("1!").isupper())
+    assert_true(StringSlice("É").isupper())
+    assert_false(StringSlice("é").isupper())
+
+
+def test_islower():
+    assert_true(StringSlice("asdfg").islower())
+    assert_false(StringSlice("asdFDg").islower())
+    assert_true(StringSlice("abc123").islower())
+    assert_false(StringSlice("1!").islower())
+    assert_true(StringSlice("é").islower())
+    assert_false(StringSlice("É").islower())
+
+
+def test_lower():
+    assert_equal(StringSlice("HELLO").lower(), "hello")
+    assert_equal(StringSlice("hello").lower(), "hello")
+    assert_equal(StringSlice("FoOBaR").lower(), "foobar")
+
+    assert_equal(StringSlice("MOJO🔥").lower(), "mojo🔥")
+
+    assert_equal(StringSlice("É").lower(), "é")
+    assert_equal(StringSlice("é").lower(), "é")
+
+
+def test_upper():
+    assert_equal(StringSlice("hello").upper(), "HELLO")
+    assert_equal(StringSlice("HELLO").upper(), "HELLO")
+    assert_equal(StringSlice("FoOBaR").upper(), "FOOBAR")
+
+    assert_equal(StringSlice("mojo🔥").upper(), "MOJO🔥")
+
+    assert_equal(StringSlice("É").upper(), "É")
+    assert_equal(StringSlice("é").upper(), "É")
+
+
+def test_is_ascii_digit():
+    assert_false(StringSlice("").is_ascii_digit())
+    assert_true(StringSlice("123").is_ascii_digit())
+    assert_false(StringSlice("asdg").is_ascii_digit())
+    assert_false(StringSlice("123asdg").is_ascii_digit())
+
+
+def test_is_ascii_printable():
+    assert_true(StringSlice("aasdg").is_ascii_printable())
+    assert_false(StringSlice("aa\nae").is_ascii_printable())
+    assert_false(StringSlice("aa\tae").is_ascii_printable())
+
+
+def test_rjust():
+    assert_equal(StringSlice("hello").rjust(4), "hello")
+    assert_equal(StringSlice("hello").rjust(8), "   hello")
+    assert_equal(StringSlice("hello").rjust(8, "*"), "***hello")
+
+
+def test_ljust():
+    assert_equal(StringSlice("hello").ljust(4), "hello")
+    assert_equal(StringSlice("hello").ljust(8), "hello   ")
+    assert_equal(StringSlice("hello").ljust(8, "*"), "hello***")
+
+
+def test_center():
+    assert_equal(StringSlice("hello").center(4), "hello")
+    assert_equal(StringSlice("hello").center(8), " hello  ")
+    assert_equal(StringSlice("hello").center(8, "*"), "*hello**")
+
+
 def test_count():
     var str = StringSlice("Hello world")
 
@@ -868,12 +960,14 @@ def test_count():
 
 def test_chars_iter():
     # Test `for` loop iteration support
-    for char in StringSlice("abc").chars():
-        assert_true(char in (Char.ord("a"), Char.ord("b"), Char.ord("c")))
+    for char in StringSlice("abc").codepoints():
+        assert_true(
+            char in (Codepoint.ord("a"), Codepoint.ord("b"), Codepoint.ord("c"))
+        )
 
     # Test empty string chars
     var s0 = StringSlice("")
-    var s0_iter = s0.chars()
+    var s0_iter = s0.codepoints()
 
     assert_false(s0_iter.__has_next__())
     assert_true(s0_iter.peek_next() is None)
@@ -881,11 +975,11 @@ def test_chars_iter():
 
     # Test simple ASCII string chars
     var s1 = StringSlice("abc")
-    var s1_iter = s1.chars()
+    var s1_iter = s1.codepoints()
 
-    assert_equal(s1_iter.next().value(), Char.ord("a"))
-    assert_equal(s1_iter.next().value(), Char.ord("b"))
-    assert_equal(s1_iter.next().value(), Char.ord("c"))
+    assert_equal(s1_iter.next().value(), Codepoint.ord("a"))
+    assert_equal(s1_iter.next().value(), Codepoint.ord("b"))
+    assert_equal(s1_iter.next().value(), Codepoint.ord("c"))
     assert_true(s1_iter.next() is None)
 
     # Multibyte character decoding: A visual character composed of a combining
@@ -894,8 +988,8 @@ def test_chars_iter():
     assert_equal(s2.byte_length(), 3)
     assert_equal(s2.char_length(), 2)
 
-    var iter = s2.chars()
-    assert_equal(iter.__next__(), Char.ord("a"))
+    var iter = s2.codepoints()
+    assert_equal(iter.__next__(), Codepoint.ord("a"))
     # U+0301 Combining Acute Accent
     assert_equal(iter.__next__().to_u32(), 0x0301)
     assert_equal(iter.__has_next__(), False)
@@ -907,32 +1001,32 @@ def test_chars_iter():
     var s3 = StringSlice("߷കൈ🔄!")
     assert_equal(s3.byte_length(), 13)
     assert_equal(s3.char_length(), 5)
-    var s3_iter = s3.chars()
+    var s3_iter = s3.codepoints()
 
     # Iterator __len__ returns length in codepoints, not bytes.
     assert_equal(s3_iter.__len__(), 5)
     assert_equal(s3_iter._slice.byte_length(), 13)
     assert_equal(s3_iter.__has_next__(), True)
-    assert_equal(s3_iter.__next__(), Char.ord("߷"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("߷"))
 
     assert_equal(s3_iter.__len__(), 4)
     assert_equal(s3_iter._slice.byte_length(), 11)
-    assert_equal(s3_iter.__next__(), Char.ord("ക"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("ക"))
 
     # Combining character, visually comes first, but codepoint-wise comes
     # after the character it combines with.
     assert_equal(s3_iter.__len__(), 3)
     assert_equal(s3_iter._slice.byte_length(), 8)
-    assert_equal(s3_iter.__next__(), Char.ord("ൈ"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("ൈ"))
 
     assert_equal(s3_iter.__len__(), 2)
     assert_equal(s3_iter._slice.byte_length(), 5)
-    assert_equal(s3_iter.__next__(), Char.ord("🔄"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("🔄"))
 
     assert_equal(s3_iter.__len__(), 1)
     assert_equal(s3_iter._slice.byte_length(), 1)
     assert_equal(s3_iter.__has_next__(), True)
-    assert_equal(s3_iter.__next__(), Char.ord("!"))
+    assert_equal(s3_iter.__next__(), Codepoint.ord("!"))
 
     assert_equal(s3_iter.__len__(), 0)
     assert_equal(s3_iter._slice.byte_length(), 0)
@@ -973,6 +1067,7 @@ def main():
     test_slice_repr()
     test_utf8_validation()
     test_find()
+    test_is_codepoint_boundary()
     test_good_utf8_sequences()
     test_bad_utf8_sequences()
     test_stringslice_from_utf8()
@@ -990,5 +1085,15 @@ def main():
     test_strip()
     test_startswith()
     test_endswith()
+    test_isupper()
+    test_islower()
+    test_lower()
+    test_upper()
+    test_is_ascii_digit()
+    test_is_ascii_printable()
+    test_rjust()
+    test_ljust()
+    test_center()
+    test_count()
     test_chars_iter()
     test_string_slice_from_pointer()

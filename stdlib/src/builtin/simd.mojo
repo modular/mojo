@@ -46,19 +46,19 @@ from sys import (
 from sys._assembly import inlined_assembly
 from sys.info import _current_arch, _is_sm_9x
 
-from bit import pop_count, byte_swap
+from bit import byte_swap, pop_count
 from builtin._format_float import _write_float
 from builtin.dtype import _uint_type_of_width
 from builtin.format_int import _try_write_int
 from builtin.io import _snprintf
 from documentation import doc_private
-from memory import UnsafePointer, bitcast, memcpy, Span
+from memory import Span, UnsafePointer, bitcast, memcpy
 
 from utils import IndexList, StaticTuple
 from utils._visualizers import lldb_formatter_wrapping_type
 from utils.numerics import FPUtils
-from utils.numerics import isnan as _isnan
 from utils.numerics import isinf as _isinf
+from utils.numerics import isnan as _isnan
 from utils.numerics import max_finite as _max_finite
 from utils.numerics import max_or_inf as _max_or_inf
 from utils.numerics import min_finite as _min_finite
@@ -122,12 +122,9 @@ The 8 bits are encoded as `seeeeemm`:
 - fn: finite (no inf or -inf encodings)
 - uz: unsigned zero (no -0 encoding)
 """
-alias Float8_e4m3 = Scalar[DType.float8_e4m3]
+alias Float8_e4m3fn = Scalar[DType.float8_e4m3fn]
 """Represents a FP8E4M3 floating point format from the [OFP8
 standard](https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-ofp8-revision-1-0-2023-12-01-pdf-1).
-
-This type is named `float8_e4m3fn` (the "fn" stands for "finite") in some
-frameworks, as it does not encode -inf or inf.
 
 The 8 bits are encoded as `seeeemmm`:
 - (s)ign: 1 bit
@@ -556,7 +553,7 @@ struct SIMD[type: DType, size: Int](
         # TODO (#36686): This introduces unneeded casts here to work around
         # parameter if issues.
         @parameter
-        if type is DType.float8_e4m3:
+        if type is DType.float8_e4m3fn:
             self = SIMD[type, size](
                 __mlir_op.`pop.simd.splat`[
                     _type = __mlir_type[
@@ -565,10 +562,10 @@ struct SIMD[type: DType, size: Int](
                 ](
                     rebind[__mlir_type[`!pop.scalar<`, type.value, `>`]](
                         __mlir_op.`pop.cast_from_builtin`[
-                            _type = __mlir_type[`!pop.scalar<f8e4m3>`]
+                            _type = __mlir_type[`!pop.scalar<f8e4m3fn>`]
                         ](
                             __mlir_op.`kgen.float_literal.convert`[
-                                _type = __mlir_type.f8E4M3
+                                _type = __mlir_type.f8E4M3FN
                             ](value.value)
                         )
                     )
@@ -1715,7 +1712,14 @@ struct SIMD[type: DType, size: Int](
         Returns:
             The elementwise rounded value of this SIMD vector.
         """
-        return llvm_intrinsic["llvm.round", Self, has_side_effect=False](self)
+
+        @parameter
+        if type.is_integral() or type is DType.bool:
+            return self
+
+        return llvm_intrinsic["llvm.roundeven", Self, has_side_effect=False](
+            self
+        )
 
     @always_inline("nodebug")
     fn __round__(self, ndigits: Int) -> Self:
@@ -1729,8 +1733,13 @@ struct SIMD[type: DType, size: Int](
         Returns:
             The elementwise rounded value of this SIMD vector.
         """
-        # TODO: see how can we implement this.
-        return llvm_intrinsic["llvm.round", Self, has_side_effect=False](self)
+
+        @parameter
+        if type.is_integral() or type is DType.bool:
+            return self
+
+        var exp = SIMD[type, size](10) ** ndigits
+        return (self * exp).__round__() / exp
 
     fn __hash__(self) -> UInt:
         """Hash the value using builtin hash.
@@ -1830,7 +1839,7 @@ struct SIMD[type: DType, size: Int](
                 return self.cast[DType.float32]().cast[target]()
 
         @parameter
-        if target in (DType.float8_e4m3, DType.float8_e5m2):
+        if target in (DType.float8_e4m3fn, DType.float8_e5m2):
             # TODO(KERN-1488): use gpu (H100) instruction to convert from fp16 to fp8
             return rebind[SIMD[target, size]](
                 _convert_f32_to_float8[size=size, target=target](
@@ -1841,7 +1850,7 @@ struct SIMD[type: DType, size: Int](
             )
 
         @parameter
-        if type in (DType.float8_e4m3, DType.float8_e5m2):
+        if type in (DType.float8_e4m3fn, DType.float8_e5m2):
             constrained[
                 target in (DType.float32, DType.float16, DType.bfloat16),
                 (
@@ -3198,7 +3207,7 @@ fn _convert_float8_to_f32_scaler[
 ](x: Scalar[type]) -> Scalar[DType.float32]:
     var kF32_NaN: UInt32 = 0x7FFFFFFF
     var FP8_NUM_BITS = 8
-    var IS_E4M3 = type is DType.float8_e4m3
+    var IS_E4M3 = type is DType.float8_e4m3fn
     var FP8_NUM_MANTISSA_BITS = FPUtils[type].mantissa_width()
     var FP8_NUM_EXPONENT_BITS = FPUtils[type].exponent_width()
     var FP32_NUM_BITS = 32
@@ -3283,7 +3292,7 @@ fn _convert_float8_to_f16[
 ](val: SIMD[type, size],) -> SIMD[DType.float16, size]:
     @parameter
     if is_nvidia_gpu() and _is_sm_9x():
-        alias asm_prefix = "cvt.rn.f16x2.e4m3x2" if type is DType.float8_e4m3 else "cvt.rn.f16x2.e5m2x2"
+        alias asm_prefix = "cvt.rn.f16x2.e4m3x2" if type is DType.float8_e4m3fn else "cvt.rn.f16x2.e5m2x2"
         var val_uint8 = bitcast[DType.uint8](val)
 
         @parameter
@@ -3325,7 +3334,7 @@ fn _convert_f32_to_float8[
 ](val: SIMD[type, size],) -> SIMD[target, size]:
     @parameter
     if is_nvidia_gpu() and _is_sm_9x():
-        alias asm_prefix = "cvt.rn.satfinite.e4m3x2.f32" if target is DType.float8_e4m3 else "cvt.rn.satfinite.e5m2x2.f32"
+        alias asm_prefix = "cvt.rn.satfinite.e4m3x2.f32" if target is DType.float8_e4m3fn else "cvt.rn.satfinite.e5m2x2.f32"
 
         @parameter
         if size > 1:
@@ -3374,7 +3383,7 @@ fn _convert_f32_to_float8_scaler[
 ](x: Scalar[type]) -> Scalar[target]:
     # software implementation rounds toward nearest even
 
-    alias IS_E4M3 = target is DType.float8_e4m3
+    alias IS_E4M3 = target is DType.float8_e4m3fn
     alias FP8_NUM_MANTISSA_BITS = FPUtils[target].mantissa_width()
     alias FP8_NUM_EXPONENT_BITS = FPUtils[target].exponent_width()
     alias FP32_NUM_BITS = bitwidthof[type]()
@@ -3385,7 +3394,7 @@ fn _convert_f32_to_float8_scaler[
     alias FP8_EXPONENT_BIAS = FPUtils[target].exponent_bias()
     alias FP32_EXPONENT_BIAS = FPUtils[type].exponent_bias()
     alias FP32_NUM_MANTISSA_BITS = FPUtils[type].mantissa_width()
-    alias FP8_MAX_FLT: UInt8 = 0x7E if IS_E4M3 else 0x7B
+    alias FP8_MAX_FLT = UInt8(0x7E) if IS_E4M3 else UInt8(0x7B)
 
     # Extract the bits in the FP32 type
     var sign: UInt8 = 0x80 if FPUtils[type].get_sign(x) else 0x00

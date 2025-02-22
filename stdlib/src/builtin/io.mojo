@@ -26,20 +26,16 @@ from sys import (
     is_nvidia_gpu,
     stdout,
 )
+from sys._amdgpu import printf_append_args, printf_append_string_n, printf_begin
 from sys._libc import dup, fclose, fdopen, fflush
-from sys.ffi import OpaquePointer, c_char, OpaquePointer
-from sys._amdgpu import printf_begin, printf_append_args, printf_append_string_n
+from sys.ffi import OpaquePointer, c_char
 from sys.intrinsics import _type_is_eq
 
 from builtin.dtype import _get_dtype_printf_format
 from builtin.file_descriptor import FileDescriptor
-from memory import UnsafePointer, memcpy, bitcast
+from memory import UnsafePointer, bitcast, memcpy
 
-from utils import (
-    StaticString,
-    write_args,
-    write_buffered,
-)
+from utils import StaticString, write_args, write_buffered
 
 # ===----------------------------------------------------------------------=== #
 #  _file_handle
@@ -389,3 +385,9 @@ fn input(prompt: String = "") raises -> String:
     if prompt != "":
         print(prompt, end="")
     return _fdopen["r"](0).readline()
+
+
+fn _get_stdout_stream() -> OpaquePointer:
+    return external_call[
+        "KGEN_CompilerRT_IO_get_stdout_stream", OpaquePointer
+    ]()

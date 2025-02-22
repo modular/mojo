@@ -18,19 +18,20 @@ These are Mojo built-ins, so you don't need to import them.
 from collections import List
 from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
 from collections.string.string_slice import (
-    StringSlice,
     StaticString,
-    _StringSliceIter,
+    StringSlice,
+    CodepointSliceIter,
     to_string_list,
     _split,
 )
 from hashlib._hasher import _HashableWithHasher, _Hasher
-from memory import UnsafePointer, memcpy, Span
 from sys.ffi import c_char
-from utils import Writable, Writer
-from utils.write import _WriteBufferStack
-from utils._visualizers import lldb_formatter_wrapping_type
 
+from memory import Span, UnsafePointer, memcpy
+
+from utils import Writable, Writer
+from utils._visualizers import lldb_formatter_wrapping_type
+from utils.write import _WriteBufferStack
 
 # ===-----------------------------------------------------------------------===#
 # StringLiteral
@@ -70,7 +71,7 @@ struct StringLiteral(
     # Life cycle methods
     # ===-------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: Self.type):
         """Create a string literal from a builtin string type.
@@ -188,31 +189,6 @@ struct StringLiteral(
         ```
         """
         self = self + rhs
-
-    @always_inline("nodebug")
-    fn __mul__(self, n: IntLiteral) -> StringLiteral:
-        """Concatenates the string literal `n` times. Can only be evaluated at
-        compile time using the `alias` keyword, which will write the result into
-        The binary.
-
-        Args:
-            n : The number of times to concatenate the string literal.
-
-        Returns:
-            The string concatenated `n` times.
-
-        Examples:
-
-        ```mojo
-        alias concat = "mojo" * 3
-        print(concat) # mojomojomojo
-        ```
-        .
-        """
-        var concat = ""
-        for _ in range(n):
-            concat += self
-        return concat
 
     fn __mul__(self, n: Int) -> String:
         """Concatenates the string `n` times.
@@ -488,24 +464,22 @@ struct StringLiteral(
         """
         return self.__str__()
 
-    fn __iter__(ref self) -> _StringSliceIter[StaticConstantOrigin]:
+    fn __iter__(ref self) -> CodepointSliceIter[StaticConstantOrigin]:
         """Iterate over the string unicode characters.
 
         Returns:
             An iterator of references to the string unicode characters.
         """
-        return _StringSliceIter[StaticConstantOrigin](
-            ptr=self.unsafe_ptr(), length=self.byte_length()
-        )
+        return CodepointSliceIter(self.as_string_slice())
 
-    fn __reversed__(self) -> _StringSliceIter[StaticConstantOrigin, False]:
+    fn __reversed__(self) -> CodepointSliceIter[StaticConstantOrigin, False]:
         """Iterate backwards over the string unicode characters.
 
         Returns:
             A reversed iterator of references to the string unicode characters.
         """
-        return _StringSliceIter[StaticConstantOrigin, False](
-            ptr=self.unsafe_ptr(), length=self.byte_length()
+        return CodepointSliceIter[StaticConstantOrigin, False](
+            self.as_string_slice()
         )
 
     fn __getitem__[IndexerType: Indexer](self, idx: IndexerType) -> String:

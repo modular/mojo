@@ -55,13 +55,13 @@ struct UInt(Indexer, _HashableWithHasher):
     which have signed and unsigned variants.
     """
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __init__(out self):
         """Default constructor that produces zero."""
         self.value = __mlir_op.`index.constant`[value = __mlir_attr.`0:index`]()
 
     @doc_private
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: __mlir_type.index):
         """Construct UInt from the given index value.
@@ -84,7 +84,7 @@ struct UInt(Indexer, _HashableWithHasher):
             value
         )
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: Int):
         """Construct UInt from the given index value.
@@ -94,7 +94,7 @@ struct UInt(Indexer, _HashableWithHasher):
         """
         self.value = value.value
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: IntLiteral):
         """Construct UInt from the given IntLiteral value.
@@ -104,7 +104,7 @@ struct UInt(Indexer, _HashableWithHasher):
         """
         self = value.__uint__()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __index__(self) -> __mlir_type.index:
         """Convert to index.
 
@@ -393,6 +393,15 @@ struct UInt(Indexer, _HashableWithHasher):
             `self | rhs`.
         """
         return __mlir_op.`index.or`(self.value, rhs.value)
+
+    @always_inline("nodebug")
+    fn __invert__(self) -> UInt:
+        """Return ~self.
+
+        Returns:
+            The ~self value.
+        """
+        return self ^ Self.MAX
 
     @always_inline
     fn __ceildiv__(self, denominator: Self) -> Self:

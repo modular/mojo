@@ -12,6 +12,14 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
+from collections.string import StringSlice
+from collections.string.string import (
+    _calc_initial_buffer_size_int32,
+    _calc_initial_buffer_size_int64,
+)
+
+from memory import UnsafePointer
+from python import Python
 from testing import (
     assert_equal,
     assert_false,
@@ -19,14 +27,6 @@ from testing import (
     assert_raises,
     assert_true,
 )
-
-from collections.string import StringSlice
-from collections.string.string import (
-    _calc_initial_buffer_size_int32,
-    _calc_initial_buffer_size_int64,
-)
-from memory import UnsafePointer
-from python import Python
 
 
 @value
@@ -74,8 +74,8 @@ def test_constructors():
     var s4 = String(capacity=1)
     assert_equal(s4._buffer.capacity, 1)
 
-    # Construction from Char
-    var s5 = String(Char(65))
+    # Construction from Codepoint
+    var s5 = String(Codepoint(65))
     assert_equal(s4._buffer.capacity, 1)
     assert_equal(s5, "A")
 
@@ -93,13 +93,13 @@ def test_len():
     var s0 = String("ನಮಸ್ಕಾರ")
 
     assert_equal(len(s0), 21)
-    assert_equal(len(s0.chars()), 7)
+    assert_equal(len(s0.codepoints()), 7)
 
     # For ASCII string, the byte and codepoint length are the same:
     var s1 = String("abc")
 
     assert_equal(len(s1), 3)
-    assert_equal(len(s1.chars()), 3)
+    assert_equal(len(s1.codepoints()), 3)
 
 
 def test_equality_operators():
@@ -763,46 +763,6 @@ def test_splitlines():
         )
 
 
-def test_isupper():
-    assert_true(String("ASDG").isupper())
-    assert_false(String("AsDG").isupper())
-    assert_true(String("ABC123").isupper())
-    assert_false(String("1!").isupper())
-    assert_true(String("É").isupper())
-    assert_false(String("é").isupper())
-
-
-def test_islower():
-    assert_true(String("asdfg").islower())
-    assert_false(String("asdFDg").islower())
-    assert_true(String("abc123").islower())
-    assert_false(String("1!").islower())
-    assert_true(String("é").islower())
-    assert_false(String("É").islower())
-
-
-def test_lower():
-    assert_equal(String("HELLO").lower(), "hello")
-    assert_equal(String("hello").lower(), "hello")
-    assert_equal(String("FoOBaR").lower(), "foobar")
-
-    assert_equal(String("MOJO🔥").lower(), "mojo🔥")
-
-    assert_equal(String("É").lower(), "é")
-    assert_equal(String("é").lower(), "é")
-
-
-def test_upper():
-    assert_equal(String("hello").upper(), "HELLO")
-    assert_equal(String("HELLO").upper(), "HELLO")
-    assert_equal(String("FoOBaR").upper(), "FOOBAR")
-
-    assert_equal(String("mojo🔥").upper(), "MOJO🔥")
-
-    assert_equal(String("É").upper(), "É")
-    assert_equal(String("é").upper(), "É")
-
-
 def test_isspace():
     assert_false(String("").isspace())
 
@@ -1065,18 +1025,18 @@ def test_indexing():
     assert_equal(a[2], "c")
 
 
-def test_string_chars_iter():
+def test_string_codepoints_iter():
     var s = String("abc")
-    var iter = s.chars()
-    assert_equal(iter.__next__(), Char.ord("a"))
-    assert_equal(iter.__next__(), Char.ord("b"))
-    assert_equal(iter.__next__(), Char.ord("c"))
+    var iter = s.codepoints()
+    assert_equal(iter.__next__(), Codepoint.ord("a"))
+    assert_equal(iter.__next__(), Codepoint.ord("b"))
+    assert_equal(iter.__next__(), Codepoint.ord("c"))
     assert_equal(iter.__has_next__(), False)
 
 
 def test_string_char_slices_iter():
     var s0 = String("abc")
-    var s0_iter = s0.char_slices()
+    var s0_iter = s0.codepoint_slices()
     assert_true(s0_iter.__next__() == "a")
     assert_true(s0_iter.__next__() == "b")
     assert_true(s0_iter.__next__() == "c")
@@ -1087,7 +1047,7 @@ def test_string_char_slices_iter():
     # Borrow immutably
     fn conc(vs: String) -> String:
         var c = String("")
-        for v in vs.char_slices():
+        for v in vs.codepoint_slices():
             c += v
         return c
 
@@ -1098,18 +1058,18 @@ def test_string_char_slices_iter():
         concat += v
     assert_equal(321, atol(concat))
 
-    for v in vs.char_slices():
+    for v in vs.codepoint_slices():
         v.unsafe_ptr().origin_cast[mut=True]()[] = ord("1")
 
     # Borrow immutably
-    for v in vs.char_slices():
+    for v in vs.codepoint_slices():
         concat += v
 
     assert_equal(321111, atol(concat))
 
     var idx = -1
     vs = String("mojo🔥")
-    var iterator = vs.char_slices()
+    var iterator = vs.codepoint_slices()
     assert_equal(5, len(iterator))
     var item = iterator.__next__()
     assert_equal(String("m"), String(item))
@@ -1159,7 +1119,7 @@ def test_string_char_slices_iter():
         var ptr = item.unsafe_ptr()
         var amnt_characters = 0
         var byte_idx = 0
-        for v in item.char_slices():
+        for v in item.codepoint_slices():
             var byte_len = v.byte_length()
             for i in range(byte_len):
                 assert_equal(ptr[byte_idx + i], v.unsafe_ptr()[i])
@@ -1368,37 +1328,6 @@ def test_format_conversion_flags():
         _ = String("{!r:d}").format(1)
 
 
-def test_isdigit():
-    assert_false(String("").isdigit())
-    assert_true(String("123").isdigit())
-    assert_false(String("asdg").isdigit())
-    assert_false(String("123asdg").isdigit())
-
-
-def test_isprintable():
-    assert_true(String("aasdg").isprintable())
-    assert_false(String("aa\nae").isprintable())
-    assert_false(String("aa\tae").isprintable())
-
-
-def test_rjust():
-    assert_equal(String("hello").rjust(4), "hello")
-    assert_equal(String("hello").rjust(8), "   hello")
-    assert_equal(String("hello").rjust(8, "*"), "***hello")
-
-
-def test_ljust():
-    assert_equal(String("hello").ljust(4), "hello")
-    assert_equal(String("hello").ljust(8), "hello   ")
-    assert_equal(String("hello").ljust(8, "*"), "hello***")
-
-
-def test_center():
-    assert_equal(String("hello").center(4), "hello")
-    assert_equal(String("hello").center(8), " hello  ")
-    assert_equal(String("hello").center(8, "*"), "*hello**")
-
-
 def test_float_conversion():
     # This is basically just a wrapper around atof which is
     # more throughouly tested above
@@ -1462,10 +1391,6 @@ def main():
     test_rfind()
     test_split()
     test_splitlines()
-    test_isupper()
-    test_islower()
-    test_lower()
-    test_upper()
     test_isspace()
     test_ascii_aliases()
     test_rstrip()
@@ -1479,15 +1404,10 @@ def main():
     test_intable()
     test_string_mul()
     test_indexing()
-    test_string_chars_iter()
+    test_string_codepoints_iter()
     test_string_char_slices_iter()
     test_format_args()
     test_format_conversion_flags()
-    test_isdigit()
-    test_isprintable()
-    test_rjust()
-    test_ljust()
-    test_center()
     test_float_conversion()
     test_slice_contains()
     test_variadic_ctors()

@@ -13,26 +13,34 @@
 """Implements basic object methods for working with strings."""
 
 from collections import KeyElement, List, Optional
-from collections.string import CharsIter
 from collections._index_normalization import normalize_index
+from collections.string import CodepointsIter
+from collections.string.format import _CurlyEntryFormattable, _FormatCurlyEntry
+from collections.string.string_slice import (
+    StaticString,
+    StringSlice,
+    CodepointSliceIter,
+    _to_string_list,
+    _utf8_byte_type,
+)
+from collections.string._unicode import (
+    is_lowercase,
+    is_uppercase,
+    to_lowercase,
+    to_uppercase,
+)
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from os import abort
 from sys import bitwidthof, llvm_intrinsic
 from sys.ffi import c_char
 from sys.intrinsics import _type_is_eq
-from utils.write import write_buffered, _TotalWritableBytes, _WriteBufferHeap
 
 from bit import count_leading_zeros
-from memory import UnsafePointer, memcmp, memcpy, Span
+from memory import Span, UnsafePointer, memcmp, memcpy
 from python import PythonObject
 
-from utils import (
-    IndexList,
-    Variant,
-    Writable,
-    Writer,
-    write_args,
-)
+from utils import IndexList, Variant, Writable, Writer, write_args
+from utils.write import _TotalWritableBytes, _WriteBufferHeap, write_buffered
 from collections.string._unicode import (
     is_lowercase,
     is_uppercase,
@@ -54,19 +62,20 @@ from collections.string.string_slice import (
 
 
 fn ord(s: StringSlice) -> Int:
-    """Returns an integer that represents the given one-character string.
+    """Returns an integer that represents the codepoint of a single-character
+    string.
 
-    Given a string representing one character, return an integer
-    representing the code point of that character. For example, `ord("a")`
+    Given a string containing a single character `Codepoint`, return an integer
+    representing the codepoint of that character. For example, `ord("a")`
     returns the integer `97`. This is the inverse of the `chr()` function.
 
     Args:
-        s: The input string, which must contain only a single character.
+        s: The input string, which must contain only a single- character.
 
     Returns:
         An integer representing the code point of the given character.
     """
-    return Int(Char.ord(s))
+    return Int(Codepoint.ord(s))
 
 
 # ===----------------------------------------------------------------------=== #
@@ -95,7 +104,7 @@ fn chr(c: Int) -> String:
     if c < 0b1000_0000:  # 1 byte ASCII char
         return String(String._buffer_type(c, 0))
 
-    var char_opt = Char.from_u32(c)
+    var char_opt = Codepoint.from_u32(c)
     if not char_opt:
         # TODO: Raise ValueError instead.
         return abort[String](
@@ -141,7 +150,7 @@ fn _repr_ascii(c: UInt8) -> String:
 
     if c == ord_back_slash:
         return r"\\"
-    elif Char(c).is_ascii_printable():
+    elif Codepoint(c).is_ascii_printable():
         return _chr_ascii(c)
     elif c == ord_tab:
         return r"\t"
@@ -290,13 +299,13 @@ fn atol(str_slice: StringSlice, base: Int = 10) raises -> Int:
         elif ord_letter_min[1] <= ord_current <= ord_letter_max[1]:
             result += ord_current - ord_letter_min[1] + 10
             found_valid_chars_after_start = True
-        elif Char(UInt8(ord_current)).is_posix_space():
+        elif Codepoint(UInt8(ord_current)).is_posix_space():
             has_space_after_number = True
             start = pos + 1
             break
         else:
             raise Error(_str_to_base_error(base, str_slice))
-        if pos + 1 < str_len and not Char(buff[pos + 1]).is_posix_space():
+        if pos + 1 < str_len and not Codepoint(buff[pos + 1]).is_posix_space():
             var nextresult = result * real_base
             if nextresult < result:
                 raise Error(
@@ -310,7 +319,7 @@ fn atol(str_slice: StringSlice, base: Int = 10) raises -> Int:
 
     if has_space_after_number:
         for pos in range(start, str_len):
-            if not Char(buff[pos]).is_posix_space():
+            if not Codepoint(buff[pos]).is_posix_space():
                 raise Error(_str_to_base_error(base, str_slice))
     if is_negative:
         result = -result
@@ -332,7 +341,7 @@ fn _trim_and_handle_sign(str_slice: StringSlice, str_len: Int) -> (Int, Bool):
     """
     var buff = str_slice.unsafe_ptr()
     var start: Int = 0
-    while start < str_len and Char(buff[start]).is_posix_space():
+    while start < str_len and Codepoint(buff[start]).is_posix_space():
         start += 1
     var p: Bool = buff[start] == ord("+")
     var n: Bool = buff[start] == ord("-")
@@ -866,7 +875,7 @@ struct String(
             A new string containing the character at the specified position.
         """
         # TODO(#933): implement this for unicode when we support llvm intrinsic evaluation at compile time
-        var normalized_idx = normalize_index["String"](index(idx), self)
+        var normalized_idx = normalize_index["String"](idx, len(self))
         var buf = Self._buffer_type(capacity=1)
         buf.append(self._buffer[normalized_idx])
         buf.append(0)
@@ -1063,23 +1072,21 @@ struct String(
         """
         self._iadd[False](other.as_bytes())
 
-    fn __iter__(self) -> _StringSliceIter[__origin_of(self)]:
+    fn __iter__(self) -> CodepointSliceIter[__origin_of(self)]:
         """Iterate over the string unicode characters.
 
         Returns:
             An iterator of references to the string unicode characters.
         """
-        return self.char_slices()
+        return self.codepoint_slices()
 
-    fn __reversed__(self) -> _StringSliceIter[__origin_of(self), False]:
+    fn __reversed__(self) -> CodepointSliceIter[__origin_of(self), False]:
         """Iterate backwards over the string unicode characters.
 
         Returns:
             A reversed iterator of references to the string unicode characters.
         """
-        return _StringSliceIter[__origin_of(self), forward=False](
-            ptr=self.unsafe_ptr(), length=self.byte_length()
-        )
+        return CodepointSliceIter[__origin_of(self), forward=False](self)
 
     # ===------------------------------------------------------------------=== #
     # Trait implementations
@@ -1102,7 +1109,7 @@ struct String(
         representation of the string.
 
         To get the number of Unicode codepoints in a string, use
-        `len(str.chars())`.
+        `len(str.codepoints())`.
 
         Returns:
             The string length in bytes.
@@ -1117,7 +1124,7 @@ struct String(
         var s = String("ನಮಸ್ಕಾರ")
 
         assert_equal(len(s), 21)
-        assert_equal(len(s.chars()), 7)
+        assert_equal(len(s.codepoints()), 7)
         ```
 
         Strings containing only ASCII characters have the same byte and
@@ -1129,7 +1136,7 @@ struct String(
         var s = String("abc")
 
         assert_equal(len(s), 3)
-        assert_equal(len(s.chars()), 3)
+        assert_equal(len(s.codepoints()), 3)
         ```
         .
         """
@@ -1232,11 +1239,11 @@ struct String(
             return string
 
     @always_inline
-    fn chars(self) -> CharsIter[__origin_of(self)]:
-        """Returns an iterator over the `Char`s encoded in this string slice.
+    fn codepoints(self) -> CodepointsIter[__origin_of(self)]:
+        """Returns an iterator over the `Codepoint`s encoded in this string slice.
 
         Returns:
-            An iterator type that returns successive `Char` values stored in
+            An iterator type that returns successive `Codepoint` values stored in
             this string slice.
 
         # Examples
@@ -1247,14 +1254,14 @@ struct String(
         from testing import assert_equal
 
         var s = String("abc")
-        var iter = s.chars()
-        assert_equal(iter.__next__(), Char.ord("a"))
-        assert_equal(iter.__next__(), Char.ord("b"))
-        assert_equal(iter.__next__(), Char.ord("c"))
+        var iter = s.codepoints()
+        assert_equal(iter.__next__(), Codepoint.ord("a"))
+        assert_equal(iter.__next__(), Codepoint.ord("b"))
+        assert_equal(iter.__next__(), Codepoint.ord("c"))
         assert_equal(iter.__has_next__(), False)
         ```
 
-        `chars()` iterates over Unicode codepoints, and supports multibyte
+        `codepoints()` iterates over Unicode codepoints, and supports multibyte
         codepoints:
 
         ```mojo
@@ -1264,17 +1271,17 @@ struct String(
         var s = String("á")
         assert_equal(s.byte_length(), 3)
 
-        var iter = s.chars()
-        assert_equal(iter.__next__(), Char.ord("a"))
+        var iter = s.codepoints()
+        assert_equal(iter.__next__(), Codepoint.ord("a"))
          # U+0301 Combining Acute Accent
         assert_equal(iter.__next__().to_u32(), 0x0301)
         assert_equal(iter.__has_next__(), False)
         ```
         .
         """
-        return self.as_string_slice().chars()
+        return self.as_string_slice().codepoints()
 
-    fn char_slices(self) -> _StringSliceIter[__origin_of(self)]:
+    fn codepoint_slices(self) -> CodepointSliceIter[__origin_of(self)]:
         """Returns an iterator over single-character slices of this string.
 
         Each returned slice points to a single Unicode codepoint encoded in the
@@ -1291,7 +1298,7 @@ struct String(
         from testing import assert_equal, assert_true
 
         var s = String("abc")
-        var iter = s.char_slices()
+        var iter = s.codepoint_slices()
         assert_true(iter.__next__() == "a")
         assert_true(iter.__next__() == "b")
         assert_true(iter.__next__() == "c")
@@ -1299,7 +1306,7 @@ struct String(
         ```
         .
         """
-        return self.as_string_slice().char_slices()
+        return self.as_string_slice().codepoint_slices()
 
     fn unsafe_ptr(
         ref self,
@@ -1723,8 +1730,7 @@ struct String(
             A new string where cased letters have been converted to lowercase.
         """
 
-        # TODO: the _unicode module does not support locale sensitive conversions yet.
-        return to_lowercase(self)
+        return self.as_string_slice().lower()
 
     fn upper(self) -> String:
         """Returns a copy of the string with all cased characters
@@ -1734,8 +1740,7 @@ struct String(
             A new string where cased letters have been converted to uppercase.
         """
 
-        # TODO: the _unicode module does not support locale sensitive conversions yet.
-        return to_uppercase(self)
+        return self.as_string_slice().upper()
 
     fn startswith(
         self, prefix: StringSlice, start: Int = 0, end: Int = -1
@@ -1881,12 +1886,7 @@ struct String(
         Returns:
             True if all characters are digits and it's not empty else False.
         """
-        if not self:
-            return False
-        for char in self.chars():
-            if not char.is_ascii_digit():
-                return False
-        return True
+        return self.as_string_slice().is_ascii_digit()
 
     fn isupper(self) -> Bool:
         """Returns True if all cased characters in the string are uppercase and
@@ -1896,7 +1896,7 @@ struct String(
             True if all cased characters in the string are uppercase and there
             is at least one cased character, False otherwise.
         """
-        return len(self) > 0 and is_uppercase(self)
+        return self.as_string_slice().isupper()
 
     fn islower(self) -> Bool:
         """Returns True if all cased characters in the string are lowercase and
@@ -1906,7 +1906,7 @@ struct String(
             True if all cased characters in the string are lowercase and there
             is at least one cased character, False otherwise.
         """
-        return len(self) > 0 and is_lowercase(self)
+        return self.as_string_slice().islower()
 
     fn isprintable(self) -> Bool:
         """Returns True if all characters in the string are ASCII printable.
@@ -1916,10 +1916,7 @@ struct String(
         Returns:
             True if all characters are printable else False.
         """
-        for char in self.chars():
-            if not char.is_ascii_printable():
-                return False
-        return True
+        return self.as_string_slice().is_ascii_printable()
 
     fn rjust(self, width: Int, fillchar: StringLiteral = " ") -> String:
         """Returns the string right justified in a string of specified width.
@@ -1931,7 +1928,7 @@ struct String(
         Returns:
             Returns right justified string, or self if width is not bigger than self length.
         """
-        return self._justify(width - len(self), width, fillchar)
+        return self.as_string_slice().rjust(width, fillchar)
 
     fn ljust(self, width: Int, fillchar: StringLiteral = " ") -> String:
         """Returns the string left justified in a string of specified width.
@@ -1943,7 +1940,7 @@ struct String(
         Returns:
             Returns left justified string, or self if width is not bigger than self length.
         """
-        return self._justify(0, width, fillchar)
+        return self.as_string_slice().ljust(width, fillchar)
 
     fn center(self, width: Int, fillchar: StringLiteral = " ") -> String:
         """Returns the string center justified in a string of specified width.
@@ -1955,23 +1952,7 @@ struct String(
         Returns:
             Returns center justified string, or self if width is not bigger than self length.
         """
-        return self._justify(width - len(self) >> 1, width, fillchar)
-
-    fn _justify(
-        self, start: Int, width: Int, fillchar: StringLiteral
-    ) -> String:
-        if len(self) >= width:
-            return self
-        debug_assert(
-            len(fillchar) == 1, "fill char needs to be a one byte literal"
-        )
-        var fillbyte = fillchar.as_bytes()[0]
-        var buffer = Self._buffer_type(capacity=width + 1)
-        buffer.resize(width, fillbyte)
-        buffer.append(0)
-        memcpy(buffer.unsafe_ptr().offset(start), self.unsafe_ptr(), len(self))
-        var result = String(buffer)
-        return result^
+        return self.as_string_slice().center(width, fillchar)
 
     fn reserve(mut self, new_capacity: Int):
         """Reserves the requested capacity.

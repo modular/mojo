@@ -94,14 +94,11 @@ struct DType(
     - fn: finite (no inf or -inf encodings)
     - uz: unsigned zero (no -0 encoding)
     """
-    alias float8_e4m3 = DType(
-        __mlir_attr.`#kgen.dtype.constant<f8e4m3> : !kgen.dtype`
+    alias float8_e4m3fn = DType(
+        __mlir_attr.`#kgen.dtype.constant<f8e4m3fn> : !kgen.dtype`
     )
     """Represents a FP8E4M3 floating point format from the [OFP8
     standard](https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-ofp8-revision-1-0-2023-12-01-pdf-1).
-
-    This type is named `float8_e4m3fn` (the "fn" stands for "finite") in some
-    frameworks, as it does not encode -inf or inf.
 
     The 8 bits are encoded as `seeeemmm`:
     - (s)ign: 1 bit
@@ -156,7 +153,7 @@ struct DType(
         """
         return self
 
-    @always_inline
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: Self.type):
         """Construct a DType from MLIR dtype.
@@ -199,8 +196,8 @@ struct DType(
             return DType.float8_e5m2
         elif str == "float8_e5m2fnuz":
             return DType.float8_e5m2fnuz
-        elif str == "float8_e4m3":
-            return DType.float8_e4m3
+        elif str == "float8_e4m3fn":
+            return DType.float8_e4m3fn
         elif str == "float8_e4m3fnuz":
             return DType.float8_e4m3fnuz
         elif str == "bfloat16":
@@ -264,8 +261,8 @@ struct DType(
             return writer.write("float8_e5m2")
         if self == DType.float8_e5m2fnuz:
             return writer.write("float8_e5m2fnuz")
-        if self == DType.float8_e4m3:
-            return writer.write("float8_e4m3")
+        if self == DType.float8_e4m3fn:
+            return writer.write("float8_e4m3fn")
         if self == DType.float8_e4m3fnuz:
             return writer.write("float8_e4m3fnuz")
         if self == DType.bfloat16:
@@ -470,7 +467,7 @@ struct DType(
     @always_inline("nodebug")
     fn is_float8(self) -> Bool:
         """Returns True if the type is a 8bit-precision floating point type,
-        e.g. float8_e5m2, float8_e5m2fnuz, float8_e4m3 and float8_e4m3fnuz.
+        e.g. float8_e5m2, float8_e5m2fnuz, float8_e4m3fn and float8_e4m3fnuz.
 
         Returns:
             True if the type is a 8bit-precision float, false otherwise.
@@ -478,7 +475,7 @@ struct DType(
 
         return self in (
             DType.float8_e5m2,
-            DType.float8_e4m3,
+            DType.float8_e4m3fn,
             DType.float8_e5m2fnuz,
             DType.float8_e4m3fnuz,
         )
@@ -539,8 +536,8 @@ struct DType(
             return sizeof[DType.float8_e5m2]()
         if self == DType.float8_e5m2fnuz:
             return sizeof[DType.float8_e5m2fnuz]()
-        if self == DType.float8_e4m3:
-            return sizeof[DType.float8_e4m3]()
+        if self == DType.float8_e4m3fn:
+            return sizeof[DType.float8_e4m3fn]()
         if self == DType.float8_e4m3fnuz:
             return sizeof[DType.float8_e4m3fnuz]()
         if self == DType.bfloat16:
