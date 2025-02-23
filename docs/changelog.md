@@ -156,4 +156,6 @@ ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 
 ### ❌ Removed
 
+- Removed `ListLiteral.get[i, T]()`. `ListLiteral` is now subscriptable.
+
 ### 🛠️ Fixed
