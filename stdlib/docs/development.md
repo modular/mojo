@@ -262,11 +262,14 @@ def main():
     print(all_paths.__str__())
 ```
 
-We also need to set the following environment variable that tells Mojo to
+We also need to set the following environment variables that tells Mojo to
 prioritize imports from the standard library we just built, over the one that
 ships with Mojo:
 
 ```bash
+MODULAR_MOJO_IMPORT_PATH=../build \
+MODULAR_MOJO_MAX_IMPORT_PATH=../build \
+MODULAR_MOJO_MAX_NIGHTLY_IMPORT_PATH=../build \
 MODULAR_MOJO_NIGHTLY_IMPORT_PATH=../build mojo main.mojo
 ```
 
@@ -288,6 +291,9 @@ you can get with `sudo apt install entr` on Linux, or `brew install entr` on
 macOS. Now run:
 
 ```bash
+export MODULAR_MOJO_IMPORT_PATH=../build
+export MODULAR_MOJO_MAX_IMPORT_PATH=../build
+export MODULAR_MOJO_MAX_NIGHTLY_IMPORT_PATH=../build
 export MODULAR_MOJO_NIGHTLY_IMPORT_PATH=../build
 
 ls **/*.mojo | entr sh -c "./scripts/build-stdlib.sh && mojo main.mojo"
