@@ -1443,7 +1443,9 @@ struct String(
     # TODO(MSTDL-590): String.split() should return `StringSlice`s.
     # FIX: #3528
     @always_inline
-    fn split(self, sep: StringSlice, maxsplit: Int) raises -> List[String]:
+    fn split(
+        self, sep: StringSlice, maxsplit: Int
+    ) raises -> List[StringSlice[__origin_of(self)]]:
         """Split the string by a separator.
 
         Args:
@@ -1464,10 +1466,12 @@ struct String(
         """
         # TODO(#3528): add this example
         # _ = "123".split("", maxsplit=1) # ['', '123']
-        return _to_string_list(self.as_string_slice().split(sep, maxsplit))
+        return self.as_string_slice().split(sep, maxsplit)
 
     @always_inline
-    fn split(self, sep: StringSlice) raises -> List[String]:
+    fn split(
+        self, sep: StringSlice
+    ) raises -> List[StringSlice[__origin_of(self)]]:
         """Split the string by a separator.
 
         Args:
@@ -1489,10 +1493,10 @@ struct String(
         """
         # TODO(#3528): add this example
         # _ = "123".split("") # ['', '1', '2', '3', '']
-        return _to_string_list(self.as_string_slice().split(sep, -1))
+        return self.as_string_slice().split(sep, -1)
 
     @always_inline
-    fn split(self, *, maxsplit: Int) -> List[String]:
+    fn split(self, *, maxsplit: Int) -> List[StringSlice[__origin_of(self)]]:
         """Split the string by every Whitespace separator.
 
         Args:
@@ -1508,10 +1512,12 @@ struct String(
         ```
         .
         """
-        return _to_string_list(self.as_string_slice().split(maxsplit=maxsplit))
+        return self.as_string_slice().split(maxsplit=maxsplit)
 
     @always_inline
-    fn split(self, sep: NoneType = None) -> List[String]:
+    fn split(
+        self, sep: NoneType = None
+    ) -> List[StringSlice[__origin_of(self)]]:
         """Split the string by every Whitespace separator.
 
         Args:
@@ -1534,7 +1540,7 @@ struct String(
         ```
         .
         """
-        return _to_string_list(self.as_string_slice().split(sep))
+        return self.as_string_slice().split(sep)
 
     fn splitlines(self, keepends: Bool = False) -> List[String]:
         """Split the string at line boundaries. This corresponds to Python's

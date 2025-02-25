@@ -695,7 +695,9 @@ struct StringLiteral(
         return String(elems, sep=self)
 
     @always_inline
-    fn split(self, sep: StringSlice, maxsplit: Int) raises -> List[String]:
+    fn split(
+        self, sep: StringSlice, maxsplit: Int
+    ) raises -> List[StaticString]:
         """Split the string by a separator.
 
         Args:
@@ -716,10 +718,10 @@ struct StringLiteral(
         """
         # TODO(#3528): add this example
         # _ = "123".split("", maxsplit=1) # ['', '123']
-        return _to_string_list(self.as_string_slice().split(sep, maxsplit))
+        return self.as_string_slice().split(sep, maxsplit)
 
     @always_inline
-    fn split(self, sep: StringSlice) raises -> List[String]:
+    fn split(self, sep: StringSlice) raises -> List[StaticString]:
         """Split the string by a separator.
 
         Args:
@@ -741,10 +743,10 @@ struct StringLiteral(
         """
         # TODO(#3528): add this example
         # _ = "123".split("") # ['', '1', '2', '3', '']
-        return _to_string_list(self.as_string_slice().split(sep, -1))
+        return self.as_string_slice().split(sep, -1)
 
     @always_inline
-    fn split(self, *, maxsplit: Int) -> List[String]:
+    fn split(self, *, maxsplit: Int) -> List[StaticString]:
         """Split the string by every Whitespace separator.
 
         Args:
@@ -760,10 +762,10 @@ struct StringLiteral(
         ```
         .
         """
-        return _to_string_list(self.as_string_slice().split(maxsplit=maxsplit))
+        return self.as_string_slice().split(maxsplit=maxsplit)
 
     @always_inline
-    fn split(self, sep: NoneType = None) -> List[String]:
+    fn split(self, sep: NoneType = None) -> List[StaticString]:
         """Split the string by every Whitespace separator.
 
         Args:
@@ -786,9 +788,9 @@ struct StringLiteral(
         ```
         .
         """
-        return _to_string_list(self.as_string_slice().split(sep))
+        return self.as_string_slice().split(sep)
 
-    fn splitlines(self, keepends: Bool = False) -> List[String]:
+    fn splitlines(self, keepends: Bool = False) -> List[StaticString]:
         """Split the string literal at line boundaries. This corresponds to Python's
         [universal newlines:](
             https://docs.python.org/3/library/stdtypes.html#str.splitlines)
@@ -800,7 +802,7 @@ struct StringLiteral(
         Returns:
             A List of Strings containing the input split by line boundaries.
         """
-        return _to_string_list(self.as_string_slice().splitlines(keepends))
+        return self.as_string_slice().splitlines(keepends)
 
     fn count(self, substr: StringSlice) -> Int:
         """Return the number of non-overlapping occurrences of substring
