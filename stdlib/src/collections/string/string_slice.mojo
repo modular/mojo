@@ -2040,7 +2040,7 @@ fn _to_string_list[
         memcpy(p, og_ptr, og_len)
         p[og_len] = 0  # null terminator
         buf = String._buffer_type(ptr=p, length=f_len, capacity=f_len)
-        (out_ptr + i).init_pointee_move(String(buf^))
+        (out_ptr + i).init_pointee_move(String(buffer=buf^))
     return List[String](ptr=out_ptr, length=i_len, capacity=i_len)
 
 
@@ -2066,7 +2066,7 @@ fn to_string_list[
     fn len_fn(v: StringSlice[O]) -> Int:
         return v.byte_length()
 
-    return to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
+    return _to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
 
 
 @always_inline
@@ -2091,7 +2091,7 @@ fn to_string_list[
     fn len_fn(v: Span[Byte, O]) -> Int:
         return len(v)
 
-    return to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
+    return _to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
 
 
 @always_inline
