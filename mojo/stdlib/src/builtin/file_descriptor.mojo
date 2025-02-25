@@ -25,7 +25,7 @@ f.close()
 """
 from sys import os_is_macos, os_is_linux
 from sys._amdgpu import printf_append_string_n, printf_begin
-from sys.ffi import external_call
+from sys.ffi import c_ssize_t, external_call
 from sys.info import is_amd_gpu, is_nvidia_gpu
 
 from builtin.io import _printf
@@ -89,7 +89,7 @@ struct FileDescriptor(Writer):
             )
 
     @always_inline
-    fn read_bytes(mut self, size: Int) raises -> List[Byte]:
+    fn read_bytes(mut self, size: UInt) raises -> List[Byte]:
         """
         Read a number of bytes from the file.
 
@@ -108,12 +108,11 @@ struct FileDescriptor(Writer):
             constrained[False, "AMD GPU read bytes not implemented"]()
             return abort[List[Byte]]()
         elif os_is_macos() or os_is_linux():
-            var list = List[Byte](capacity=size)
-            read = external_call["read", Int](
-                self.value, list.unsafe_ptr(), size
-            )
-            list.size = read
-            return list^
+            var ptr = UnsafePointer[Byte].alloc(size)
+
+            read = external_call["read", c_ssize_t](self.value, ptr, size)
+
+            return List[Byte](ptr=ptr, length=read, capacity=read)
         else:
             constrained[False, "Unknown platform read bytes not implemented"]()
             return abort[List[Byte]]()
