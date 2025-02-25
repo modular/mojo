@@ -12,7 +12,6 @@
 # ===----------------------------------------------------------------------=== #
 # RUN: %mojo %s
 
-from collections.string import StringSlice
 from collections.string.string import (
     _calc_initial_buffer_size_int32,
     _calc_initial_buffer_size_int64,
@@ -822,11 +821,13 @@ def test_splitlines():
 
     for i in List(next_line, unicode_line_sep, unicode_paragraph_sep):
         u = i[]
-        item = String("").join("hello", u, "world", u, "mojo", u, "language", u)
-        assert_equal(item.splitlines(), hello_mojo)
+        item = "".join("hello", u, "world", u, "mojo", u, "language", u)
+        assert_equal(item.splitlines().__str__(), hello_mojo.__str__())
         assert_equal(
-            item.splitlines(keepends=True),
-            L("hello" + u, "world" + u, "mojo" + u, "language" + u),
+            item.splitlines(keepends=True).__str__(),
+            List(
+                "hello" + u, "world" + u, "mojo" + u, "language" + u
+            ).__str__(),
         )
 
 
