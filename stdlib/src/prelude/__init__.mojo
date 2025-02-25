@@ -15,14 +15,7 @@
 """
 
 from collections import KeyElement, List
-from collections.string import (
-    String,
-    ascii,
-    atof,
-    atol,
-    chr,
-    ord,
-)
+from collections.string import Codepoint, String, ascii, atof, atol, chr, ord
 from hashlib.hash import Hashable, hash
 
 from builtin.anytype import AnyType, UnknownDestructibility
@@ -36,13 +29,12 @@ from builtin.builtin_list import (
 )
 from builtin.builtin_slice import Slice, slice
 from builtin.comparable import (
-    LessThanComparable,
-    GreaterThanComparable,
-    LessThanOrEqualComparable,
-    GreaterThanOrEqualComparable,
     Comparable,
+    GreaterThanComparable,
+    GreaterThanOrEqualComparable,
+    LessThanComparable,
+    LessThanOrEqualComparable,
 )
-from builtin.char import Char
 from builtin.constrained import constrained
 from builtin.coroutine import AnyCoroutine, Coroutine, RaisingCoroutine
 from builtin.debug_assert import debug_assert
@@ -51,15 +43,21 @@ from builtin.equality_comparable import EqualityComparable
 from builtin.error import Error
 from builtin.file import FileHandle, open
 from builtin.file_descriptor import FileDescriptor
-from builtin.float_literal import FloatLiteral
+from builtin.float_literal import (
+    FloatLiteral,
+    FloatLiteral_nan,
+    FloatLiteral_infinity,
+    FloatLiteral_negative_infinity,
+    FloatLiteral_negative_zero,
+)
 from builtin.floatable import Floatable, FloatableRaising, float
 from builtin.format_int import bin, hex, oct
 from builtin.identifiable import Identifiable, StringableIdentifiable
 from builtin.int import (
+    ImplicitlyIntable,
     Indexer,
     Int,
     Intable,
-    ImplicitlyIntable,
     IntableRaising,
     index,
     int,
@@ -88,10 +86,10 @@ from builtin.simd import (
     SIMD,
     BFloat16,
     Byte,
-    Float8e5m2,
-    Float8e5m2fnuz,
-    Float8e4m3,
-    Float8e4m3fnuz,
+    Float8_e4m3fn,
+    Float8_e4m3fnuz,
+    Float8_e5m2,
+    Float8_e5m2fnuz,
     Float16,
     Float32,
     Float64,
@@ -134,11 +132,11 @@ from builtin.value import (
     ExplicitlyCopyable,
     Movable,
     RepresentableCollectionElement,
-    WritableCollectionElement,
     StringableCollectionElement,
+    WritableCollectionElement,
 )
 from documentation import doc_private
 from memory import AddressSpace, Pointer
-
 from memory.span import AsBytes
+
 from utils import Writable, Writer

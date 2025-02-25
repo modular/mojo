@@ -119,7 +119,7 @@ def test_convert_simd_to_string():
     var c: SIMD[DType.index, 8] = 7
     assert_equal(String(c), "[7, 7, 7, 7, 7, 7, 7, 7]")
 
-    # TODO: uncomment when https://github.com/modularml/mojo/issues/2353 is fixed
+    # TODO: uncomment when https://github.com/modular/mojo/issues/2353 is fixed
     # assert_equal(String(UInt32(-1)), "4294967295")
     assert_equal(String(UInt64(-1)), "18446744073709551615")
 
@@ -129,7 +129,7 @@ def test_convert_simd_to_string():
 
     assert_equal(String(UInt64(16646288086500911323)), "16646288086500911323")
 
-    # https://github.com/modularml/mojo/issues/556
+    # https://github.com/modular/mojo/issues/556
     assert_equal(
         String(
             SIMD[DType.uint64, 4](
@@ -552,19 +552,12 @@ def test_trunc():
 
 
 def test_round():
-    assert_equal(Float32.__round__(Float32(2.5)), 3.0)
+    assert_equal(Float32.__round__(Float32(2.5)), 2.0)
+    assert_equal(Float32.__round__(Float32(3.5)), 4.0)
     assert_equal(Float32.__round__(Float32(-3.5)), -4.0)
 
     alias F = SIMD[DType.float32, 4]
-    assert_equal(F.__round__(F(1.5, 2.5, -2.5, -3.5)), F(2.0, 3.0, -3.0, -4.0))
-
-
-def test_roundeven():
-    assert_equal(Float32(2.5).roundeven(), 2.0)
-    assert_equal(Float32(-3.5).roundeven(), -4.0)
-
-    alias F = SIMD[DType.float32, 4]
-    assert_equal(F(1.5, 2.5, -2.5, -3.5).roundeven(), F(2.0, 2.0, -2.0, -4.0))
+    assert_equal(F.__round__(F(1.5, 2.5, -2.5, -3.5)), F(2.0, 2.0, -2.0, -4.0))
 
 
 def test_div():
@@ -1421,10 +1414,10 @@ def test_reduce_bit_count():
 
 
 def test_pow():
-    alias nan = FloatLiteral.nan
-    alias neg_zero = FloatLiteral.negative_zero
-    alias inf = FloatLiteral.infinity
-    alias neg_inf = FloatLiteral.negative_infinity
+    alias nan = FloatLiteral_nan
+    alias neg_zero = FloatLiteral_negative_zero
+    alias inf = FloatLiteral_infinity
+    alias neg_inf = FloatLiteral_negative_infinity
 
     # Float32 tests
     alias F32x4 = SIMD[DType.float32, 4]
@@ -1855,6 +1848,50 @@ def test_float_conversion():
     assert_almost_equal(Float64(UInt64(36)), 36.0)
 
 
+def test_from_bytes_as_bytes():
+    alias TwoBytes = InlineArray[Byte, DType.int16.sizeof()]
+    alias TwoUBytes = InlineArray[Byte, DType.uint16.sizeof()]
+    alias FourBytes = InlineArray[Byte, DType.int32.sizeof()]
+
+    assert_equal(Int16.from_bytes[big_endian=True](TwoBytes(0, 16)), 16)
+    assert_equal(Int16.from_bytes[big_endian=False](TwoBytes(0, 16)), 4096)
+    assert_equal(Int16.from_bytes[big_endian=True](TwoBytes(252, 0)), -1024)
+    assert_equal(UInt16.from_bytes[big_endian=True](TwoUBytes(252, 0)), 64512)
+    assert_equal(Int16.from_bytes[big_endian=False](TwoBytes(252, 0)), 252)
+    assert_equal(Int32.from_bytes[big_endian=True](FourBytes(0, 0, 0, 1)), 1)
+    assert_equal(
+        Int32.from_bytes[big_endian=False](FourBytes(0, 0, 0, 1)),
+        16777216,
+    )
+    assert_equal(
+        Int32.from_bytes[big_endian=True](FourBytes(1, 0, 0, 0)),
+        16777216,
+    )
+    assert_equal(
+        Int32.from_bytes[big_endian=True](FourBytes(1, 0, 0, 1)),
+        16777217,
+    )
+    assert_equal(
+        Int32.from_bytes[big_endian=False](FourBytes(1, 0, 0, 1)),
+        16777217,
+    )
+    assert_equal(
+        Int32.from_bytes[big_endian=True](FourBytes(255, 0, 0, 0)),
+        -16777216,
+    )
+    for x_ref in List[Int16](10, 100, -12, 0, 1, -1, 1000, -1000):
+        x = x_ref[]
+
+        @parameter
+        for b in range(2):
+            assert_equal(
+                Int16.from_bytes[big_endian=b](
+                    Int16(x).as_bytes[big_endian=b]()
+                ),
+                x,
+            )
+
+
 def test_reversed():
     fn test[D: DType]() raises:
         assert_equal(SIMD[D, 4](1, 2, 3, 4).reversed(), SIMD[D, 4](4, 3, 2, 1))
@@ -1885,6 +1922,7 @@ def main():
     test_extract()
     test_floor()
     test_floordiv()
+    test_from_bytes_as_bytes()
     test_iadd()
     test_indexing()
     test_insert()
@@ -1908,7 +1946,6 @@ def main():
     test_rmod()
     test_rotate()
     test_round()
-    test_roundeven()
     test_rsub()
     test_shift()
     test_shuffle()
