@@ -790,7 +790,7 @@ struct StringLiteral(
         """
         return self.as_string_slice().split(sep)
 
-    fn splitlines(self, keepends: Bool = False) -> List[StaticString]:
+    fn splitlines(self, keepends: Bool = False) -> List[String]:
         """Split the string literal at line boundaries. This corresponds to Python's
         [universal newlines:](
             https://docs.python.org/3/library/stdtypes.html#str.splitlines)
