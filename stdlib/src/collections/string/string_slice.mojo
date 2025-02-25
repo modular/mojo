@@ -2045,7 +2045,7 @@ fn _to_string_list[
 
 
 @always_inline
-fn _to_string_list[
+fn to_string_list[
     O: ImmutableOrigin, //
 ](items: List[StringSlice[O]]) -> List[String]:
     """Create a list of Strings **copying** the existing data.
@@ -2066,11 +2066,11 @@ fn _to_string_list[
     fn len_fn(v: StringSlice[O]) -> Int:
         return v.byte_length()
 
-    return _to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
+    return to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
 
 
 @always_inline
-fn _to_string_list[
+fn to_string_list[
     O: ImmutableOrigin, //
 ](items: List[Span[Byte, O]]) -> List[String]:
     """Create a list of Strings **copying** the existing data.
@@ -2091,7 +2091,7 @@ fn _to_string_list[
     fn len_fn(v: Span[Byte, O]) -> Int:
         return len(v)
 
-    return _to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
+    return to_string_list[items.T, len_fn, unsafe_ptr_fn](items)
 
 
 @always_inline

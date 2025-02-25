@@ -20,7 +20,7 @@ from collections.string.string_slice import (
     StaticString,
     StringSlice,
     CodepointSliceIter,
-    _to_string_list,
+    to_string_list,
     _utf8_byte_type,
 )
 from collections.string._unicode import (
@@ -1554,7 +1554,7 @@ struct String(
         Returns:
             A List of Strings containing the input split by line boundaries.
         """
-        return _to_string_list(self.as_string_slice().splitlines(keepends))
+        return to_string_list(self.as_string_slice().splitlines(keepends))
 
     fn replace(self, old: StringSlice, new: StringSlice) -> String:
         """Return a copy of the string with all occurrences of substring `old`

@@ -21,7 +21,7 @@ from collections.string.string_slice import (
     StaticString,
     StringSlice,
     CodepointSliceIter,
-    _to_string_list,
+    to_string_list,
 )
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from sys.ffi import c_char
