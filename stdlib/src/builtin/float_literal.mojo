@@ -15,65 +15,67 @@
 These are Mojo built-ins, so you don't need to import them.
 """
 
-from math import Ceilable, CeilDivable, Floorable, Truncable
-
 # ===-----------------------------------------------------------------------===#
 # FloatLiteral
 # ===-----------------------------------------------------------------------===#
+
+# FIXME: These really should get a better name.
+alias FloatLiteral_nan = FloatLiteral[__mlir_attr.`#kgen.float_literal<nan>`]()
+alias FloatLiteral_infinity = FloatLiteral[
+    __mlir_attr.`#kgen.float_literal<inf>`
+]()
+alias FloatLiteral_negative_infinity = FloatLiteral[
+    __mlir_attr.`#kgen.float_literal<neg_inf>`
+]()
+alias FloatLiteral_negative_zero = FloatLiteral[
+    __mlir_attr.`#kgen.float_literal<neg_zero>`
+]()
 
 
 @value
 @nonmaterializable(Float64)
 @register_passable("trivial")
-struct FloatLiteral(
-    Absable,
-    Ceilable,
-    CeilDivable,
-    Comparable,
-    Floorable,
+struct FloatLiteral[value: __mlir_type.`!kgen.float_literal`](
     ImplicitlyBoolable,
     Intable,
-    Roundable,
     Stringable,
-    Truncable,
     Floatable,
 ):
-    """Mojo floating point literal type."""
+    """Mojo floating point literal type.
 
-    alias fp_type = __mlir_type.`!kgen.float_literal`
-    var value: Self.fp_type
-    """The underlying storage for the floating point value."""
+    Parameters:
+        value: The underlying infinite precision floating point value.
+    """
 
     # ===------------------------------------------------------------------===#
     # Constructors
     # ===------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
-    @implicit
-    fn __init__(out self, value: Self.fp_type):
-        """Create a FloatLiteral value from a kgen.float_literal value.
+    @always_inline("builtin")
+    fn __init__(out self):
+        """Create a FloatLiteral for any parameter value."""
+        pass
 
-        Args:
-            value: The float value.
-        """
-        self.value = value
-
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
-    fn __init__(out self, value: IntLiteral):
+    fn __init__(
+        value: IntLiteral[_],
+        out result: FloatLiteral[
+            __mlir_attr[
+                `#kgen<int_to_float_literal<`,
+                value.value,
+                `>> : !kgen.float_literal`,
+            ]
+        ],
+    ):
         """Convert an IntLiteral to a FloatLiteral value.
 
         Args:
             value: The IntLiteral value.
         """
-        self.value = __mlir_op.`kgen.int_literal.to_float_literal`(value.value)
+        out = __type_of(result)()
 
-    alias nan = Self(__mlir_attr.`#kgen.float_literal<nan>`)
-    alias infinity = Self(__mlir_attr.`#kgen.float_literal<inf>`)
-    alias negative_infinity = Self(__mlir_attr.`#kgen.float_literal<neg_inf>`)
-    alias negative_zero = Self(__mlir_attr.`#kgen.float_literal<neg_zero>`)
-
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn is_nan(self) -> Bool:
         """Return whether the FloatLiteral is nan.
 
@@ -86,11 +88,11 @@ struct FloatLiteral(
             special = __mlir_attr.`#kgen<float_literal.special_values nan>`
         ](self.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn is_neg_zero(self) -> Bool:
         """Return whether the FloatLiteral is negative zero.
 
-        Since `FloatLiteral.negative_zero == 0.0` is True, this provides a way
+        Since `FloatLiteral_negative_zero == 0.0` is True, this provides a way
         to check if the FloatLiteral is negative zero.
 
         Returns:
@@ -100,7 +102,7 @@ struct FloatLiteral(
             special = __mlir_attr.`#kgen<float_literal.special_values neg_zero>`
         ](self.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn _is_normal(self) -> Bool:
         """Return whether the FloatLiteral is a normal (i.e. not special) value.
 
@@ -124,8 +126,17 @@ struct FloatLiteral(
         """
         return String(Float64(self))
 
-    @always_inline("nodebug")
-    fn __int_literal__(self) -> IntLiteral:
+    @always_inline("builtin")
+    fn __int_literal__(
+        self,
+        out result: IntLiteral[
+            __mlir_attr[
+                `#kgen<float_to_int_literal<`,
+                value,
+                `>> : !kgen.int_literal`,
+            ]
+        ],
+    ):
         """Casts the floating point value to an IntLiteral. If there is a
         fractional component, then the value is truncated towards zero.
 
@@ -135,11 +146,9 @@ struct FloatLiteral(
         Returns:
             The value as an integer.
         """
-        return IntLiteral(
-            __mlir_op.`kgen.float_literal.to_int_literal`(self.value)
-        )
+        return __type_of(result)()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __int__(self) -> Int:
         """Converts the FloatLiteral value to an Int. If there is a fractional
         component, then the value is truncated towards zero.
@@ -182,167 +191,33 @@ struct FloatLiteral(
         """
         return self.__bool__()
 
-    @always_inline("nodebug")
-    fn __neg__(self) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __neg__(self, out result: __type_of(self * -1)):
         """Return the negation of the FloatLiteral value.
 
         Returns:
             The negated FloatLiteral value.
         """
-        return self * Self(-1)
-
-    @always_inline("nodebug")
-    fn __abs__(self) -> Self:
-        """Return the absolute value of the FloatLiteral.
-
-        Returns:
-            The absolute value.
-        """
-        if self > 0:
-            return self
-        return -self
-
-    @always_inline("nodebug")
-    fn __floor__(self) -> Self:
-        """Return the floor value of the FloatLiteral.
-
-        Returns:
-            The floor value.
-        """
-
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-
-        # __int_literal__ rounds towards zero, so it's correct for integers and
-        # positive values.
-        var truncated: IntLiteral = self.__int_literal__()
-
-        # Ensure this equality doesn't hit any implicit conversions.
-        if self >= 0 or self.__eq__(Self(truncated)):
-            return truncated
-        return truncated - 1
-
-    @always_inline("nodebug")
-    fn __ceil__(self) -> Self:
-        """Return the ceiling value of the FloatLiteral.
-
-        Returns:
-            The ceiling value.
-        """
-
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-
-        # __int_literal__ rounds towards zero, so it's correct for integers and
-        # negative values.
-        var truncated: IntLiteral = self.__int_literal__()
-
-        # Ensure this equality doesn't hit any implicit conversions.
-        if self <= 0 or self.__eq__(Self(truncated)):
-            return truncated
-        return truncated + 1
-
-    @always_inline("nodebug")
-    fn __trunc__(self) -> Self:
-        """Truncates the floating point literal. If there is a fractional
-        component, then the value is truncated towards zero.
-
-        For example, `(4.5).__trunc__()` returns `4.0`, and `(-3.7).__trunc__()`
-        returns `-3.0`.
-
-        Returns:
-            The truncated FloatLiteral value.
-        """
-
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-        return Self(self.__int_literal__())
-
-    fn __round__(self) -> Self:
-        """Return the rounded value of the FloatLiteral.
-
-        Returns:
-            The rounded value.
-        """
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-
-        alias one = __mlir_attr.`#kgen.int_literal<1> : !kgen.int_literal`
-        alias neg_one = __mlir_attr.`#kgen.int_literal<-1> : !kgen.int_literal`
-        var truncated: IntLiteral = self.__int_literal__()
-        var abs_diff = abs(self - truncated)
-        var plus_one = one if self > 0 else neg_one
-        if abs_diff == 0.5:
-            # Round to the nearest even number.
-            if truncated % 2 == 0:
-                return Self(truncated)
-            else:
-                return Self(truncated + plus_one)
-        elif abs_diff > 0.5:
-            return Self(truncated + plus_one)
-        else:
-            return Self(truncated)
-
-    @always_inline("nodebug")
-    fn __round__(self, ndigits: Int) -> Self:
-        """Return the rounded value of the FloatLiteral.
-
-        Args:
-            ndigits: The number of digits to round to. Defaults to 0.
-
-        Returns:
-            The rounded value.
-        """
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-
-        alias one = __mlir_attr.`#kgen.int_literal<1> : !kgen.int_literal`
-        alias neg_one = __mlir_attr.`#kgen.int_literal<-1> : !kgen.int_literal`
-        alias ten = __mlir_attr.`#kgen.int_literal<10> : !kgen.int_literal`
-        var multiplier = one
-        var target: Self = self
-        # TODO: Use IntLiteral.__pow__() when it's implemented.
-        for _ in range(abs(ndigits)):
-            multiplier = __mlir_op.`kgen.int_literal.binop`[
-                oper = __mlir_attr.`#kgen<int_literal.binop_kind mul>`
-            ](multiplier, ten)
-        if ndigits > 0:
-            target *= Self(multiplier)
-        elif ndigits < 0:
-            target /= Self(multiplier)
-        else:
-            return self.__round__()
-        var truncated: IntLiteral = target.__int_literal__()
-        var result: Self
-        var abs_diff = abs(target - truncated)
-        var plus_one = one if self > 0 else neg_one
-        if abs_diff == 0.5:
-            # Round to the nearest even number.
-            if truncated % 2 == 0:
-                result = Self(truncated)
-            else:
-                result = Self(truncated + plus_one)
-        elif abs_diff <= 0.5:
-            result = Self(truncated)
-        else:
-            result = Self(truncated + plus_one)
-        if ndigits >= 0:
-            result /= Self(multiplier)
-        elif ndigits < 0:
-            result *= Self(multiplier)
-        return result
+        result = __type_of(result)()
 
     # ===------------------------------------------------------------------===#
     # Arithmetic Operators
     # ===------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
-    fn __add__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __add__(
+        self,
+        rhs: FloatLiteral,
+        out result: FloatLiteral[
+            __mlir_attr[
+                `#kgen<float_literal_bin<add `,
+                value,
+                `,`,
+                rhs.value,
+                `>> : !kgen.float_literal`,
+            ]
+        ],
+    ):
         """Add two FloatLiterals.
 
         Args:
@@ -351,12 +226,22 @@ struct FloatLiteral(
         Returns:
             The sum of the two values.
         """
-        return __mlir_op.`kgen.float_literal.binop`[
-            oper = __mlir_attr.`#kgen<float_literal.binop_kind add>`
-        ](self.value, rhs.value)
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __sub__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __sub__(
+        self,
+        rhs: FloatLiteral,
+        out result: FloatLiteral[
+            __mlir_attr[
+                `#kgen<float_literal_bin<sub `,
+                value,
+                `,`,
+                rhs.value,
+                `>> : !kgen.float_literal`,
+            ]
+        ],
+    ):
         """Subtract two FloatLiterals.
 
         Args:
@@ -365,12 +250,22 @@ struct FloatLiteral(
         Returns:
             The difference of the two values.
         """
-        return __mlir_op.`kgen.float_literal.binop`[
-            oper = __mlir_attr.`#kgen<float_literal.binop_kind sub>`
-        ](self.value, rhs.value)
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __mul__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __mul__(
+        self,
+        rhs: FloatLiteral,
+        out result: FloatLiteral[
+            __mlir_attr[
+                `#kgen<float_literal_bin<mul `,
+                value,
+                `,`,
+                rhs.value,
+                `>> : !kgen.float_literal`,
+            ]
+        ],
+    ):
         """Multiply two FloatLiterals.
 
         Args:
@@ -379,12 +274,22 @@ struct FloatLiteral(
         Returns:
             The product of the two values.
         """
-        return __mlir_op.`kgen.float_literal.binop`[
-            oper = __mlir_attr.`#kgen<float_literal.binop_kind mul>`
-        ](self.value, rhs.value)
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __truediv__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __truediv__(
+        self,
+        rhs: FloatLiteral,
+        out result: FloatLiteral[
+            __mlir_attr[
+                `#kgen<float_literal_bin<truediv `,
+                value,
+                `,`,
+                rhs.value,
+                `>> : !kgen.float_literal`,
+            ]
+        ],
+    ):
         """Divide two FloatLiterals.
 
         Args:
@@ -394,12 +299,22 @@ struct FloatLiteral(
             The quotient of the two values.
         """
         # TODO - Python raises an error on divide by 0.0 or -0.0
-        return __mlir_op.`kgen.float_literal.binop`[
-            oper = __mlir_attr.`#kgen<float_literal.binop_kind truediv>`
-        ](self.value, rhs.value)
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __floordiv__(self, rhs: Self) -> Self:
+    @always_inline("builtin")
+    fn __floordiv__(
+        self,
+        rhs: FloatLiteral,
+        out result: FloatLiteral[
+            __mlir_attr[
+                `#kgen<float_literal_bin<floordiv `,
+                value,
+                `,`,
+                rhs.value,
+                `>> : !kgen.float_literal`,
+            ]
+        ],
+    ):
         """Returns self divided by rhs, rounded down to the nearest integer.
 
         Args:
@@ -408,10 +323,15 @@ struct FloatLiteral(
         Returns:
             `floor(self / rhs)` value.
         """
-        return self.__truediv__(rhs).__floor__()
+        # TODO - Python raises an error on divide by 0.0 or -0.0
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __mod__(self, rhs: Self) -> Self:
+    @always_inline("builtin")
+    fn __mod__(
+        self,
+        rhs: FloatLiteral,
+        out result: __type_of(self - (self.__floordiv__(rhs) * rhs)),
+    ):
         """Return the remainder of self divided by rhs.
 
         Args:
@@ -420,35 +340,14 @@ struct FloatLiteral(
         Returns:
             The remainder of dividing self by rhs.
         """
-        return self.__divmod__(rhs)[1]
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __divmod__(self, rhs: Self) -> Tuple[Self, Self]:
-        """Return a tuple with the quotient and the remainder of self divided by rhs.
-
-        Args:
-            rhs: The value to divide on.
-
-        Returns:
-            A tuple with the dividend and the remainder.
-        """
-        var quotient: Self = self.__floordiv__(rhs)
-        var remainder: Self = self - (quotient * rhs)
-        return quotient, remainder
-
-    fn __rfloordiv__(self, rhs: Self) -> Self:
-        """Returns rhs divided by self, rounded down to the nearest integer.
-
-        Args:
-            rhs: The value to be divided by self.
-
-        Returns:
-            `floor(rhs / self)` value.
-        """
-        return rhs // self
-
-    @always_inline
-    fn __ceildiv__(self, denominator: Self) -> Self:
+    @always_inline("builtin")
+    fn __ceildiv__(
+        self,
+        denominator: FloatLiteral,
+        out result: __type_of(-(self // -denominator)),
+    ):
         """Return the rounded-up result of dividing self by denominator.
 
         Args:
@@ -457,56 +356,16 @@ struct FloatLiteral(
         Returns:
             The ceiling of dividing numerator by denominator.
         """
-        return -(self // -denominator)
+        result = __type_of(result)()
 
     # TODO - maybe __pow__?
 
     # ===------------------------------------------------------------------===#
-    # In-place Arithmetic Operators
+    # Reversed Operators, allowing things like "1 / 2.0" to work
     # ===------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
-    fn __iadd__(mut self, rhs: FloatLiteral):
-        """In-place addition operator.
-
-        Args:
-            rhs: The value to add.
-        """
-        self = self + rhs
-
-    @always_inline("nodebug")
-    fn __isub__(mut self, rhs: FloatLiteral):
-        """In-place subtraction operator.
-
-        Args:
-            rhs: The value to subtract.
-        """
-        self = self - rhs
-
-    @always_inline("nodebug")
-    fn __imul__(mut self, rhs: FloatLiteral):
-        """In-place multiplication operator.
-
-        Args:
-            rhs: The value to multiply.
-        """
-        self = self * rhs
-
-    @always_inline("nodebug")
-    fn __itruediv__(mut self, rhs: FloatLiteral):
-        """In-place division.
-
-        Args:
-            rhs: The value to divide.
-        """
-        self = self / rhs
-
-    # ===------------------------------------------------------------------===#
-    # Reversed Operators
-    # ===------------------------------------------------------------------===#
-
-    @always_inline("nodebug")
-    fn __radd__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __radd__(self, rhs: FloatLiteral, out result: __type_of(rhs + self)):
         """Reversed addition operator.
 
         Args:
@@ -515,10 +374,10 @@ struct FloatLiteral(
         Returns:
             The sum of this and the given value.
         """
-        return rhs + self
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __rsub__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __rsub__(self, rhs: FloatLiteral, out result: __type_of(rhs - self)):
         """Reversed subtraction operator.
 
         Args:
@@ -527,10 +386,10 @@ struct FloatLiteral(
         Returns:
             The result of subtracting this from the given value.
         """
-        return rhs - self
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __rmul__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __rmul__(self, rhs: FloatLiteral, out result: __type_of(rhs * self)):
         """Reversed multiplication operator.
 
         Args:
@@ -539,10 +398,42 @@ struct FloatLiteral(
         Returns:
             The product of the given number and this.
         """
-        return rhs * self
+        result = __type_of(result)()
 
-    @always_inline("nodebug")
-    fn __rtruediv__(self, rhs: FloatLiteral) -> FloatLiteral:
+    @always_inline("builtin")
+    fn __rmod__(
+        self,
+        rhs: FloatLiteral,
+        out result: __type_of(rhs.__mod__(self)),
+    ):
+        """Return the remainder of rhs divided by self.
+
+        Args:
+            rhs: The value to divide on.
+
+        Returns:
+            The remainder of dividing rhs by self.
+        """
+        result = __type_of(result)()
+
+    @always_inline("builtin")
+    fn __rfloordiv__(
+        self,
+        rhs: FloatLiteral,
+        out result: __type_of(rhs // self),
+    ):
+        """Returns rhs divided by self, rounded down to the nearest integer.
+
+        Args:
+            rhs: The value to be divided by self.
+
+        Returns:
+            `floor(rhs / self)` value.
+        """
+        result = __type_of(result)()
+
+    @always_inline("builtin")
+    fn __rtruediv__(self, rhs: FloatLiteral, out result: __type_of(rhs / self)):
         """Reversed division.
 
         Args:
@@ -551,13 +442,13 @@ struct FloatLiteral(
         Returns:
             The result of dividing the given value by this.
         """
-        return rhs / self
+        result = __type_of(result)()
 
     # ===------------------------------------------------------------------===#
     # Comparison Operators
     # ===------------------------------------------------------------------===#
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __eq__(self, rhs: FloatLiteral) -> Bool:
         """Compare for equality.
 
@@ -571,7 +462,7 @@ struct FloatLiteral(
             pred = __mlir_attr.`#kgen<float_literal.cmp_pred eq>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __ne__(self, rhs: FloatLiteral) -> Bool:
         """Compare for inequality.
 
@@ -585,7 +476,7 @@ struct FloatLiteral(
             pred = __mlir_attr.`#kgen<float_literal.cmp_pred ne>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __lt__(self, rhs: FloatLiteral) -> Bool:
         """Less than comparison.
 
@@ -599,7 +490,7 @@ struct FloatLiteral(
             pred = __mlir_attr.`#kgen<float_literal.cmp_pred lt>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __le__(self, rhs: FloatLiteral) -> Bool:
         """Less than or equal to comparison.
 
@@ -613,7 +504,7 @@ struct FloatLiteral(
             pred = __mlir_attr.`#kgen<float_literal.cmp_pred le>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __gt__(self, rhs: FloatLiteral) -> Bool:
         """Greater than comparison.
 
@@ -627,7 +518,7 @@ struct FloatLiteral(
             pred = __mlir_attr.`#kgen<float_literal.cmp_pred gt>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __ge__(self, rhs: FloatLiteral) -> Bool:
         """Greater than or equal to comparison.
 

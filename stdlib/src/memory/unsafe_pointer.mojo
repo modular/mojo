@@ -28,6 +28,7 @@ from sys.intrinsics import (
     strided_load,
     strided_store,
 )
+
 from bit import is_power_of_two
 from memory.memory import _free, _malloc
 
@@ -183,7 +184,12 @@ struct UnsafePointer[
     fn alloc(
         count: Int,
     ) -> UnsafePointer[
-        type, address_space = AddressSpace.GENERIC, alignment=alignment
+        type,
+        address_space = AddressSpace.GENERIC,
+        alignment=alignment,
+        # This is a newly allocated pointer, so should not alias anything
+        # already existing.
+        origin = MutableOrigin.empty,
     ]:
         """Allocate an array with specified or default alignment.
 

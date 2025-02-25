@@ -20,12 +20,13 @@ from sys import PrefetchLocality
 """
 
 import math
+from sys.info import _is_sm_9x
 
 from memory import AddressSpace, UnsafePointer
 from memory.pointer import _GPUAddressSpace
-from sys.info import _is_sm_9x
+
 from ._assembly import inlined_assembly
-from .info import is_nvidia_gpu, is_amd_gpu, sizeof
+from .info import is_amd_gpu, is_nvidia_gpu, sizeof
 
 # ===-----------------------------------------------------------------------===#
 # llvm_intrinsic
@@ -1085,10 +1086,10 @@ alias block_idx = _BlockIdx()
 
 
 @always_inline
-fn _get_gcn_idx[offset: Int]() -> UInt:
+fn _get_gcn_idx[offset: Int, dtype: DType = DType.int16]() -> UInt:
     var ptr = llvm_intrinsic[
         "llvm.amdgcn.implicitarg.ptr",
-        UnsafePointer[Int16, address_space=4],
+        UnsafePointer[Scalar[dtype], address_space=4],
         has_side_effect=False,
     ]()
     return UInt(Int(ptr.load[alignment=4](offset)))
@@ -1190,7 +1191,7 @@ struct _GridDim:
                     constrained[dim == "z"]()
                     return 2
 
-            return _get_gcn_idx[_get_offset()]()
+            return _get_gcn_idx[_get_offset(), DType.int32]()
 
 
 alias grid_dim = _GridDim()
@@ -1286,7 +1287,7 @@ struct _ClusterIdx:
         return "llvm.nvvm.read.ptx.sreg.clusterid." + dim
 
     @always_inline("nodebug")
-    fn __getattr__[dim: StringLiteral](self) -> UInt32:
+    fn __getattr__[dim: StringLiteral](self) -> UInt:
         """Gets the `x`, `y`, or `z` coordinates of a cluster within a grid.
 
         Returns:
@@ -1300,7 +1301,9 @@ struct _ClusterIdx:
             dim in ("x", "y", "z"), "the accessor must be either x, y, or z"
         ]()
         alias intrinsic_name = Self._get_intrinsic_name[dim]()
-        return llvm_intrinsic[intrinsic_name, UInt32, has_side_effect=False]()
+        return UInt(
+            Int(llvm_intrinsic[intrinsic_name, UInt32, has_side_effect=False]())
+        )
 
 
 alias cluster_idx = _ClusterIdx()

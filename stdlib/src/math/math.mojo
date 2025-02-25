@@ -36,7 +36,7 @@ from sys.info import _current_arch
 from bit import count_trailing_zeros
 from builtin.dtype import _integral_type_of
 from builtin.simd import _modf, _simd_apply
-from memory import UnsafePointer, Span
+from memory import Span, UnsafePointer
 
 from utils.index import IndexList
 from utils.numerics import FPUtils, isnan, nan
@@ -127,10 +127,14 @@ fn ceildiv[T: CeilDivableRaising, //](numerator: T, denominator: T) raises -> T:
     return numerator.__ceildiv__(denominator)
 
 
-# NOTE: this overload is needed because of overload precedence; without it the
-# Int overload would be preferred, and ceildiv wouldn't work on IntLiteral.
-@always_inline
-fn ceildiv(numerator: IntLiteral, denominator: IntLiteral) -> IntLiteral:
+# NOTE: this overload is needed because IntLiteral promotes to a runtime type
+# before overload resolution.
+@always_inline("builtin")
+fn ceildiv(
+    numerator: IntLiteral,
+    denominator: IntLiteral,
+    out result: __type_of(numerator.__ceildiv__(denominator)),
+):
     """Return the rounded-up result of dividing numerator by denominator.
 
     Args:
@@ -140,7 +144,7 @@ fn ceildiv(numerator: IntLiteral, denominator: IntLiteral) -> IntLiteral:
     Returns:
         The ceiling of dividing numerator by denominator.
     """
-    return numerator.__ceildiv__(denominator)
+    result = __type_of(result)()
 
 
 # ===----------------------------------------------------------------------=== #
