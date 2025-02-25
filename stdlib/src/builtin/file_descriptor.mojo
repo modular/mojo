@@ -30,6 +30,7 @@ from sys.info import is_amd_gpu, is_nvidia_gpu
 
 from builtin.io import _printf
 from builtin.os import abort
+from collections import List
 from memory import Span, UnsafePointer
 
 
@@ -88,9 +89,9 @@ struct FileDescriptor(Writer):
             )
 
     @always_inline
-    fn read_bytes(mut self, size: Int) raises -> Span[Byte, MutableAnyOrigin]:
+    fn read_bytes(mut self, size: Int) raises -> List[Byte]:
         """
-        Read a Span of bytes from the file.
+        Read a number of bytes from the file.
 
         Args:
             size: Number of bytes to read.
@@ -102,22 +103,20 @@ struct FileDescriptor(Writer):
         @parameter
         if is_nvidia_gpu():
             constrained[False, "Nvidia GPU read bytes not implemented"]()
-            return abort[Span[Byte, MutableAnyOrigin]]()
+            return abort[List[Byte]]()
         elif is_amd_gpu():
             constrained[False, "AMD GPU read bytes not implemented"]()
-            return abort[Span[Byte, MutableAnyOrigin]]()
+            return abort[List[Byte]]()
         elif os_is_macos() or os_is_linux():
-            var buf = UnsafePointer[UInt8].alloc(size)
-            read = external_call["read", Int](self.value, buf, size)
-
-            if read < 0:
-                buf.free()
-                raise Error("Failed to read bytes.")
-
-            return Span[Byte, MutableAnyOrigin](ptr=buf, length=size)
+            var list = List[Byte](capacity=size)
+            read = external_call["read", Int](
+                self.value, list.unsafe_ptr(), size
+            )
+            list.size = read
+            return list^
         else:
             constrained[False, "Unknown platform read bytes not implemented"]()
-            return abort[Span[Byte, MutableAnyOrigin]]()
+            return abort[List[Byte]]()
 
     fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.
