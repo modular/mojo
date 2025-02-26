@@ -144,6 +144,9 @@ fn pipe(fildes: UnsafePointer[c_int]) -> c_int:
 
 @always_inline
 fn close(fd: c_int) -> c_int:
+    """[`close()`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/close.html)
+    — close a file descriptor.
+    """
     return external_call["close", c_int](fd)
 
 
