@@ -1017,7 +1017,7 @@ struct String(
         return Self._add(other.as_bytes(), self.as_bytes())
 
     fn _iadd(mut self, other: Span[Byte]):
-        var o_len = len(other)
+        var o_len = other.byte_length()
         if o_len == 0:
             return
         self._buffer.reserve(self.byte_length() + o_len + 1)
