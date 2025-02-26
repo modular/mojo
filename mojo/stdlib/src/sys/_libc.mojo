@@ -138,6 +138,7 @@ fn kill(pid: c_int, sig: c_int) -> c_int:
 
 @always_inline
 fn pipe(fildes: UnsafePointer[c_int]) -> c_int:
+    """[`pipe()`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/pipe.html) — create an interprocess channel."""
     return external_call["pipe", c_int](fildes)
 
 
