@@ -81,8 +81,7 @@ fn chr(c: Int) -> String:
 
     Examples:
     ```mojo
-    print(chr(97)) # "a"
-    print(chr(8364)) # "€"
+    print(chr(97), chr(8364)) # "a €"
     ```
     .
     """
@@ -461,9 +460,9 @@ fn atof(str_slice: StringSlice) raises -> Float64:
         sign = -1
     if (str_len - start) >= 3:
         if StringSlice[buff.origin](ptr=buff + start, length=3) == "nan":
-            return FloatLiteral_nan
+            return FloatLiteral.nan
         if StringSlice[buff.origin](ptr=buff + start, length=3) == "inf":
-            return FloatLiteral_infinity * sign
+            return FloatLiteral.infinity * sign
     # read before dot
     for pos in range(start, str_len):
         if ord_0 <= buff[pos] <= ord_9:

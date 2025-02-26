@@ -263,6 +263,7 @@ def test_ord():
 
 
 def test_chr():
+    assert_equal("\0", chr(0))
     assert_equal("A", chr(65))
     assert_equal("a", chr(97))
     assert_equal("!", chr(33))
@@ -472,10 +473,10 @@ def test_atof():
     assert_equal(0.78, atof(" .78 "))
     assert_equal(121234.0, atof(" 121234.  "))
     assert_equal(985031234.0, atof(" 985031234.F  "))
-    assert_equal(FloatLiteral_negative_zero, atof("-0"))
-    assert_equal(FloatLiteral_nan, atof("  nan"))
-    assert_equal(FloatLiteral_infinity, atof(" inf "))
-    assert_equal(FloatLiteral_negative_infinity, atof("-inf  "))
+    assert_equal(FloatLiteral.negative_zero, atof("-0"))
+    assert_equal(FloatLiteral.nan, atof("  nan"))
+    assert_equal(FloatLiteral.infinity, atof(" inf "))
+    assert_equal(FloatLiteral.negative_infinity, atof("-inf  "))
 
     # Negative cases
     with assert_raises(contains="String is not convertible to float: ''"):

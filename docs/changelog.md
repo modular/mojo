@@ -26,12 +26,6 @@ what we publish.
 
 ### Standard library changes
 
-- The design of the `IntLiteral` and `FloatLiteral` types has been changed to
-  maintain their compile-time-only value as a parameter instead of a stored
-  field. This correctly models that infinite precision literals are not
-  representable at runtime, and eliminates a number of bugs hit in corner cases.
-  This is made possible by enhanced dependent type support in the compiler.
-
 - The `Buffer` struct has been removed in favor of `Span` and `NDBuffer`.
 
 - A new `IntervalTree` data structure has been added to the standard library.
@@ -171,6 +165,21 @@ var compiled_func = ctx.compile_function[func]()
 ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 ```
+
+- The methods on `DeviceContext`:
+
+  - enqueue_copy_to_device
+  - enqueue_copy_from_device
+  - enqueue_copy_device_to_device
+
+  Have been combined to single overloaded `enqueue_copy` method, and:
+
+  - copy_to_device_sync
+  - copy_from_device_sync
+  - copy_device_to_device_sync
+
+  Have been combined into an overloaded `copy` method, so you don't have
+  to figure out which method to call based on the arguments you're passing.
 
 - The `shuffle` module has been rename to `warp` to better
   reflect its purpose. To uses now you will have to do
