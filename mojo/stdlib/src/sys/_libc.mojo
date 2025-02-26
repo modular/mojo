@@ -115,6 +115,7 @@ fn execvp(file: UnsafePointer[c_char], argv: UnsafePointer[c_str_ptr]) -> c_int:
 
 @always_inline
 fn vfork() -> c_int:
+    """[`vfork()`](https://pubs.opengroup.org/onlinepubs/009696799/functions/vfork.html)."""
     return external_call["vfork", c_int]()
 
 
