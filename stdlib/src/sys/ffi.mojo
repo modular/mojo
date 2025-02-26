@@ -71,9 +71,6 @@ alias c_float = Float32
 alias c_double = Float64
 """C `double` type."""
 
-alias c_str_ptr = UnsafePointer[c_char]
-"""C `*char` type"""
-
 alias OpaquePointer = UnsafePointer[NoneType]
 """An opaque pointer, equivalent to the C `void*` type."""
 

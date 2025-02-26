@@ -26,7 +26,7 @@ f.close()
 from sys import os_is_macos, os_is_linux
 from sys._amdgpu import printf_append_string_n, printf_begin
 from sys.ffi import c_ssize_t, external_call
-from sys.info import is_amd_gpu, is_nvidia_gpu
+from sys.info import is_amd_gpu, is_gpu, is_nvidia_gpu
 
 from builtin.io import _printf
 from builtin.os import abort
@@ -89,33 +89,35 @@ struct FileDescriptor(Writer):
             )
 
     @always_inline
-    fn read_bytes(mut self, size: UInt) raises -> List[Byte]:
+    fn read_bytes(mut self, mut buffer: Span[Byte, _]) raises -> UInt:
         """
         Read a number of bytes from the file.
 
         Args:
-            size: Number of bytes to read.
+            buffer: Span[Byte] of length n where to store read bytes. n = number of bytes to read.
 
         Returns:
-          A list of bytes.
+            Actual number of bytes read.
         """
 
+        constrained[
+            not is_gpu(), "`read_bytes()` is not yet implemented for GPUs."
+        ]()
+
         @parameter
-        if is_nvidia_gpu():
-            constrained[False, "Nvidia GPU read bytes not implemented"]()
-            return abort[List[Byte]]()
-        elif is_amd_gpu():
-            constrained[False, "AMD GPU read bytes not implemented"]()
-            return abort[List[Byte]]()
-        elif os_is_macos() or os_is_linux():
-            var ptr = UnsafePointer[Byte].alloc(size)
-
-            read = external_call["read", c_ssize_t](self.value, ptr, size)
-
-            return List[Byte](ptr=ptr, length=read, capacity=read)
+        if os_is_macos() or os_is_linux():
+            read = external_call["read", c_ssize_t](
+                self.value, buffer.unsafe_ptr(), len(buffer)
+            )
+            if read < 0:
+                raise Error("Failed to read bytes.")
+            return read
         else:
-            constrained[False, "Unknown platform read bytes not implemented"]()
-            return abort[List[Byte]]()
+            constrained[
+                False,
+                "`read_bytes()` is not yet implemented for unknown platform.",
+            ]()
+            return abort[UInt]()
 
     fn write[*Ts: Writable](mut self, *args: *Ts):
         """Write a sequence of Writable arguments to the provided Writer.

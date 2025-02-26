@@ -18,7 +18,7 @@ functionality in the rest of the Mojo standard library.
 """
 
 from sys import os_is_windows
-from sys.ffi import OpaquePointer, c_char, c_int, c_size_t, c_str_ptr
+from sys.ffi import OpaquePointer, c_char, c_int, c_size_t
 
 from memory import UnsafePointer
 
@@ -107,19 +107,23 @@ fn dup(oldfd: c_int) -> c_int:
 
 
 @always_inline
-fn execvp(file: UnsafePointer[c_char], argv: UnsafePointer[c_str_ptr]) -> c_int:
+fn execvp(
+    file: UnsafePointer[c_char], argv: UnsafePointer[UnsafePointer[c_char]]
+) -> c_int:
     """[`execvp`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/exec.html)
     — execute a file.
-    
+
     Args:
-        argv: The c_str_ptr array must be terminated with a NULL pointer.
+        file: NULL terminated UnsafePointer[c_char] (C string), containing path to executable.
+        argv: The UnsafePointer[c_char] array must be terminated with a NULL pointer.
     """
     return external_call["execvp", c_int](file, argv)
 
 
 @always_inline
 fn vfork() -> c_int:
-    """[`vfork()`](https://pubs.opengroup.org/onlinepubs/009696799/functions/vfork.html)."""
+    """[`vfork()`](https://pubs.opengroup.org/onlinepubs/009696799/functions/vfork.html).
+    """
     return external_call["vfork", c_int]()
 
 
@@ -142,7 +146,8 @@ fn kill(pid: c_int, sig: c_int) -> c_int:
 
 @always_inline
 fn pipe(fildes: UnsafePointer[c_int]) -> c_int:
-    """[`pipe()`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/pipe.html) — create an interprocess channel."""
+    """[`pipe()`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/pipe.html) — create an interprocess channel.
+    """
     return external_call["pipe", c_int](fildes)
 
 
