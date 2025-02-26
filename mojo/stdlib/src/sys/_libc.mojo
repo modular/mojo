@@ -108,7 +108,11 @@ fn dup(oldfd: c_int) -> c_int:
 
 @always_inline
 fn execvp(file: UnsafePointer[c_char], argv: UnsafePointer[c_str_ptr]) -> c_int:
-    """`execvp` expects that the c_str_ptr array is terminated with a NULL pointer.
+    """[`execvp`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/exec.html)
+    — execute a file.
+    
+    Args:
+        argv: The c_str_ptr array must be terminated with a NULL pointer.
     """
     return external_call["execvp", c_int](file, argv)
 
