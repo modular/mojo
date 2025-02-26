@@ -131,6 +131,8 @@ struct SignalCodes:
 
 @always_inline
 fn kill(pid: c_int, sig: c_int) -> c_int:
+    """[`kill()`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/kill.html)
+    — send a signal to a process or group of processes."""
     return external_call["kill", c_int](pid, sig)
 
 
