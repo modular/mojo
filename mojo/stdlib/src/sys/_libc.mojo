@@ -174,6 +174,9 @@ struct FcntlFDFlags:
 
 @always_inline
 fn fcntl[*types: Intable](fd: c_int, cmd: c_int, *args: *types) -> c_int:
+    """[`fcntl()`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/fcntl.html)
+    — file control.
+    """
     return external_call["fcntl", c_int](fd, cmd, args)
 
 
