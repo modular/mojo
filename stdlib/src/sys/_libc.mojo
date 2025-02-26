@@ -148,6 +148,9 @@ fn close(fd: c_int) -> c_int:
 
 @always_inline
 fn write(fd: c_int, buf: OpaquePointer, nbyte: c_size_t) -> c_int:
+    """[`write()`](https://pubs.opengroup.org/onlinepubs/9799919799/functions/write.html)
+    — write to a file descriptor.
+    """
     return external_call["write", c_int](fd, buf, nbyte)
 
 
