@@ -860,7 +860,8 @@ struct String(
             A new string containing the character at the specified position.
         """
         # TODO(#933): implement this for unicode when we support llvm intrinsic evaluation at compile time
-        var normalized_idx = normalize_index["String"](idx, len(self))
+        # Using UInt to avoid extra signed normalization in self._buffer
+        var normalized_idx = normalize_index["String"](idx, UInt(len(self)))
         var buf = Self._buffer_type(capacity=1)
         buf.append(self._buffer[normalized_idx])
         buf.append(0)

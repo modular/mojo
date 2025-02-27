@@ -20,6 +20,7 @@ from collections import List
 """
 
 
+from collections._index_normalization import normalize_index
 from os import abort
 from sys import sizeof
 from sys.intrinsics import _type_is_eq
@@ -884,23 +885,8 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
         Returns:
             A reference to the element at the given index.
         """
-
-        @parameter
-        if _type_is_eq[I, UInt]():
-            return (self.data + idx)[]
-        else:
-            var normalized_idx = Int(idx)
-            debug_assert(
-                -self.size <= normalized_idx < self.size,
-                "index: ",
-                normalized_idx,
-                " is out of bounds for `List` of size: ",
-                self.size,
-            )
-            if normalized_idx < 0:
-                normalized_idx += len(self)
-
-            return (self.data + normalized_idx)[]
+        var normalized_index = normalize_index["List"](idx, self.size)
+        return (self.data + normalized_index)[]
 
     @always_inline
     fn unsafe_get(ref self, idx: Int) -> ref [self] Self.T:

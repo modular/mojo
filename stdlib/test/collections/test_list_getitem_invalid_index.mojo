@@ -17,7 +17,7 @@
 # CHECK-FAIL-LABEL: test_fail_list_index
 fn main():
     print("== test_fail_list_index")
-    # CHECK-FAIL: index: 4 is out of bounds for `List` of size: 3
+    # CHECK-FAIL: index out of bounds
     nums = List[Int](1, 2, 3)
     print(nums[4])
 

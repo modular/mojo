@@ -19,6 +19,7 @@ from collections import InlineList
 ```
 """
 
+from collections._index_normalization import normalize_index
 from sys.intrinsics import _type_is_eq
 
 from memory.maybe_uninitialized import UnsafeMaybeUninitialized
@@ -145,15 +146,11 @@ struct InlineList[ElementType: CollectionElementNew, capacity: Int = 16](Sized):
         Returns:
             A reference to the item at the given index.
         """
-        var index = Int(idx)
-        debug_assert(
-            -self._size <= index < self._size, "Index must be within bounds."
+        # Using UInt to avoid extra signed normalization in self._array
+        var normalized_index = normalize_index["InlineList"](
+            idx, UInt(self._size)
         )
-
-        if index < 0:
-            index += len(self)
-
-        return self._array[index].assume_initialized()
+        return self._array[normalized_index].assume_initialized()
 
     # ===-------------------------------------------------------------------===#
     # Trait implementations
