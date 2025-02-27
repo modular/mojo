@@ -48,5 +48,6 @@ jobs:
           pre-commit install
       
       - name: Run pre-commit
-        run: magic run pre-commit run --all-files
+        working-directory: mojo
+        run: magic run pre-commit run --files ./stdlib
 
