@@ -3,19 +3,19 @@ repos:
     hooks:
       - id: mojo-format
         name: mojo-format
-        entry: mojo format
+        entry: mojo format mojo
         language: system
         files: '\.(mojo|🔥|py)$'
         stages: [commit]
       - id: check-docstrings
         name: check-docstrings
-        entry: python3 ./stdlib/scripts/check-docstrings.py
+        entry: python3 ./mojo/stdlib/scripts/check-docstrings.py
         language: system
         pass_filenames: false
         stages: [commit]
       - id: check-license
         name: check-license
-        entry: mojo stdlib/scripts/check_licenses.mojo
+        entry: mojo mojo/stdlib/scripts/check_licenses.mojo
         language: system
         files: '\.(mojo|🔥|py)$'
         stages: [commit]
@@ -23,4 +23,4 @@ repos:
     rev: v0.40.0
     hooks:
     - id: markdownlint
-      args: ['--config', 'stdlib/scripts/.markdownlint.yaml', '--fix']
+      args: ['--config', 'mojo/stdlib/scripts/.markdownlint.yaml', '--fix']
