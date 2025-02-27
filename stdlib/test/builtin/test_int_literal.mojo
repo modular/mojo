@@ -43,16 +43,6 @@ def test_floor():
     assert_equal(IntLiteral.__floor__(-5), -5)
 
 
-def test_round():
-    assert_equal(IntLiteral.__round__(5), 5)
-    assert_equal(IntLiteral.__round__(0), 0)
-    assert_equal(IntLiteral.__round__(-5), -5)
-    assert_equal(IntLiteral.__round__(5, 1), 5)
-    assert_equal(IntLiteral.__round__(0, 1), 0)
-    assert_equal(IntLiteral.__round__(-5, 1), -5)
-    assert_equal(IntLiteral.__round__(100, -2), 100)
-
-
 def test_trunc():
     assert_equal(IntLiteral.__trunc__(5), 5)
     assert_equal(IntLiteral.__trunc__(0), 0)
@@ -78,42 +68,15 @@ def test_mod():
     assert_equal(IntLiteral.__mod__(-3, 2), 1)
 
 
-def test_bit_width():
-    assert_equal((0)._bit_width(), 1)
-    assert_equal((-1)._bit_width(), 1)
-    assert_equal((255)._bit_width(), 9)
-    assert_equal((-256)._bit_width(), 9)
-
-
 def test_abs():
-    assert_equal(IntLiteral.__abs__(-5), 5)
-    assert_equal(IntLiteral.__abs__(2), 2)
-    assert_equal(IntLiteral.__abs__(0), 0)
+    assert_equal(abs(-5), 5)
+    assert_equal(abs(2), 2)
+    assert_equal(abs(0), 0)
 
 
 def test_indexer():
     assert_true(1 == index(1))
     assert_true(88 == index(88))
-
-
-def test_divmod():
-    alias t0 = IntLiteral.__divmod__(2, 2)
-    alias q0 = t0[0]
-    alias r0 = t0[1]
-    assert_equal(q0, 1)
-    assert_equal(r0, 0)
-
-    alias t1 = IntLiteral.__divmod__(2, 3)
-    alias q1 = t1[0]
-    alias r1 = t1[1]
-    assert_equal(q1, 0)
-    assert_equal(r1, 2)
-
-    alias t2 = IntLiteral.__divmod__(99, -2)
-    alias q2 = t2[0]
-    alias r2 = t2[1]
-    assert_equal(q2, -50)
-    assert_equal(r2, -1)
 
 
 def test_bool():
@@ -155,18 +118,23 @@ def test_comparison():
     assert_false((5).__ge__(10))
 
 
+def test_shift():
+    assert_equal(IntLiteral.__lshift__(1, -42), 0)  # Dubious.
+    assert_equal(IntLiteral.__lshift__(1, 0), 1)
+    assert_equal(IntLiteral.__lshift__(1, 1), 2)
+    assert_equal(IntLiteral.__lshift__(1, 6), 64)
+
+
 def main():
     test_add()
     test_sub()
     test_ceil()
     test_floor()
-    test_round()
     test_trunc()
     test_floordiv()
     test_mod()
-    test_divmod()
-    test_bit_width()
     test_abs()
     test_indexer()
     test_bool()
     test_comparison()
+    test_shift()

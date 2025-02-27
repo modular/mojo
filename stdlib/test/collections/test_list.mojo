@@ -15,13 +15,13 @@
 from collections import List
 from sys.info import sizeof
 
-from memory import UnsafePointer, Span
+from memory import Span, UnsafePointer
 from test_utils import (
-    CopyCounter,
-    MoveCounter,
-    DtorCounter,
-    g_dtor_count,
     CopyCountedStruct,
+    CopyCounter,
+    DelCounter,
+    MoveCounter,
+    g_dtor_count,
 )
 from testing import assert_equal, assert_false, assert_raises, assert_true
 
@@ -45,7 +45,7 @@ def test_list():
         list.append(i)
 
     assert_equal(5, len(list))
-    assert_equal(5 * sizeof[Int](), list.bytecount())
+    assert_equal(5 * sizeof[Int](), list.byte_length())
     assert_equal(0, list[0])
     assert_equal(1, list[1])
     assert_equal(2, list[2])
@@ -574,7 +574,7 @@ def test_no_extra_copies_with_sugared_set_by_field():
 
 # Ensure correct behavior of __copyinit__
 # as reported in GH issue 27875 internally and
-# https://github.com/modularml/mojo/issues/1493
+# https://github.com/modular/mojo/issues/1493
 def test_list_copy_constructor():
     var vec = List[Int](capacity=1)
     var vec_copy = vec
@@ -869,10 +869,10 @@ def inner_test_list_dtor():
     # explicitly reset global counter
     g_dtor_count = 0
 
-    var l = List[DtorCounter]()
+    var l = List[DelCounter]()
     assert_equal(g_dtor_count, 0)
 
-    l.append(DtorCounter())
+    l.append(DelCounter())
     assert_equal(g_dtor_count, 0)
 
     l^.__del__()
@@ -892,8 +892,8 @@ def test_destructor_trivial_elements():
     # explicitly reset global counter
     g_dtor_count = 0
 
-    var l = List[DtorCounter, hint_trivial_type=True]()
-    l.append(DtorCounter())
+    var l = List[DelCounter, hint_trivial_type=True]()
+    l.append(DelCounter())
 
     l^.__del__()
 

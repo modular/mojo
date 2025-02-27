@@ -24,7 +24,7 @@ from os import abort
 from sys import sizeof
 from sys.intrinsics import _type_is_eq
 
-from memory import Pointer, UnsafePointer, memcpy, Span
+from memory import Pointer, Span, UnsafePointer, memcpy
 
 from .optional import Optional
 
@@ -467,11 +467,11 @@ struct List[T: CollectionElement, hint_trivial_type: Bool = False](
     # Methods
     # ===-------------------------------------------------------------------===#
 
-    fn bytecount(self) -> Int:
-        """Gets the bytecount of the List.
+    fn byte_length(self) -> Int:
+        """Gets the byte length of the List (`len(self) * sizeof[T]()`).
 
         Returns:
-            The bytecount of the List.
+            The byte length of the List (`len(self) * sizeof[T]()`).
         """
         return len(self) * sizeof[T]()
 
