@@ -233,15 +233,8 @@ struct InlineArray[
         Returns:
             A reference to the item at the given index.
         """
-
-        @parameter
-        if _type_is_eq[I, UInt]():
-            return self.unsafe_get(idx)
-        else:
-            var normalized_index = normalize_index["InlineArray"](
-                Int(idx), self
-            )
-            return self.unsafe_get(normalized_index)
+        var normalized_index = normalize_index["InlineArray"](idx, len(self))
+        return self.unsafe_get(normalized_index)
 
     @always_inline
     fn __getitem__[
@@ -257,18 +250,8 @@ struct InlineArray[
             A reference to the item at the given index.
         """
         constrained[-size <= Int(idx) < size, "Index must be within bounds."]()
-
-        @parameter
-        if _type_is_eq[I, UInt]():
-            return self.unsafe_get(idx)
-        else:
-            var normalized_idx = Int(idx)
-
-            @parameter
-            if Int(idx) < 0:
-                normalized_idx += size
-
-            return self.unsafe_get(normalized_idx)
+        alias normalized_index = normalize_index["InlineArray"](idx, size)
+        return self.unsafe_get(normalized_index)
 
     # ===------------------------------------------------------------------=== #
     # Trait implementations
@@ -321,7 +304,13 @@ struct InlineArray[
         return UnsafePointer(ptr)[]
 
     @always_inline
-    fn unsafe_ptr(self) -> UnsafePointer[Self.ElementType]:
+    fn unsafe_ptr(
+        ref self,
+    ) -> UnsafePointer[
+        Self.ElementType,
+        mut = Origin(__origin_of(self)).is_mutable,
+        origin = __origin_of(self),
+    ]:
         """Get an `UnsafePointer` to the underlying array.
 
         That pointer is unsafe but can be used to read or write to the array.
