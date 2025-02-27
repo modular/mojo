@@ -215,7 +215,7 @@ ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 
 ### ❌ Removed
 
-- `String` and `StringSlice` `.char_slices()` was removed. This is now the
+- `String` and `StringSlice` `.codepoint_slices()` was removed. This is now the
   default behavior of their `__iter__()` methods.
 
 ### 🛠️ Fixed
