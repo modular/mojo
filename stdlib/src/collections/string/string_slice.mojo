@@ -863,6 +863,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             self.unsafe_ptr(), rhs.unsafe_ptr(), min(len1, len2)
         )
 
+    @deprecated("Use `str.codepoints()` or `str.codepoint_slices()` instead.")
     fn __iter__(self) -> CodepointSliceIter[origin]:
         """Iterate over the string, returning immutable references.
 

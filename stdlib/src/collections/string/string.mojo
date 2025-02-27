@@ -1057,6 +1057,7 @@ struct String(
         """
         self._iadd[False](other.as_bytes())
 
+    @deprecated("Use `str.codepoints()` or `str.codepoint_slices()` instead.")
     fn __iter__(self) -> CodepointSliceIter[__origin_of(self)]:
         """Iterate over the string, returning immutable references.
 
@@ -1547,7 +1548,7 @@ struct String(
             var capacity = s_len + new_len * self.byte_length() + 1
             var res_ptr = UnsafePointer[Byte].alloc(capacity)
             var offset = 0
-            for s in self:
+            for s in self.codepoint_slices():
                 memcpy(res_ptr + offset, new_ptr, new_len)
                 offset += new_len
                 memcpy(res_ptr + offset, s.unsafe_ptr(), s.byte_length())
