@@ -89,7 +89,7 @@ struct FileDescriptor(Writer):
             )
 
     @always_inline
-    fn read_bytes(mut self, mut buffer: Span[Byte, _]) raises -> UInt:
+    fn read_bytes(mut self, buffer: Span[mut=True, Byte]) raises -> UInt:
         """
         Read a number of bytes from the file.
 
