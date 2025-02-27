@@ -15,8 +15,6 @@
 These are Mojo built-ins, so you don't need to import them.
 """
 
-from math import Ceilable, CeilDivable, Floorable, Truncable
-
 # ===-----------------------------------------------------------------------===#
 # FloatLiteral
 # ===-----------------------------------------------------------------------===#
@@ -26,15 +24,10 @@ from math import Ceilable, CeilDivable, Floorable, Truncable
 @nonmaterializable(Float64)
 @register_passable("trivial")
 struct FloatLiteral(
-    Absable,
-    Ceilable,
-    CeilDivable,
     Comparable,
-    Floorable,
     ImplicitlyBoolable,
     Intable,
     Stringable,
-    Truncable,
     Floatable,
 ):
     """Mojo floating point literal type."""
@@ -188,76 +181,6 @@ struct FloatLiteral(
         """
         return self * Self(-1)
 
-    @always_inline("nodebug")
-    fn __abs__(self) -> Self:
-        """Return the absolute value of the FloatLiteral.
-
-        Returns:
-            The absolute value.
-        """
-        if self > 0:
-            return self
-        return -self
-
-    @always_inline("nodebug")
-    fn __floor__(self) -> Self:
-        """Return the floor value of the FloatLiteral.
-
-        Returns:
-            The floor value.
-        """
-
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-
-        # __int_literal__ rounds towards zero, so it's correct for integers and
-        # positive values.
-        var truncated: IntLiteral = self.__int_literal__()
-
-        # Ensure this equality doesn't hit any implicit conversions.
-        if self >= 0 or self.__eq__(Self(truncated)):
-            return truncated
-        return truncated - 1
-
-    @always_inline("nodebug")
-    fn __ceil__(self) -> Self:
-        """Return the ceiling value of the FloatLiteral.
-
-        Returns:
-            The ceiling value.
-        """
-
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-
-        # __int_literal__ rounds towards zero, so it's correct for integers and
-        # negative values.
-        var truncated: IntLiteral = self.__int_literal__()
-
-        # Ensure this equality doesn't hit any implicit conversions.
-        if self <= 0 or self.__eq__(Self(truncated)):
-            return truncated
-        return truncated + 1
-
-    @always_inline("nodebug")
-    fn __trunc__(self) -> Self:
-        """Truncates the floating point literal. If there is a fractional
-        component, then the value is truncated towards zero.
-
-        For example, `(4.5).__trunc__()` returns `4.0`, and `(-3.7).__trunc__()`
-        returns `-3.0`.
-
-        Returns:
-            The truncated FloatLiteral value.
-        """
-
-        # Handle special values first.
-        if not self._is_normal():
-            return self
-        return Self(self.__int_literal__())
-
     # ===------------------------------------------------------------------===#
     # Arithmetic Operators
     # ===------------------------------------------------------------------===#
@@ -319,7 +242,7 @@ struct FloatLiteral(
             oper = __mlir_attr.`#kgen<float_literal.binop_kind truediv>`
         ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __floordiv__(self, rhs: Self) -> Self:
         """Returns self divided by rhs, rounded down to the nearest integer.
 
@@ -329,9 +252,12 @@ struct FloatLiteral(
         Returns:
             `floor(self / rhs)` value.
         """
-        return self.__truediv__(rhs).__floor__()
+        # TODO - Python raises an error on divide by 0.0 or -0.0
+        return __mlir_op.`kgen.float_literal.binop`[
+            oper = __mlir_attr.`#kgen<float_literal.binop_kind floordiv>`
+        ](self.value, rhs.value)
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __mod__(self, rhs: Self) -> Self:
         """Return the remainder of self divided by rhs.
 
@@ -341,9 +267,9 @@ struct FloatLiteral(
         Returns:
             The remainder of dividing self by rhs.
         """
-        var quotient: Self = self.__floordiv__(rhs)
-        return self - (quotient * rhs)
+        return self - (self.__floordiv__(rhs) * rhs)
 
+    @always_inline("builtin")
     fn __rfloordiv__(self, rhs: Self) -> Self:
         """Returns rhs divided by self, rounded down to the nearest integer.
 
@@ -355,7 +281,7 @@ struct FloatLiteral(
         """
         return rhs // self
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __ceildiv__(self, denominator: Self) -> Self:
         """Return the rounded-up result of dividing self by denominator.
 

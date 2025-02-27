@@ -21,8 +21,8 @@ what we publish.
 ### Language changes
 
 - The Mojo comptime interpreter can now handle many more LLVM intrinsics,
-   including ones that return floating point values.  This allows functions
-   like `round` to be constant folded when used in a comptime context.
+  including ones that return floating point values.  This allows functions
+  like `round` to be constant folded when used in a comptime context.
 
 ### Standard library changes
 
@@ -60,6 +60,50 @@ what we publish.
 
 - Added a `StringSlice.is_codepoint_boundary()` method for querying if a given
   byte index is a boundary between encoded UTF-8 codepoints.
+
+- `StringSlice.__getitem__(Slice)` will now raise an error if the provided slice
+  start and end positions do not fall on a valid codepoint boundary. This
+  prevents construction of malformed `StringSlice` values, which could lead to
+  memory unsafety or undefined behavior. For example, given a string containing
+  multi-byte encoded data, like:
+
+  ```mojo
+  var str_slice = "Hi👋!"
+  ```
+
+  and whose in-memory and decoded data looks like:
+
+  ```text
+  ┏━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  ┃          Hi👋!          ┃ String
+  ┣━━┳━━━┳━━━━━━━━━━━━━━━┳━━┫
+  ┃H ┃ i ┃       👋      ┃! ┃ Codepoint Characters
+  ┣━━╋━━━╋━━━━━━━━━━━━━━━╋━━┫
+  ┃72┃105┃    128075     ┃33┃ Codepoints
+  ┣━━╋━━━╋━━━┳━━━┳━━━┳━━━╋━━┫
+  ┃72┃105┃240┃159┃145┃139┃33┃ Bytes
+  ┗━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━┛
+   0   1   2   3   4   5   6
+  ```
+
+  attempting to slice bytes `[3-5)` with `str_slice[3:5]` would previously
+  erroenously produce a malformed `StringSlice` as output that did not correctly
+  decode to anything:
+
+  ```text
+  ┏━━━━━━━┓
+  ┃  ???  ┃
+  ┣━━━━━━━┫
+  ┃  ???  ┃
+  ┣━━━━━━━┫
+  ┃  ???  ┃
+  ┣━━━┳━━━┫
+  ┃159┃145┃
+  ┗━━━┻━━━┛
+  ```
+
+  The same statement will now raise an error informing the user their indices
+  are invalid.
 
 - Added an iterator to `LinkedList` ([PR #4005](https://github.com/modular/mojo/pull/4005))
   - `LinkedList.__iter__()` to create a forward iterator.
@@ -122,6 +166,21 @@ ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 ```
 
+- The methods on `DeviceContext`:
+
+  - enqueue_copy_to_device
+  - enqueue_copy_from_device
+  - enqueue_copy_device_to_device
+
+  Have been combined to single overloaded `enqueue_copy` method, and:
+
+  - copy_to_device_sync
+  - copy_from_device_sync
+  - copy_device_to_device_sync
+
+  Have been combined into an overloaded `copy` method, so you don't have
+  to figure out which method to call based on the arguments you're passing.
+
 - The `shuffle` module has been rename to `warp` to better
   reflect its purpose. To uses now you will have to do
 
@@ -139,10 +198,20 @@ ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
 
 #### Mojo Compiler
 
-Mojo compiler now warns about parameter for with large loop unrolling factor
-(>1024 by default) which can lead to long compilation time and large generated
-code size. Set `--loop-unrolling-warn-threshold` to change default value to
-a different threshold or to `0` to disable the warning.
+- Mojo compiler now warns about parameter for with large loop unrolling factor
+  (>1024 by default) which can lead to long compilation time and large generated
+  code size. Set `--loop-unrolling-warn-threshold` to change default value to
+  a different threshold or to `0` to disable the warning.
+
+- The Mojo compiler now only has one comptime interpreter.  It had two
+  previously: one to handle a few cases that were important for dependent types
+  (but which also had many limitations) in the parser, and the primary one that
+  ran at "instantiation" time which is fully general. This was confusing and
+  caused a wide range of bugs.  We've now removed the special case parse-time
+  interpreter, replacing it with a more general solution for dependent types.
+  This change should be invisible to most users, but should resolve a number of
+  long-standing bugs and significantly simplifies the compiler implementation,
+  allowing us to move faster.
 
 ### ❌ Removed
 
