@@ -1069,7 +1069,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             try:
                 # Python adds all "whitespace chars" as one separator
                 # if no separator was specified
-                for s in self[lhs:].codepoint_slices():
+                for s in self[lhs:]:
                     if not s.isspace():
                         break
                     lhs += s.byte_length()
@@ -1083,9 +1083,7 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
                     output.append(self[str_byte_len:])
                     break
                 rhs = lhs + num_bytes(self.unsafe_ptr()[lhs])
-                for s in self[
-                    lhs + num_bytes(self.unsafe_ptr()[lhs]) :
-                ].codepoint_slices():
+                for s in self[lhs + num_bytes(self.unsafe_ptr()[lhs]) :]:
                     if s.isspace():
                         break
                     rhs += s.byte_length()
