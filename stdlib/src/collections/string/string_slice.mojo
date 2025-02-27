@@ -2197,6 +2197,8 @@ fn _memmem[
 
 
 @always_inline
+# FIXME(#2535): remove capturing once function effects can be parametrized
+@parameter
 fn _is_utf8_continuation_byte[
     w: Int
 ](vec: SIMD[DType.uint8, w]) -> SIMD[DType.bool, w]:
@@ -2205,7 +2207,7 @@ fn _is_utf8_continuation_byte[
 
 @always_inline
 fn _count_utf8_continuation_bytes(span: Span[Byte]) -> Int:
-    return span.count[func=_is_continuation_byte]()
+    return span.count[func=_is_utf8_continuation_byte]()
 
 
 @always_inline
