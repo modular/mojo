@@ -21,9 +21,10 @@ from memory import Span
 """
 
 from collections import InlineArray
+from sys.info import simdwidthof
 
 from memory import Pointer, UnsafePointer
-from sys.info import simdwidthof, sizeof
+from memory.unsafe_pointer import _default_alignment, sizeof
 from utils import StringSlice
 
 
@@ -51,6 +52,8 @@ struct _SpanIter[
     T: CollectionElement,
     origin: Origin[mut],
     forward: Bool = True,
+    address_space: AddressSpace = AddressSpace.GENERIC,
+    alignment: Int = _default_alignment[T](),
 ]:
     """Iterator for Span.
 
@@ -59,17 +62,22 @@ struct _SpanIter[
         T: The type of the elements in the span.
         origin: The origin of the `Span`.
         forward: The iteration direction. False is backwards.
+        address_space: The address space associated with the underlying allocated memory.
+        alignment: The minimum alignment of the underlying pointer known statically.
+
     """
 
     var index: Int
-    var src: Span[T, origin]
+    var src: Span[T, origin, address_space=address_space, alignment=alignment]
 
     @always_inline
     fn __iter__(self) -> Self:
         return self
 
     @always_inline
-    fn __next__(mut self, out p: Pointer[T, origin]):
+    fn __next__(
+        mut self, out p: Pointer[T, origin, address_space=address_space]
+    ):
         @parameter
         if forward:
             p = Pointer.address_of(self.src[self.index])
@@ -97,6 +105,9 @@ struct Span[
     mut: Bool, //,
     T: CollectionElement,
     origin: Origin[mut],
+    *,
+    address_space: AddressSpace = AddressSpace.GENERIC,
+    alignment: Int = _default_alignment[T](),
 ](CollectionElementNew):
     """A non-owning view of contiguous data.
 
@@ -104,10 +115,18 @@ struct Span[
         mut: Whether the span is mutable.
         T: The type of the elements in the span.
         origin: The origin of the Span.
+        address_space: The address space associated with the allocated memory.
+        alignment: The minimum alignment of the underlying pointer known statically.
     """
 
     # Field
-    var _data: UnsafePointer[T, mut=mut, origin=origin]
+    var _data: UnsafePointer[
+        T,
+        mut=mut,
+        origin=origin,
+        address_space=address_space,
+        alignment=alignment,
+    ]
     var _len: Int
 
     # ===------------------------------------------------------------------===#
@@ -115,7 +134,12 @@ struct Span[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __init__(out self, *, ptr: UnsafePointer[T], length: UInt):
+    fn __init__(
+        out self,
+        *,
+        ptr: UnsafePointer[T, address_space=address_space, alignment=alignment],
+        length: UInt,
+    ):
         """Unsafe construction from a pointer and length.
 
         Args:
@@ -136,14 +160,14 @@ struct Span[
 
     @always_inline
     @implicit
-    fn __init__(out self, ref [origin]list: List[T, *_]):
+    fn __init__(out self, ref [origin, address_space]list: List[T, *_]):
         """Construct a `Span` from a `List`.
 
         Args:
             list: The list to which the span refers.
         """
-        self._data = list.data
-        self._len = len(list)
+        self._data = list.data.address_space_cast[address_space]()
+        self._len = list.size
 
     @always_inline
     @implicit
@@ -159,7 +183,11 @@ struct Span[
             array: The array to which the span refers.
         """
 
-        self._data = UnsafePointer.address_of(array).bitcast[T]()
+        self._data = (
+            UnsafePointer.address_of(array)
+            .bitcast[T]()
+            .address_space_cast[address_space]()
+        )
         self._len = size
 
     # ===------------------------------------------------------------------===#
@@ -167,7 +195,7 @@ struct Span[
     # ===------------------------------------------------------------------===#
 
     @always_inline
-    fn __getitem__[I: Indexer](self, idx: I) -> ref [origin] T:
+    fn __getitem__[I: Indexer](self, idx: I) -> ref [origin, address_space] T:
         """Get a reference to an element in the span.
 
         Args:
@@ -219,22 +247,42 @@ struct Span[
         return res
 
     @always_inline
-    fn __iter__(self) -> _SpanIter[T, origin]:
+    fn __iter__(
+        self,
+    ) -> _SpanIter[
+        T,
+        origin,
+        address_space=address_space,
+        alignment=alignment,
+    ]:
         """Get an iterator over the elements of the `Span`.
 
         Returns:
             An iterator over the elements of the `Span`.
         """
-        return _SpanIter(0, self)
+        return _SpanIter[
+            address_space=address_space,
+            alignment=alignment,
+        ](0, self)
 
     @always_inline
-    fn __reversed__(self) -> _SpanIter[T, origin, forward=False]:
+    fn __reversed__(
+        self,
+    ) -> _SpanIter[
+        T,
+        origin,
+        forward=False,
+        address_space=address_space,
+        alignment=alignment,
+    ]:
         """Iterate backwards over the `Span`.
 
         Returns:
             A reversed iterator of the `Span` elements.
         """
-        return _SpanIter[forward=False](len(self), self)
+        return _SpanIter[
+            forward=False, address_space=address_space, alignment=alignment
+        ](len(self), self)
 
     # ===------------------------------------------------------------------===#
     # Trait implementations
@@ -289,7 +337,15 @@ struct Span[
     # Methods
     # ===------------------------------------------------------------------===#
 
-    fn unsafe_ptr(self) -> UnsafePointer[T, mut=mut, origin=origin]:
+    fn unsafe_ptr(
+        self,
+    ) -> UnsafePointer[
+        T,
+        mut=mut,
+        origin=origin,
+        address_space=address_space,
+        alignment=alignment,
+    ]:
         """Retrieves a pointer to the underlying memory.
 
         Returns:
@@ -297,7 +353,7 @@ struct Span[
         """
         return self._data
 
-    fn as_ref(self) -> Pointer[T, origin]:
+    fn as_ref(self) -> Pointer[T, origin, address_space=address_space]:
         """
         Gets a `Pointer` to the first element of this span.
 
@@ -305,7 +361,9 @@ struct Span[
             A `Pointer` pointing at the first element of this span.
         """
 
-        return Pointer[T, origin].address_of(self._data[0])
+        return Pointer[T, origin, address_space=address_space].address_of(
+            self._data[0]
+        )
 
     @always_inline
     fn copy_from[
@@ -397,15 +455,23 @@ struct Span[
 
     fn get_immutable(
         self,
-    ) -> Span[T, ImmutableOrigin.cast_from[origin].result]:
+    ) -> Span[
+        T,
+        ImmutableOrigin.cast_from[origin].result,
+        address_space=address_space,
+        alignment=alignment,
+    ]:
         """Return an immutable version of this span.
 
         Returns:
             A span covering the same elements, but without mutability.
         """
-        return Span[T, ImmutableOrigin.cast_from[origin].result](
-            ptr=self._data, length=self._len
-        )
+        return Span[
+            T,
+            ImmutableOrigin.cast_from[origin].result,
+            address_space=address_space,
+            alignment=alignment,
+        ](ptr=self._data, length=self._len)
 
     fn count[D: DType, //](self: Span[Scalar[D]], sub: Span[Scalar[D]]) -> UInt:
         """Return the number of non-overlapping occurrences of subsequence.
