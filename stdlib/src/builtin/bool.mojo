@@ -16,10 +16,10 @@ These are Mojo built-ins, so you don't need to import them.
 """
 
 from collections import List, Set
+from hashlib._hasher import _Hasher
 
 from utils._select import _select_register_value
 from utils._visualizers import lldb_formatter_wrapping_type
-from hashlib._hasher import _Hasher
 
 # ===----------------------------------------------------------------------=== #
 #  Boolable
@@ -113,10 +113,16 @@ struct Bool(
 ):
     """The primitive Bool scalar value used in Mojo."""
 
+    alias MIN = Bool(False)
+    """The minimum value of a Bool."""
+
+    alias MAX = Bool(True)
+    """The maximum value of a Bool."""
+
     var value: __mlir_type.i1
     """The underlying storage of the boolean value."""
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __init__(out self):
         """Construct a default, `False` Bool."""
         self = False
@@ -131,7 +137,7 @@ struct Bool(
         return self
 
     @doc_private
-    @always_inline("nodebug")
+    @always_inline("builtin")
     @implicit
     fn __init__(out self, value: __mlir_type.i1):
         """Construct a Bool value given a __mlir_type.i1 value.
@@ -198,7 +204,7 @@ struct Bool(
         """
         self = value.__bool__()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __bool__(self) -> Bool:
         """Convert to Bool.
 
@@ -207,7 +213,7 @@ struct Bool(
         """
         return self
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __as_bool__(self) -> Bool:
         """Convert to Bool.
 
@@ -216,7 +222,7 @@ struct Bool(
         """
         return self.__bool__()
 
-    @always_inline("nodebug")
+    @always_inline("builtin")
     fn __mlir_i1__(self) -> __mlir_type.i1:
         """Convert this Bool to __mlir_type.i1.
 

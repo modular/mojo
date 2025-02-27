@@ -11,10 +11,11 @@
 # limitations under the License.
 # ===----------------------------------------------------------------------=== #
 
-from memory import UnsafePointer
 from collections import Optional
 from collections._index_normalization import normalize_index
 from os import abort
+
+from memory import UnsafePointer
 
 
 @value
@@ -83,6 +84,50 @@ struct Node[
             writer: The writer to write the value to.
         """
         writer.write(self.value)
+
+
+@value
+struct _LinkedListIter[
+    mut: Bool, //,
+    ElementType: CollectionElement,
+    origin: Origin[mut],
+    forward: Bool = True,
+]:
+    var src: Pointer[LinkedList[ElementType], origin]
+    var curr: UnsafePointer[Node[ElementType]]
+
+    # Used to calculate remaining length of iterator in
+    # _LinkedListIter.__len__()
+    var seen: Int
+
+    fn __init__(out self, src: Pointer[LinkedList[ElementType], origin]):
+        self.src = src
+
+        @parameter
+        if forward:
+            self.curr = self.src[]._head
+        else:
+            self.curr = self.src[]._tail
+        self.seen = 0
+
+    fn __iter__(self) -> Self:
+        return self
+
+    fn __next__(mut self, out p: Pointer[ElementType, origin]):
+        p = Pointer[ElementType, origin].address_of(self.curr[].value)
+
+        @parameter
+        if forward:
+            self.curr = self.curr[].next
+        else:
+            self.curr = self.curr[].prev
+        self.seen += 1
+
+    fn __has_next__(self) -> Bool:
+        return Bool(self.curr)
+
+    fn __len__(self) -> Int:
+        return len(self.src[]) - self.seen
 
 
 struct LinkedList[
@@ -419,11 +464,14 @@ struct LinkedList[
             curr = curr[].next
         return new^
 
-    fn insert(mut self, owned idx: Int, owned elem: ElementType) raises:
+    fn insert[I: Indexer](mut self, idx: I, owned elem: ElementType) raises:
         """
         Insert an element `elem` into the list at index `idx`.
 
         Time Complexity: O(1)
+
+        Parameters:
+            I: The type of index to use.
 
         Raises:
             When given an out of bounds index.
@@ -432,7 +480,7 @@ struct LinkedList[
             idx: The index to insert `elem` at. `-len(self) <= idx <= len(self)`.
             elem: The item to insert into the list.
         """
-        var i = max(0, index(idx) if idx >= 0 else index(idx) + len(self))
+        var i = max(0, index(idx) if Int(idx) >= 0 else index(idx) + len(self))
 
         if i == 0:
             var node = Self._NodePointer.alloc(1)
@@ -477,7 +525,7 @@ struct LinkedList[
                 self._head = node
             self._size += 1
         else:
-            raise String("Index {} out of bounds").format(idx)
+            raise String("Index {} out of bounds").format(i)
 
     fn extend(mut self, owned other: Self):
         """
@@ -609,7 +657,9 @@ struct LinkedList[
         """
         return not (self == other)
 
-    fn _get_node_ptr(ref self, index: Int) -> UnsafePointer[Node[ElementType]]:
+    fn _get_node_ptr[
+        I: Indexer
+    ](ref self, index: I) -> UnsafePointer[Node[ElementType]]:
         """
         Get a pointer to the node at the specified index.
 
@@ -618,6 +668,9 @@ struct LinkedList[
 
         Time Complexity: O(n) in len(self)
 
+        Parameters:
+            I: The type of index to use.
+
         Args:
             index: The index of the node to get.
 
@@ -625,7 +678,7 @@ struct LinkedList[
             A pointer to the node at the specified index.
         """
         var l = len(self)
-        var i = normalize_index[container_name="LinkedList"](index, self)
+        var i = normalize_index["LinkedList"](index, l)
         debug_assert(0 <= i < l, "index out of bounds")
         var mid = l // 2
         if i <= mid:
@@ -639,11 +692,14 @@ struct LinkedList[
                 curr = curr[].prev
             return curr
 
-    fn __getitem__(ref self, index: Int) -> ref [self] ElementType:
+    fn __getitem__[I: Indexer](ref self, index: I) -> ref [self] ElementType:
         """
         Get the element at the specified index.
 
         Time Complexity: O(n) in len(self)
+
+        Parameters:
+            I: The type of index to use.
 
         Args:
             index: The index of the element to get.
@@ -654,11 +710,14 @@ struct LinkedList[
         debug_assert(len(self) > 0, "unable to get item from empty list")
         return self._get_node_ptr(index)[].value
 
-    fn __setitem__(mut self, index: Int, owned value: ElementType):
+    fn __setitem__[I: Indexer](mut self, index: I, owned value: ElementType):
         """
         Set the element at the specified index.
 
         Time Complexity: O(n) in len(self)
+
+        Parameters:
+            I: The type of index to use.
 
         Args:
             index: The index of the element to set.
@@ -676,6 +735,34 @@ struct LinkedList[
             The number of elements in the list.
         """
         return self._size
+
+    fn __iter__(self) -> _LinkedListIter[ElementType, __origin_of(self)]:
+        """Iterate over elements of the list, returning immutable references.
+
+        Time Complexity:
+            O(1) for iterator construction.
+            O(n) in len(self) for a complete iteration of the list.
+
+        Returns:
+            An iterator of immutable references to the list elements.
+        """
+        return _LinkedListIter(Pointer.address_of(self))
+
+    fn __reversed__(
+        self,
+    ) -> _LinkedListIter[ElementType, __origin_of(self), forward=False]:
+        """Iterate backwards over the list, returning immutable references.
+
+        Time Complexity:
+            O(1) for iterator construction.
+            O(n) in len(self) for a complete iteration of the list.
+
+        Returns:
+            A reversed iterator of immutable references to the list elements.
+        """
+        return _LinkedListIter[ElementType, __origin_of(self), forward=False](
+            Pointer.address_of(self)
+        )
 
     fn __bool__(self) -> Bool:
         """Check if the list is non-empty.

@@ -53,14 +53,14 @@ fn is_defined[name: StringLiteral]() -> Bool:
     return __mlir_attr[`#kgen.param.expr<get_env, `, name.value, `> : i1`]
 
 
-fn _is_bool_like(val: String) -> Bool:
-    return val.lower() in (
-        String("true"),
-        String("1"),
-        String("on"),
-        String("false"),
-        String("0"),
-        String("off"),
+fn _is_bool_like[val: StringLiteral]() -> Bool:
+    return StringLiteral.get[val.lower()]() in (
+        "true",
+        "1",
+        "on",
+        "false",
+        "0",
+        "off",
     )
 
 
@@ -77,7 +77,7 @@ fn env_get_bool[name: StringLiteral]() -> Bool:
     alias val = StringLiteral.get[env_get_string[name]().lower()]()
 
     constrained[
-        _is_bool_like(val),
+        _is_bool_like[val](),
         String(
             "the boolean environment value of `",
             name,
@@ -194,5 +194,24 @@ fn env_get_string[
     @parameter
     if is_defined[name]():
         return env_get_string[name]()
+    else:
+        return default
+
+
+fn env_get_dtype[name: StringLiteral, default: DType]() -> DType:
+    """Try to get an DType-valued define. If the name is not defined, return
+    a default value instead.
+
+    Parameters:
+        name: The name of the define.
+        default: The default value to use.
+
+    Returns:
+        An DType parameter value.
+    """
+
+    @parameter
+    if is_defined[name]():
+        return DType._from_str(env_get_string[name]())
     else:
         return default
