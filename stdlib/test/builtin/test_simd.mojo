@@ -119,7 +119,7 @@ def test_convert_simd_to_string():
     var c: SIMD[DType.index, 8] = 7
     assert_equal(String(c), "[7, 7, 7, 7, 7, 7, 7, 7]")
 
-    # TODO: uncomment when https://github.com/modularml/mojo/issues/2353 is fixed
+    # TODO: uncomment when https://github.com/modular/mojo/issues/2353 is fixed
     # assert_equal(String(UInt32(-1)), "4294967295")
     assert_equal(String(UInt64(-1)), "18446744073709551615")
 
@@ -129,7 +129,7 @@ def test_convert_simd_to_string():
 
     assert_equal(String(UInt64(16646288086500911323)), "16646288086500911323")
 
-    # https://github.com/modularml/mojo/issues/556
+    # https://github.com/modular/mojo/issues/556
     assert_equal(
         String(
             SIMD[DType.uint64, 4](
@@ -552,19 +552,12 @@ def test_trunc():
 
 
 def test_round():
-    assert_equal(Float32.__round__(Float32(2.5)), 3.0)
+    assert_equal(Float32.__round__(Float32(2.5)), 2.0)
+    assert_equal(Float32.__round__(Float32(3.5)), 4.0)
     assert_equal(Float32.__round__(Float32(-3.5)), -4.0)
 
     alias F = SIMD[DType.float32, 4]
-    assert_equal(F.__round__(F(1.5, 2.5, -2.5, -3.5)), F(2.0, 3.0, -3.0, -4.0))
-
-
-def test_roundeven():
-    assert_equal(Float32(2.5).roundeven(), 2.0)
-    assert_equal(Float32(-3.5).roundeven(), -4.0)
-
-    alias F = SIMD[DType.float32, 4]
-    assert_equal(F(1.5, 2.5, -2.5, -3.5).roundeven(), F(2.0, 2.0, -2.0, -4.0))
+    assert_equal(F.__round__(F(1.5, 2.5, -2.5, -3.5)), F(2.0, 2.0, -2.0, -4.0))
 
 
 def test_div():
@@ -1953,7 +1946,6 @@ def main():
     test_rmod()
     test_rotate()
     test_round()
-    test_roundeven()
     test_rsub()
     test_shift()
     test_shuffle()
