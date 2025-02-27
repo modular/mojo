@@ -691,7 +691,10 @@ struct String(
         Examples:
 
         ```mojo
-        print(String(List[Byte](ord('h'), ord('i'), 0))) # hi
+        %# from testing import assert_equal
+        var buf = List[Byte](ord('h'), ord('i'), 0)
+        var hi = String(buffer=buf^)
+        assert_equal(hi, "hi")
         ```
         .
         """
