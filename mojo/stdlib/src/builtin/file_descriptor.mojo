@@ -90,11 +90,10 @@ struct FileDescriptor(Writer):
 
     @always_inline
     fn read_bytes(mut self, buffer: Span[mut=True, Byte]) raises -> UInt:
-        """
-        Read a number of bytes from the file.
+        """Read a number of bytes from the file into a buffer.
 
         Args:
-            buffer: Span[Byte] of length n where to store read bytes. n = number of bytes to read.
+            buffer: A `Span[Byte]` to read bytes into. Read up to `len(buffer)` number of bytes.
 
         Returns:
             Actual number of bytes read.
@@ -108,7 +107,7 @@ struct FileDescriptor(Writer):
 
         @parameter
         if os_is_macos() or os_is_linux():
-            read = external_call["read", c_ssize_t](
+            var read = external_call["read", c_ssize_t](
                 self.value, buffer.unsafe_ptr(), len(buffer)
             )
             if read < 0:
