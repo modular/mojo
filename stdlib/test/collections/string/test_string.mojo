@@ -1455,6 +1455,7 @@ def main():
     test_find()
     test_replace()
     test_rfind()
+    test_isspace()
     test_split()
     test_splitlines()
     test_ascii_aliases()
