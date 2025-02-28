@@ -103,14 +103,48 @@ fn _c_long_long_dtype() -> DType:
         return abort[DType]()
 
 
-trait _UnsafePtrU8:
-    fn unsafe_ptr(self) -> UnsafePointer[UInt8]:
-        ...
+@always_inline
+fn c_str_ptr(item: StringLiteral) -> UnsafePointer[c_char]:
+    """Get the `c_char` pointer.
+
+    Args:
+        item: The item.
+
+    Returns:
+        The pointer.
+    """
+    return item.unsafe_ptr().bitcast[c_char]()
 
 
 @always_inline
-fn c_char_ptr[T: _UnsafePtrU8](item: T) -> UnsafePointer[c_char]:
-    """Get the C.char pointer.
+fn c_str_ptr(item: String) -> UnsafePointer[c_char]:
+    """Get the `c_char` pointer.
+
+    Args:
+        item: The item.
+
+    Returns:
+        The pointer.
+    """
+    return item.unsafe_ptr().bitcast[c_char]()
+
+
+@always_inline
+fn c_str_ptr(item: StringSlice) -> UnsafePointer[c_char]:
+    """Get the `c_char` pointer.
+
+    Args:
+        item: The item.
+
+    Returns:
+        The pointer.
+    """
+    return item.unsafe_ptr().bitcast[c_char]()
+
+
+@always_inline
+fn c_str_ptr[T: CollectionElement](item: List[T]) -> UnsafePointer[c_char]:
+    """Get the `c_char` pointer.
 
     Parameters:
         T: The type.
@@ -125,19 +159,19 @@ fn c_char_ptr[T: _UnsafePtrU8](item: T) -> UnsafePointer[c_char]:
 
 
 @always_inline
-fn c_char_ptr[T: AnyType](ptr: UnsafePointer[T]) -> UnsafePointer[c_char]:
-    """Get the C.char pointer.
+fn c_str_ptr[T: CollectionElement](item: Span[T]) -> UnsafePointer[c_char]:
+    """Get the `c_char` pointer.
 
     Parameters:
         T: The type.
 
     Args:
-        ptr: The pointer.
+        item: The item.
 
     Returns:
         The pointer.
     """
-    return ptr.bitcast[c_char]()
+    return item.unsafe_ptr().bitcast[c_char]()
 
 
 # ===-----------------------------------------------------------------------===#
@@ -222,7 +256,7 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
 
         @parameter
         if not os_is_windows():
-            var handle = dlopen(c_char_ptr(path), flags)
+            var handle = dlopen(c_str_ptr(path), flags)
             if handle == OpaquePointer():
                 var error_message = dlerror()
                 abort(
@@ -260,7 +294,7 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
         ]()
 
         var opaque_function_ptr: OpaquePointer = dlsym(
-            self.handle, c_char_ptr(name)
+            self.handle, c_str_ptr(name)
         )
 
         return Bool(opaque_function_ptr)
@@ -302,7 +336,7 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             A handle to the function.
         """
 
-        return self._get_function[result_type](c_char_ptr(name))
+        return self._get_function[result_type](c_str_ptr(name))
 
     @always_inline
     fn _get_function[
@@ -343,7 +377,7 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
             A handle to the function.
         """
 
-        return self._get_function[result_type](c_char_ptr(func_name))
+        return self._get_function[result_type](c_str_ptr(func_name))
 
     fn get_symbol[
         result_type: AnyType,
@@ -360,7 +394,7 @@ struct DLHandle(CollectionElement, CollectionElementNew, Boolable):
         Returns:
             A pointer to the symbol.
         """
-        return self.get_symbol[result_type](c_char_ptr(name))
+        return self.get_symbol[result_type](c_str_ptr(name))
 
     fn get_symbol[
         result_type: AnyType

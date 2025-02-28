@@ -224,7 +224,7 @@ struct Error(
     # Methods
     # ===-------------------------------------------------------------------===#
 
-    @deprecated("Use `sys.ffi.c_char_ptr()` instead.")
+    @deprecated("Use `sys.ffi.c_str_ptr()` instead.")
     fn unsafe_cstr_ptr(
         ref self,
     ) -> UnsafePointer[

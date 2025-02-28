@@ -520,7 +520,7 @@ struct StringLiteral(
         #   return type.
         return ptr.bitcast[Byte]().origin_cast[False, StaticConstantOrigin]()
 
-    @deprecated("Use `sys.ffi.c_char_ptr()` instead.")
+    @deprecated("Use `sys.ffi.c_str_ptr()` instead.")
     @always_inline
     fn unsafe_cstr_ptr(
         self,

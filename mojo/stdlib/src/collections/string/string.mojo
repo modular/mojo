@@ -1285,7 +1285,7 @@ struct String(
         """
         return self._buffer.unsafe_ptr()
 
-    @deprecated("Use `sys.ffi.c_char_ptr()` instead.")
+    @deprecated("Use `sys.ffi.c_str_ptr()` instead.")
     # FIXME(MSTDL-956): This should return a pointer with StaticConstantOrigin.
     fn unsafe_cstr_ptr(self) -> UnsafePointer[c_char]:
         """Retrieves a C-string-compatible pointer to the underlying memory.

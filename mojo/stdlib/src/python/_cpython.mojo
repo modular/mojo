@@ -33,7 +33,7 @@ from sys.ffi import (
     c_size_t,
     c_ssize_t,
     c_uint,
-    c_char_ptr,
+    c_str_ptr,
 )
 
 from memory import UnsafePointer
@@ -372,7 +372,7 @@ struct PyMethodDef:
         #   type, similar to `get_linkage_name()`?
 
         return PyMethodDef(
-            c_char_ptr(func_name), func, METH_VARARGS, c_char_ptr(docstring)
+            c_str_ptr(func_name), func, METH_VARARGS, c_str_ptr(docstring)
         )
 
 
@@ -650,7 +650,7 @@ struct PyModuleDef(Stringable, Representable, Writable):
     @implicit
     fn __init__(out self, name: String):
         self.base = PyModuleDef_Base()
-        self.name = c_char_ptr(name)
+        self.name = c_str_ptr(name)
         self.docstring = UnsafePointer[c_char]()
         # means that the module does not support sub-interpreters
         self.size = -1
@@ -1716,12 +1716,38 @@ struct CPython:
     # Unicode Objects
     # ===-------------------------------------------------------------------===#
 
+<<<<<<< HEAD:stdlib/src/python/_cpython.mojo
+    fn PyUnicode_DecodeUTF8(inout self, strref: StringRef) -> PyObjectPtr:
+        """[Reference](
+        https://docs.python.org/3/c-api/unicode.html#c.PyUnicode_DecodeUTF8).
+        """
+
+        var r = self.lib.call["PyUnicode_DecodeUTF8", PyObjectPtr](
+            strref.unsafe_ptr().bitcast[Int8](),
+            strref.length,
+            c_str_ptr("strict"),
+        )
+
+        self.log(
+            r._get_ptr_as_int(),
+            " NEWREF PyUnicode_DecodeUTF8, refcnt:",
+            self._Py_REFCNT(r),
+            ", str:",
+            strref,
+        )
+
+        self._inc_total_rc()
+        return r
+
+    fn PyUnicode_DecodeUTF8(inout self, strslice: StringSlice) -> PyObjectPtr:
+=======
     fn PyUnicode_DecodeUTF8(mut self, strslice: StringSlice) -> PyObjectPtr:
+>>>>>>> upstream/main:mojo/stdlib/src/python/_cpython.mojo
         """[Reference](
         https://docs.python.org/3/c-api/unicode.html#c.PyUnicode_DecodeUTF8).
         """
         var r = self.lib.call["PyUnicode_DecodeUTF8", PyObjectPtr](
-            c_char_ptr(strslice), strslice.byte_length(), c_char_ptr("strict")
+            c_str_ptr(strslice), strslice.byte_length(), c_str_ptr("strict")
         )
 
         self.log(
