@@ -1034,21 +1034,23 @@ struct String(
         """
         self._iadd(other.as_bytes())
 
-    fn __iter__(self) -> CodepointSliceIter[__origin_of(self)]:
+    fn __iter__(ref self) -> CodepointSliceIter[__origin_of(self)]:
         """Iterate over the string unicode characters.
 
         Returns:
             An iterator of references to the string unicode characters.
         """
-        return self.codepoint_slices()
+        return CodepointSliceIter[__origin_of(self)](self.as_string_slice())
 
-    fn __reversed__(self) -> CodepointSliceIter[__origin_of(self), False]:
+    fn __reversed__(ref self) -> CodepointSliceIter[__origin_of(self), False]:
         """Iterate backwards over the string unicode characters.
 
         Returns:
             A reversed iterator of references to the string unicode characters.
         """
-        return CodepointSliceIter[__origin_of(self), forward=False](self)
+        return CodepointSliceIter[__origin_of(self), forward=False](
+            self.as_string_slice()
+        )
 
     # ===------------------------------------------------------------------=== #
     # Trait implementations
