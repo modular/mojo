@@ -34,6 +34,8 @@ from collections.dict import (
     _DictEntryIter,
     DictEntry,
 )
+from memory.span import Span, _SpanIter
+
 
 # ===----------------------------------------------------------------------=== #
 # Utilities
