@@ -126,6 +126,11 @@ what we publish.
   an issue with the any origin parameter extending the lifetime of unrelated
   local variables for this common method.
 
+- `Span` now has `find()` and `rfind()` methods which work for any
+  `Span[Scalar[D]]` e.g. `Span[Byte]`. The `rfind()` implementation is
+  now vectorized. PR [#3548](https://github.com/modularml/mojo/pull/3548) by
+  [@martinvuyk](https://github.com/martinvuyk).
+
 ### GPU changes
 
 - You can now skip compiling a GPU kernel first and then enqueueing it:
