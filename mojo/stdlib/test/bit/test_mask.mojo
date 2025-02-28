@@ -91,15 +91,15 @@ def test_compare():
             for k in values:
                 var s_k = S(k[])
                 var s_k_1 = S(k[] - 1)
-                assert_equal(S(-1), BitMask.compare[BitMask.EQ](s_k, s_k))
-                assert_equal(S(-1), BitMask.compare[BitMask.EQ](-s_k, -s_k))
-                assert_equal(S(-1), BitMask.compare[BitMask.NE](s_k, s_k_1))
-                assert_equal(S(-1), BitMask.compare[BitMask.NE](-s_k, s_k_1))
-                assert_equal(S(-1), BitMask.compare[BitMask.GT](s_k, s_k_1))
-                assert_equal(S(-1), BitMask.compare[BitMask.GT](s_k_1, -s_k))
-                assert_equal(S(-1), BitMask.compare[BitMask.GE](-s_k, -s_k))
-                assert_equal(S(-1), BitMask.compare[BitMask.LT](-s_k, s_k_1))
-                assert_equal(S(-1), BitMask.compare[BitMask.LE](-s_k, -s_k))
+                assert_equal(S(-1), BitMask.is_true[D](s_k == s_k))
+                assert_equal(S(-1), BitMask.is_true[D](-s_k == -s_k))
+                assert_equal(S(-1), BitMask.is_true[D](s_k != s_k_1))
+                assert_equal(S(-1), BitMask.is_true[D](-s_k != s_k_1))
+                assert_equal(S(-1), BitMask.is_true[D](s_k > s_k_1))
+                assert_equal(S(-1), BitMask.is_true[D](s_k_1 > -s_k))
+                assert_equal(S(-1), BitMask.is_true[D](-s_k >= -s_k))
+                assert_equal(S(-1), BitMask.is_true[D](-s_k < s_k_1))
+                assert_equal(S(-1), BitMask.is_true[D](-s_k <= -s_k))
 
 
 def main():

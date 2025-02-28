@@ -26,19 +26,6 @@ from sys.info import bitwidthof
 struct BitMask:
     """Utils for building bitmasks."""
 
-    alias EQ = 0
-    """Value for `==`."""
-    alias NE = 1
-    """Value for `!=`."""
-    alias GT = 2
-    """Value for `>`."""
-    alias GE = 3
-    """Value for `>=`."""
-    alias LT = 4
-    """Value for `<`."""
-    alias LE = 5
-    """Value for `<=`."""
-
     @always_inline
     @staticmethod
     fn is_negative(value: Int) -> Int:
@@ -113,58 +100,3 @@ struct BitMask:
             otherwise.
         """
         return Self.is_true[D](~value)
-
-    @always_inline
-    @staticmethod
-    fn compare[
-        D: DType, //, comp: Int
-    ](lhs: SIMD[D, _], rhs: __type_of(lhs)) -> __type_of(lhs):
-        """Get a bitmask of the comparison between the two values.
-
-        Parameters:
-            D: The DType.
-            comp: The comparison operator, e.g. `BitMask.EQ`.
-
-        Args:
-            lhs: The value to check.
-            rhs: The value to check.
-
-        Returns:
-            A bitmask filled with `1` if the comparison is true, filled with `0`
-            otherwise.
-        """
-
-        @parameter
-        if comp == Self.EQ:
-            return Self.is_true[D](lhs == rhs)
-        elif comp == Self.NE:
-            return Self.is_true[D](lhs != rhs)
-        elif comp == Self.GT:
-            return Self.is_true[D](lhs > rhs)
-        elif comp == Self.GE:
-            return Self.is_true[D](lhs >= rhs)
-        elif comp == Self.LT:
-            return Self.is_true[D](lhs < rhs)
-        elif comp == Self.LE:
-            return Self.is_true[D](lhs <= rhs)
-        else:
-            constrained[False, "comparison operator value not found"]()
-            return abort[__type_of(lhs)]()
-
-    @staticmethod
-    fn compare[comp: Int](lhs: Int, rhs: Int) -> Int:
-        """Get a bitmask of the comparison between the two values.
-
-        Parameters:
-            comp: The comparison operator, e.g. `BitMask.EQ`.
-
-        Args:
-            lhs: The value to check.
-            rhs: The value to check.
-
-        Returns:
-            A bitmask filled with `1` if the comparison is true, filled with `0`
-            otherwise.
-        """
-        alias S = Scalar[DType.index]
-        return Int(Self.compare[comp=comp](S(lhs), S(rhs)))
