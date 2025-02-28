@@ -225,8 +225,13 @@ struct Error(
     # ===-------------------------------------------------------------------===#
 
     @deprecated("Use `sys.ffi.c_char_ptr()` instead.")
-    # FIXME(MSTDL-956): This should return a pointer with StaticConstantOrigin.
-    fn unsafe_cstr_ptr(self) -> UnsafePointer[c_char]:
+    fn unsafe_cstr_ptr(
+        ref self,
+    ) -> UnsafePointer[
+        Byte,
+        mut = Origin(__origin_of(self)).is_mutable,
+        origin = __origin_of(self),
+    ]:
         """Retrieves a C-string-compatible pointer to the underlying memory.
 
         The returned pointer is guaranteed to be NUL terminated, and not null.
@@ -236,8 +241,14 @@ struct Error(
         """
         return self.data.bitcast[c_char]()
 
-    # FIXME(MSTDL-956): This should return a pointer with StaticConstantOrigin.
-    fn unsafe_ptr(self) -> UnsafePointer[UInt8]:
+    @always_inline("nodebug")
+    fn unsafe_ptr(
+        ref self,
+    ) -> UnsafePointer[
+        Byte,
+        mut = Origin(__origin_of(self)).is_mutable,
+        origin = __origin_of(self),
+    ]:
         """Get raw pointer to the underlying data.
 
         Returns:
