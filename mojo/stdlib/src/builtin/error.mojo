@@ -224,23 +224,6 @@ struct Error(
     # Methods
     # ===-------------------------------------------------------------------===#
 
-    @deprecated("Use `sys.ffi.c_str_ptr()` instead.")
-    fn unsafe_cstr_ptr(
-        ref self,
-    ) -> UnsafePointer[
-        c_char,
-        mut = Origin(__origin_of(self)).is_mutable,
-        origin = __origin_of(self),
-    ]:
-        """Retrieves a C-string-compatible pointer to the underlying memory.
-
-        The returned pointer is guaranteed to be NUL terminated, and not null.
-
-        Returns:
-            The pointer to the underlying memory.
-        """
-        return self.data.bitcast[c_char]()
-
     @always_inline("nodebug")
     fn unsafe_ptr(
         ref self,
