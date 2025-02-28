@@ -25,7 +25,7 @@ from python import (
 )  # TODO: remove this and fixup downstream imports
 
 from utils._select import _select_register_value as select
-from collections.string.string_slice import StringSlice, _StringSliceIter
+from collections.string.string_slice import StringSlice, CodepointSliceIter
 from collections.list import _ListIter
 from collections.dict import (
     Dict,
@@ -750,7 +750,7 @@ fn iter[
 
 
 @always_inline
-fn iter(ref value: String) -> _StringSliceIter[__origin_of(value)]:
+fn iter(ref value: String) -> CodepointSliceIter[__origin_of(value)]:
     """Return an iterator.
 
     Args:
@@ -763,7 +763,7 @@ fn iter(ref value: String) -> _StringSliceIter[__origin_of(value)]:
 
 
 @always_inline
-fn iter(value: StringLiteral) -> _StringSliceIter[StaticConstantOrigin]:
+fn iter(value: StringLiteral) -> CodepointSliceIter[StaticConstantOrigin]:
     """Return an iterator.
 
     Args:
@@ -772,11 +772,11 @@ fn iter(value: StringLiteral) -> _StringSliceIter[StaticConstantOrigin]:
     Returns:
         The type's Iterator.
     """
-    return rebind[_StringSliceIter[StaticConstantOrigin]](value.__iter__())
+    return rebind[CodepointSliceIter[StaticConstantOrigin]](value.__iter__())
 
 
 @always_inline
-fn iter(value: StringSlice) -> _StringSliceIter[__type_of(value).origin]:
+fn iter(value: StringSlice) -> CodepointSliceIter[__type_of(value).origin]:
     """Return an iterator.
 
     Args:
@@ -785,7 +785,7 @@ fn iter(value: StringSlice) -> _StringSliceIter[__type_of(value).origin]:
     Returns:
         The type's Iterator.
     """
-    return rebind[_StringSliceIter[__type_of(value).origin]](value.__iter__())
+    return rebind[CodepointSliceIter[__type_of(value).origin]](value.__iter__())
 
 
 @always_inline
@@ -932,7 +932,7 @@ fn next[
 
 
 @always_inline
-fn next(mut value: _StringSliceIter) -> StringSlice[__type_of(value).origin]:
+fn next(mut value: CodepointSliceIter) -> StringSlice[__type_of(value).origin]:
     """Return an iterator.
 
     Args:

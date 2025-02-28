@@ -19,7 +19,7 @@ from collections import Deque, Dict
 from collections.deque import _DequeIter
 from collections.dict import _DictEntryIter, _DictKeyIter, _DictValueIter
 from collections.list import _ListIter
-from collections.string.string_slice import _StringSliceIter, StringSlice
+from collections.string.string_slice import CodepointSliceIter, StringSlice
 
 from memory.span import Span, _SpanIter
 
@@ -214,7 +214,7 @@ fn reversed[
     return value.__reversed__()
 
 
-alias _S = _StringSliceIter[_, forward=False]
+alias _S = CodepointSliceIter[_, forward=False]
 
 
 @always_inline
