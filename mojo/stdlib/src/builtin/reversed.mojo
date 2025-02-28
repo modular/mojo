@@ -67,6 +67,8 @@ trait ReversibleRange:
 fn reversed[T: ReversibleRange](value: T) -> _StridedRange:
     """Get a reversed iterator of the input range.
 
+    **Note**: iterators are currently non-raising.
+
     Parameters:
         T: The type conforming to ReversibleRange.
 
@@ -86,6 +88,8 @@ fn reversed[
     T, __type_of(value).hint_trivial_type, __origin_of(value), False
 ]:
     """Get a reversed iterator of the input list.
+
+    **Note**: iterators are currently non-raising.
 
     Parameters:
         T: The type of the elements in the list.
@@ -126,6 +130,8 @@ fn reversed[
 ](ref value: Dict[K, V],) -> _DictKeyIter[K, V, __origin_of(value), False]:
     """Get a reversed iterator of the input dict.
 
+    **Note**: iterators are currently non-raising.
+
     Parameters:
         K: The type of the keys in the dict.
         V: The type of the values in the dict.
@@ -149,6 +155,8 @@ fn reversed[
     K, V, dict_origin, False
 ]:
     """Get a reversed iterator of the input dict values.
+
+    **Note**: iterators are currently non-raising.
 
     Parameters:
         K: The type of the keys in the dict.
@@ -176,6 +184,8 @@ fn reversed[
 ]:
     """Get a reversed iterator of the input dict items.
 
+    **Note**: iterators are currently non-raising.
+
     Parameters:
         K: The type of the keys in the dict.
         V: The type of the values in the dict.
@@ -197,7 +207,13 @@ fn reversed[
 @always_inline
 fn reversed[
     T: CollectionElement
-](value: Span[T]) -> _SpanIter[T, value.origin, forward=False]:
+](value: Span[T]) -> _SpanIter[
+    T,
+    origin,
+    forward=False,
+    address_space=address_space,
+    alignment=alignment,
+]:
     """Get a reversed iterator of the input Span.
 
     **Note**: iterators are currently non-raising.
@@ -221,6 +237,8 @@ alias _S = CodepointSliceIter[_, forward=False]
 fn reversed(ref value: String) -> _S[__origin_of(value)]:
     """Return a reversed iterator.
 
+    **Note**: iterators are currently non-raising.
+
     Args:
         value: The iterable value.
 
@@ -234,6 +252,8 @@ fn reversed(ref value: String) -> _S[__origin_of(value)]:
 fn reversed(value: StringLiteral) -> _S[StaticConstantOrigin]:
     """Return a reversed iterator.
 
+    **Note**: iterators are currently non-raising.
+
     Args:
         value: The iterable value.
 
@@ -246,6 +266,8 @@ fn reversed(value: StringLiteral) -> _S[StaticConstantOrigin]:
 @always_inline
 fn reversed(value: StringSlice) -> _S[__type_of(value).origin]:
     """Return a reversed iterator.
+
+    **Note**: iterators are currently non-raising.
 
     Args:
         value: The iterable value.

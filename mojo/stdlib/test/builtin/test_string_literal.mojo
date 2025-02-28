@@ -324,7 +324,7 @@ def test_iter():
 
     var idx = -1
     vs = "mojo🔥"
-    var iterator = vs.__iter__()
+    var iterator = iter(vs)
     assert_equal(5, len(iterator))
     var item = next(iterator)
     assert_equal(String("m"), String(item))

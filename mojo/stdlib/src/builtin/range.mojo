@@ -686,6 +686,29 @@ fn iter[
 
 @always_inline
 fn iter[
+    T: CollectionElement
+](value: Span[T]) -> _SpanIter[
+    T,
+    origin,
+    address_space=address_space,
+    alignment=alignment,
+]:
+    """Return an iterator.
+
+    Parameters:
+        T: The type that the iterator yields.
+
+    Args:
+        value: The iterable value.
+
+    Returns:
+        The type's Iterator.
+    """
+    return value.__iter__()
+
+
+@always_inline
+fn iter[
     K: KeyElement, V: CollectionElement
 ](ref [_]value: Dict[K, V]) -> _DictKeyIter[K, V, __origin_of(value)]:
     """Get an iterator of the input dict.
@@ -701,52 +724,6 @@ fn iter[
         The iterator of the dict keys.
     """
     return value.__iter__()
-
-
-@always_inline
-fn iter[
-    K: KeyElement, V: CollectionElement
-](
-    ref [_]value: _DictValueIter[K, V, *_],
-    out output: _DictValueIter[K, V, __type_of(value).dict_origin],
-):
-    """Get an iterator of the input dict values.
-
-    Parameters:
-        K: The type of the keys in the dict.
-        V: The type of the values in the dict.
-
-    Args:
-        value: The dict values to get the iterator of.
-
-    Returns:
-        The iterator of the dict values.
-    """
-    output = rebind[__type_of(output)](value.__iter__())
-
-
-@always_inline
-fn iter[
-    K: KeyElement,
-    V: CollectionElement,
-](
-    ref [_]value: _DictEntryIter[K, V, *_],
-    out output: _DictEntryIter[K, V, __type_of(value).dict_origin],
-):
-    """Get an iterator of the input dict items.
-
-    Parameters:
-        K: The type of the keys in the dict.
-        V: The type of the values in the dict.
-
-    Args:
-        value: The dict items to get the iterator of.
-
-    Returns:
-        The iterator of the dict items.
-    """
-    var src = value.src
-    output = __type_of(output)(src[]._reserved() - 1, 0, src)
 
 
 @always_inline
