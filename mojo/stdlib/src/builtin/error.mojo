@@ -17,7 +17,7 @@ These are Mojo built-ins, so you don't need to import them.
 
 from collections.string import StringSlice
 from sys import alignof, sizeof
-from sys.ffi import c_char
+from sys.ffi import c_char, c_str_ptr
 
 from memory import UnsafePointer, memcpy
 from memory.memory import _free
@@ -197,7 +197,7 @@ struct Error(
             return
         writer.write(
             StringSlice[__origin_of(self)](
-                unsafe_from_utf8_cstr_ptr=self.unsafe_cstr_ptr()
+                unsafe_from_utf8_cstr_ptr=c_str_ptr(self)
             )
         )
 
@@ -213,7 +213,7 @@ struct Error(
             repr(
                 String(
                     StringSlice[__origin_of(self)](
-                        unsafe_from_utf8_cstr_ptr=self.unsafe_cstr_ptr()
+                        unsafe_from_utf8_cstr_ptr=c_str_ptr(self)
                     )
                 )
             ),
@@ -228,7 +228,7 @@ struct Error(
     fn unsafe_cstr_ptr(
         ref self,
     ) -> UnsafePointer[
-        Byte,
+        c_char,
         mut = Origin(__origin_of(self)).is_mutable,
         origin = __origin_of(self),
     ]:
@@ -255,6 +255,7 @@ struct Error(
             The raw pointer to the data.
         """
         return self.data
+
 
 @doc_private
 fn __mojo_debugger_raise_hook():

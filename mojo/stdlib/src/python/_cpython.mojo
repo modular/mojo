@@ -1716,33 +1716,7 @@ struct CPython:
     # Unicode Objects
     # ===-------------------------------------------------------------------===#
 
-<<<<<<< HEAD:stdlib/src/python/_cpython.mojo
-    fn PyUnicode_DecodeUTF8(inout self, strref: StringRef) -> PyObjectPtr:
-        """[Reference](
-        https://docs.python.org/3/c-api/unicode.html#c.PyUnicode_DecodeUTF8).
-        """
-
-        var r = self.lib.call["PyUnicode_DecodeUTF8", PyObjectPtr](
-            strref.unsafe_ptr().bitcast[Int8](),
-            strref.length,
-            c_str_ptr("strict"),
-        )
-
-        self.log(
-            r._get_ptr_as_int(),
-            " NEWREF PyUnicode_DecodeUTF8, refcnt:",
-            self._Py_REFCNT(r),
-            ", str:",
-            strref,
-        )
-
-        self._inc_total_rc()
-        return r
-
-    fn PyUnicode_DecodeUTF8(inout self, strslice: StringSlice) -> PyObjectPtr:
-=======
     fn PyUnicode_DecodeUTF8(mut self, strslice: StringSlice) -> PyObjectPtr:
->>>>>>> upstream/main:mojo/stdlib/src/python/_cpython.mojo
         """[Reference](
         https://docs.python.org/3/c-api/unicode.html#c.PyUnicode_DecodeUTF8).
         """

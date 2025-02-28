@@ -16,7 +16,7 @@ from collections.string import StringSlice
 from os import abort
 from sys._libc import dlclose, dlerror, dlopen, dlsym
 
-from memory import UnsafePointer
+from memory import UnsafePointer, Span
 
 from .info import is_64bit, os_is_linux, os_is_macos, os_is_windows
 from .intrinsics import _mlirtype_is_eq
@@ -105,6 +105,19 @@ fn _c_long_long_dtype() -> DType:
 
 @always_inline
 fn c_str_ptr(item: StringLiteral) -> UnsafePointer[c_char]:
+    """Get the `c_char` pointer.
+
+    Args:
+        item: The item.
+
+    Returns:
+        The pointer.
+    """
+    return item.unsafe_ptr().bitcast[c_char]()
+
+
+@always_inline
+fn c_str_ptr(item: Error) -> UnsafePointer[c_char]:
     """Get the `c_char` pointer.
 
     Args:
