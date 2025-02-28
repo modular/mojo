@@ -103,8 +103,7 @@ def test_address_of():
 
 def test_pointer_to():
     var local = 1
-    assert_not_equal(0, int(UnsafePointer(to=local)))
-    _ = local
+    assert_not_equal(0, UnsafePointer(to=local)[])
 
 
 def test_explicit_copy_of_pointer_address():

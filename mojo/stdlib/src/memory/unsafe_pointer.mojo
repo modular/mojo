@@ -128,11 +128,9 @@ struct UnsafePointer[
         """
         self.address = value
 
-    @always_inline
-    fn __init__(
-        inout self, *, ref [origin, address_space._value.value]to: type
-    ):
-        """Create a pointer with the input value.
+    @always_inline("nodebug")
+    fn __init__(out self, *, ref [origin, address_space._value.value]to: type):
+        """Constructs a Pointer from a reference to a value.
 
         Args:
             to: The value to construct a pointer to.

@@ -42,11 +42,8 @@ def test_str():
 
 
 def test_pointer_to():
-    # FIXME(#3617)
-    # var local = 1
-    # assert_not_equal(0, int(Pointer(to=local)))
-    # _ = local
-    ...
+    var local = 1
+    assert_not_equal(0, Pointer(to=local)[])
 
 
 def main():
