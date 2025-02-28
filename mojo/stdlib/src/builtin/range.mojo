@@ -691,9 +691,9 @@ fn iter[
     T: CollectionElement
 ](value: Span[T]) -> _SpanIter[
     T,
-    origin,
-    address_space=address_space,
-    alignment=alignment,
+    __type_of(value).origin,
+    address_space = __type_of(value).address_space,
+    alignment = __type_of(value).alignment,
 ]:
     """Return an iterator.
 

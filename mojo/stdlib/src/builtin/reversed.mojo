@@ -209,10 +209,10 @@ fn reversed[
     T: CollectionElement
 ](value: Span[T]) -> _SpanIter[
     T,
-    origin,
+    __type_of(value).origin,
     forward=False,
-    address_space=address_space,
-    alignment=alignment,
+    address_space = __type_of(value).address_space,
+    alignment = __type_of(value).alignment,
 ]:
     """Get a reversed iterator of the input Span.
 
