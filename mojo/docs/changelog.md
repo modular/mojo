@@ -250,6 +250,7 @@ ctx.enqueue_function(compiled_func, grid_dim=1, block_dim=1)
   end_result.extend(n4_n5)
   end_result.extend(extra_data) # [4, 5, 8, 10]
   ```
+
 - `String` and `StringSlice` `.codepoint_slices()` was removed. This is now the
   default behavior of their `__iter__()` methods.
 
