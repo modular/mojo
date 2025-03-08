@@ -37,8 +37,6 @@ if [[ -z "${_START_MODULAR_INCLUDED+x}" ]]; then
   mv -f ${REPO_ROOT}/.magic/envs/default/lib/mojo/stdlib.mojopkg ${BUILD_DIR}/og_stdlib.mojopkg
   # copy the newly built stdlib
   cp -f ${BUILD_DIR}/stdlib.mojopkg ${REPO_ROOT}/.magic/envs/default/lib/mojo/stdlib.mojopkg
-  # return the original stdlib
-  mv -f ${BUILD_DIR}/og_stdlib.mojopkg ${REPO_ROOT}/.magic/envs/default/lib/mojo/stdlib.mojopkg
 fi
 
 # Run the benchmarks sequentially
