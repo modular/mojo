@@ -497,7 +497,7 @@ class TextAndVisionTokenizer(
             if request.images
             else None
         )
-        # PixtralProcessor returns torch tensor or list of torch tensors.
+        # PixtralProcessor returns a torch tensor or a list of torch tensors.
         # LlamaVision returns a np Array.
         processed_inputs = self.processor(
             text=prompt,

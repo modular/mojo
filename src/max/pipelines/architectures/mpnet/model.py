@@ -23,13 +23,15 @@ from collections.abc import Sequence
 from typing import cast
 
 import numpy as np
-from max.driver import Tensor
+from max.driver import Device, Tensor
 from max.engine import InferenceSession, Model
 from max.pipelines import (
+    KVCacheConfig,
     ModelInputs,
     ModelOutputs,
     PipelineConfig,
     PipelineModel,
+    SupportedEncoding,
     TextContext,
     upper_bounded_default,
 )
@@ -72,13 +74,27 @@ class MPNetPipelineModel(PipelineModel[TextContext]):
         pipeline_config: PipelineConfig,
         session: InferenceSession,
         huggingface_config: AutoConfig,
+        encoding: SupportedEncoding,
+        devices: list[Device],
+        kv_cache_config: KVCacheConfig,
     ) -> None:
-        super().__init__(pipeline_config, session, huggingface_config)
+        super().__init__(
+            pipeline_config,
+            session,
+            huggingface_config,
+            encoding,
+            devices,
+            kv_cache_config,
+        )
         self.model = self.load_model(session)
 
     @classmethod
     def get_kv_params(
-        cls, pipeline_config: PipelineConfig, huggingface_config: AutoConfig
+        cls,
+        pipeline_config: PipelineConfig,
+        huggingface_config: AutoConfig,
+        n_devices: int,
+        kv_cache_config: KVCacheConfig,
     ) -> KVCacheParams:
         return KVCacheParams(
             dtype=pipeline_config.cache_dtype,
@@ -87,8 +103,9 @@ class MPNetPipelineModel(PipelineModel[TextContext]):
                 huggingface_config.hidden_size
                 // huggingface_config.num_attention_heads
             ),
-            cache_strategy=pipeline_config.kv_cache_config.cache_strategy,
-            enable_prefix_caching=pipeline_config.kv_cache_config.enable_prefix_caching,
+            cache_strategy=kv_cache_config.cache_strategy,
+            n_devices=n_devices,
+            enable_prefix_caching=kv_cache_config.enable_prefix_caching,
         )
 
     @classmethod
@@ -145,10 +162,10 @@ class MPNetPipelineModel(PipelineModel[TextContext]):
 
         return MPNetInputs(
             next_tokens_batch=Tensor.from_numpy(next_tokens_batch).to(
-                self.pipeline_config.devices[0]
+                self.devices[0]
             ),
             attention_mask=Tensor.from_numpy(attention_mask).to(
-                self.pipeline_config.devices[0]
+                self.devices[0]
             ),
         )
 
@@ -185,7 +202,10 @@ class MPNetPipelineModel(PipelineModel[TextContext]):
             logger.info("Building and compiling model...")
             before = time.perf_counter()
             graph = build_graph(
-                self.pipeline_config, self._weights, self.huggingface_config
+                self.pipeline_config,
+                self._weights,
+                self.huggingface_config,
+                self.dtype,
             )
             model = session.load(
                 graph, weights_registry=self._weights.allocated_weights

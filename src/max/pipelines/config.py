@@ -35,8 +35,13 @@ import torch
 from huggingface_hub import constants as hf_hub_constants
 from huggingface_hub import errors as hf_hub_errors
 from huggingface_hub.utils import tqdm as hf_tqdm
-from max.driver import CPU, Accelerator, Device, DeviceSpec, accelerator_count
+from max.driver import (
+    DeviceSpec,
+    devices_exist,
+    scan_available_devices,
+)
 from max.dtype import DType
+from max.engine import GPUProfilingMode
 from max.graph.quantization import QuantizationConfig, QuantizationEncoding
 from max.graph.weights import (
     GGUFWeights,
@@ -66,12 +71,6 @@ class SupportedEncoding(str, Enum):
     q4_0 = "q4_0"
     q6_k = "q6_k"
     gptq = "gptq"
-
-    def __repr__(self) -> str:
-        return self.name
-
-    def __str__(self) -> str:
-        return self.name
 
     @classmethod
     def parse_from_file_name(cls, name: str):
@@ -551,6 +550,18 @@ class MAXConfig:
 
 
 @dataclass
+class MAXModelConfig(MAXConfig):
+    """Abstract base class for all MAX model configs.
+
+    This class is used to configure a model to use for a pipeline.
+    """
+
+    @staticmethod
+    def help() -> dict[str, str]:
+        return {}
+
+
+@dataclass
 class SamplingConfig(MAXConfig):
     top_k: int = 1
     """Limits the sampling to the K most probable tokens. This defaults to 1, which enables greedy sampling."""
@@ -611,36 +622,25 @@ class KVCacheConfig(MAXConfig):
 
 @dataclass
 class ProfilingConfig(MAXConfig):
-    gpu_profiling: str = os.environ.get("MODULAR_ENABLE_PROFILING", "false")
+    gpu_profiling: GPUProfilingMode = GPUProfilingMode.OFF
     """Whether to enable GPU profiling of the model."""
 
     def __post_init__(self):
-        if self.gpu_profiling not in (
-            "false",
-            "off",
-            "no",
-            "0",
-            "true",
-            "on",
-            "yes",
-            "1",
-            "detailed",
-        ):
-            raise ValueError("gpu_profiling must be a boolean or 'detailed'")
+        gpu_profiling_env = os.environ.get("MODULAR_ENABLE_PROFILING", "off")
+
+        if self.gpu_profiling == GPUProfilingMode.OFF:
+            if gpu_profiling_env not in GPUProfilingMode:
+                raise ValueError(
+                    "gpu_profiling must be one of: "
+                    + ", ".join(GPUProfilingMode)
+                )
+            self.gpu_profiling = GPUProfilingMode(gpu_profiling_env)
 
     @staticmethod
     def help() -> dict[str, str]:
         return {
-            "gpu_profiling": "Whether to enable GPU profiling of the model. This defaults to false.",
+            "gpu_profiling": "Whether to turn on GPU profiling for the model. This defaults to 'off'.",
         }
-
-
-def _scan_available_devices() -> list[DeviceSpec]:
-    accel_count = accelerator_count()
-    if accel_count == 0:
-        return [DeviceSpec.cpu()]
-    else:
-        return [DeviceSpec.accelerator(i) for i in range(accel_count)]
 
 
 @dataclass(frozen=False)
@@ -676,7 +676,7 @@ class PipelineConfig(MAXConfig):
     """Optional path or url of the model weights to use."""
 
     device_specs: list[DeviceSpec] = field(
-        default_factory=_scan_available_devices
+        default_factory=scan_available_devices
     )
     """Devices to run inference upon. This option is not documented in help() as it shouldn't be used directly via the CLI entrypoint."""
 
@@ -741,9 +741,6 @@ class PipelineConfig(MAXConfig):
     pool_embeddings: bool = True
     """Whether to pool embedding outputs."""
 
-    _huggingface_config: Optional[AutoConfig] = None
-    """The Hugging Face config associated with the `model-path`."""
-
     _kv_cache_config: KVCacheConfig = field(default_factory=KVCacheConfig)
     """The KVCache config."""
 
@@ -752,9 +749,6 @@ class PipelineConfig(MAXConfig):
 
     _profiling_config: ProfilingConfig = field(default_factory=ProfilingConfig)
     """The profiling config."""
-
-    _devices: list[Device] = field(default_factory=list)
-    """The underlying initialized devices, created by the specific `device_specs`."""
 
     _weight_adapters: dict[WeightsFormat, WeightsAdapter] = field(
         default_factory=dict
@@ -829,6 +823,13 @@ class PipelineConfig(MAXConfig):
         This method is called after the config is initialized, to ensure that all
         config fields have been initialized to a valid state.
         """
+        # Validate that the device_specs provided are available
+        if not devices_exist(self.device_specs):
+            available_devices = scan_available_devices()
+            msg = f"device specs provided ({self.device_specs}) do not exist."
+            msg += f"\navailable devices: {available_devices}"
+            raise ValueError(msg)
+
         # Validate if a provided max_length is non-negative.
         if self.max_length is not None and self.max_length < 0:
             raise ValueError("max_length must be non-negative.")
@@ -942,8 +943,6 @@ class PipelineConfig(MAXConfig):
     def __getstate__(self) -> dict[str, Any]:
         """Override `__getstate__` to exclude the Hugging Face config."""
         state = self.__dict__.copy()
-        state.pop("_huggingface_config")
-        state["_devices"] = []
         return state
 
     @property
@@ -966,8 +965,18 @@ class PipelineConfig(MAXConfig):
     def finalize_encoding_config(self):
         """Depending on the encoding picked, we get some more parameters from the hf config"""
         if self.quantization_encoding == SupportedEncoding.gptq:
-            hf_config = self.huggingface_config
+            hf_config = AutoConfig.from_pretrained(
+                self.model_path,
+                trust_remote_code=self.trust_remote_code,
+                revision=self.huggingface_revision,
+            )
             hf_quant_config = hf_config.quantization_config
+
+            if hf_config.torch_dtype is not torch.float16:
+                raise ValueError(
+                    "bfloat16 scales are not supported for GPTQ-quantized models."
+                )
+
             self._quant_config = QuantizationConfig(
                 quant_method=hf_quant_config["quant_method"],
                 bits=hf_quant_config["bits"],
@@ -975,30 +984,6 @@ class PipelineConfig(MAXConfig):
                 desc_act=hf_quant_config["desc_act"],
                 sym=hf_quant_config["sym"],
             )
-
-    @property
-    def huggingface_config(self) -> AutoConfig:
-        """Given the model_path, return the Hugging Face Config."""
-        if self._huggingface_config is None:
-            # Lazy initialize the Hugging Face config field.
-            self._huggingface_config = AutoConfig.from_pretrained(
-                self.model_path,
-                trust_remote_code=self.trust_remote_code,
-            )
-            assert self._huggingface_config is not None, (
-                "Failed to load Hugging Face config"
-            )
-
-        return self._huggingface_config
-
-    @property
-    def dtype(self) -> DType:
-        if self.quantization_encoding is None:
-            raise ValueError(
-                "quantization_encoding must be provided to infer dtype."
-            )
-
-        return self.quantization_encoding.dtype
 
     # TODO(zheng): Move this under KVCacheConfig.
     @property
@@ -1009,27 +994,6 @@ class PipelineConfig(MAXConfig):
             )
 
         return self.quantization_encoding.cache_dtype
-
-    @property
-    def devices(self) -> list[Device]:
-        """Initialize and return a list of devices, given a list of device specs."""
-        if self._devices:
-            return self._devices
-        num_devices_available = accelerator_count()
-        for device_spec in self.device_specs:
-            if device_spec.id >= num_devices_available:
-                msg = f"Device {device_spec.id} was requested but "
-                if num_devices_available == 0:
-                    msg += "no devices were found."
-                else:
-                    msg += f"only found {num_devices_available} devices."
-                raise ValueError(msg)
-            self._devices.append(
-                CPU(device_spec.id)
-                if device_spec.device_type == "cpu"
-                else Accelerator(device_spec.id)
-            )
-        return self._devices
 
     @property
     def weights_format(self) -> WeightsFormat:

@@ -16,12 +16,14 @@ from __future__ import annotations
 import logging
 import time
 
-from max.driver import Tensor
+from max.driver import Device, Tensor
 from max.engine import InferenceSession, Model
 from max.pipelines import (
+    KVCacheConfig,
     ModelInputs,
     PipelineConfig,
     PipelineModel,
+    SupportedEncoding,
 )
 from transformers import AutoConfig
 
@@ -55,8 +57,18 @@ class Whisper(PipelineModel):
         pipeline_config: PipelineConfig,
         session: InferenceSession,
         huggingface_config: AutoConfig,
+        encoding: SupportedEncoding,
+        devices: list[Device],
+        kv_cache_config: KVCacheConfig,
     ) -> None:
-        super().__init__(pipeline_config, session, huggingface_config)
+        super().__init__(
+            pipeline_config,
+            session,
+            huggingface_config,
+            encoding,
+            devices,
+            kv_cache_config,
+        )
         self.model = self.load_model(session)
 
     def load_model(

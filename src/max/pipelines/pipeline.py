@@ -29,7 +29,7 @@ from typing import (
 )
 
 import torch
-from max.driver import Device, Tensor
+from max.driver import Device, Tensor, load_devices
 from max.dtype import DType
 from max.engine import InferenceSession
 from max.pipelines.kv_cache import (
@@ -40,7 +40,7 @@ from max.pipelines.kv_cache import (
 from max.profiler import Tracer, traced
 from transformers import AutoConfig, AutoTokenizer
 
-from .config import PipelineConfig
+from .config import KVCacheConfig, PipelineConfig, SupportedEncoding
 from .context import InputContext
 from .interfaces import (
     LogProbabilities,
@@ -150,14 +150,24 @@ class PipelineModel(ABC, Generic[T]):
         pipeline_config: PipelineConfig,
         session: InferenceSession,
         huggingface_config: AutoConfig,
+        encoding: SupportedEncoding,
+        devices: list[Device],
+        kv_cache_config: KVCacheConfig,
     ) -> None:
         self.pipeline_config = pipeline_config
         self.huggingface_config = huggingface_config
+        self.encoding = encoding
+        self.devices = devices
+        self.kv_cache_config = kv_cache_config
 
         if isinstance(self, KVCacheMixin):
             self.kv_manager = self.load_kv_manager(
-                session, pipeline_config.kv_cache_config._available_cache_memory
+                session, self.kv_cache_config._available_cache_memory
             )
+
+    @property
+    def dtype(self) -> DType:
+        return self.encoding.dtype
 
     @classmethod
     @abstractmethod
@@ -170,10 +180,10 @@ class PipelineModel(ABC, Generic[T]):
         Example:
             >>> class MistralModel(PipelineModel):
             ...     @classmethod
-            ...     def calculate_max_seq_len(cls, pipeline_config: PipelineConfig) -> int:
+            ...     def calculate_max_seq_len(cls, pipeline_config: PipelineConfig, huggingface_config: AutoConfig) -> int:
             ...         try:
             ...             return upper_bounded_default(
-            ...                 upper_bound=pipeline_config.huggingface_config.max_seq_len,
+            ...                 upper_bound=huggingface_config.max_seq_len,
             ...                 default=pipeline_config.max_length,
             ...             )
             ...         except ValueError as e:
@@ -181,7 +191,7 @@ class PipelineModel(ABC, Generic[T]):
             ...                 "Unable to infer max_length for Mistral, the provided "
             ...                 f"max_length ({pipeline_config.max_length}) exceeds the "
             ...                 f"model's max_seq_len "
-            ...                 f"({pipeline_config.huggingface_config.max_seq_len})."
+            ...                 f"({huggingface_config.max_seq_len})."
             ...             )
             ...             raise ValueError(msg) from e
             ...
@@ -193,7 +203,11 @@ class PipelineModel(ABC, Generic[T]):
     @classmethod
     @abstractmethod
     def get_kv_params(
-        cls, pipeline_config: PipelineConfig, huggingface_config: AutoConfig
+        cls,
+        pipeline_config: PipelineConfig,
+        huggingface_config: AutoConfig,
+        n_devices: int,
+        kv_cache_config: KVCacheConfig,
     ) -> KVCacheParams:
         """Returns the KV cache params for the pipeline model."""
         ...
@@ -210,6 +224,8 @@ class PipelineModel(ABC, Generic[T]):
         pipeline_config: PipelineConfig,
         available_cache_memory: int,
         huggingface_config: AutoConfig,
+        devices: list[Device],
+        kv_cache_config: KVCacheConfig,
     ) -> int:
         """Returns the estimated optimal batch size to run the model
         given current memory constraints."""
@@ -217,31 +233,30 @@ class PipelineModel(ABC, Generic[T]):
             # we rely on the KVCache setup to know optimal batch size.
             # If we don't have that, default to BS=1.
             return 1
-        elif (
-            len(pipeline_config.devices) == 1
-            and pipeline_config.devices[0].is_host
-        ):
+        elif len(devices) == 1 and devices[0].is_host:
             # batching on CPU is generally not useful, so we hard-code a batch size of 1.
             return 1
 
         # TODO we should map HF configs to a unified MAX Config object
         # this would help avoid these excessive calls to class methods.
         n_layers = cls.get_num_layers(
-            huggingface_config=pipeline_config.huggingface_config,
+            huggingface_config=huggingface_config,
         )
         kv_params = cls.get_kv_params(
             pipeline_config,
-            huggingface_config=pipeline_config.huggingface_config,
+            huggingface_config=huggingface_config,
+            n_devices=len(devices),
+            kv_cache_config=kv_cache_config,
         )
         inferred_batch_size = infer_optimal_batch_size(
             params=kv_params,
             max_seq_len=cls.calculate_max_seq_len(
                 pipeline_config,
-                huggingface_config=pipeline_config.huggingface_config,
+                huggingface_config=huggingface_config,
             ),
             num_layers=n_layers,
             available_cache_memory=available_cache_memory,
-            devices=pipeline_config.devices,
+            devices=devices,
         )
 
         # clamp the floor of the inferred batch size to 1 and the ceiling to 4096
@@ -367,6 +382,7 @@ class KVCacheMixin(Protocol):
         available_cache_memory: int,
         devices: list[Device],
         huggingface_config: AutoConfig,
+        kv_cache_config: KVCacheConfig,
     ) -> int:
         """Estimates the size of the kv cache in bytes."""
         ...
@@ -383,10 +399,12 @@ class TextGenerationPipeline(TokenGenerator[T]):
         eos_token_id: int,
     ) -> None:
         self._pipeline_config = pipeline_config
+        self._huggingface_config: Optional[AutoConfig] = None
+        self._devices = load_devices(pipeline_config.device_specs)
 
         # Expand eos tokens if more are provided in pipeline_config
-        if "eos_token_id" in pipeline_config.huggingface_config:
-            eos_tokens = pipeline_config.huggingface_config.eos_token_id
+        if "eos_token_id" in self.huggingface_config:
+            eos_tokens = self.huggingface_config.eos_token_id
             if isinstance(eos_tokens, int):
                 if eos_tokens != eos_token_id:
                     msg = f"eos_token_id provided in huggingface config ({eos_tokens}), does not match provided eos_token_id ({eos_token_id}), using provided eos_token_id"
@@ -421,7 +439,7 @@ class TextGenerationPipeline(TokenGenerator[T]):
             self._grammar_compiler = xgr.GrammarCompiler(tokenizer_info)
 
         # Initialize Session.
-        session = InferenceSession(devices=self._pipeline_config.devices)
+        session = InferenceSession(devices=self._devices)
 
         # Enable profiling if enabled.
         session.gpu_profiling(
@@ -434,16 +452,32 @@ class TextGenerationPipeline(TokenGenerator[T]):
         )
 
         # Load model.
+        if not self._pipeline_config.quantization_encoding:
+            raise ValueError("quantization_encoding must not be None")
+
         self._pipeline_model = pipeline_model(
             pipeline_config=self._pipeline_config,
             session=session,
-            huggingface_config=self._pipeline_config.huggingface_config,
+            huggingface_config=self.huggingface_config,
+            encoding=self._pipeline_config.quantization_encoding,
+            devices=self._devices,
+            kv_cache_config=self._pipeline_config.kv_cache_config,
         )
 
         # Load sampler.
         self._sampler = session.load(
             token_sampler(self._pipeline_config.sampling_config),
         )
+
+    @property
+    def huggingface_config(self) -> AutoConfig:
+        if not self._huggingface_config:
+            self._huggingface_config = AutoConfig.from_pretrained(
+                self._pipeline_config.model_path,
+                trust_remote_code=self._pipeline_config.trust_remote_code,
+            )
+
+        return self._huggingface_config
 
     def calculate_num_steps(
         self,
@@ -452,7 +486,7 @@ class TextGenerationPipeline(TokenGenerator[T]):
     ) -> int:
         max_seq_len = self._pipeline_model.calculate_max_seq_len(
             self._pipeline_config,
-            huggingface_config=self._pipeline_config.huggingface_config,
+            huggingface_config=self.huggingface_config,
         )
         # this is effectively: max_seq_len - (num_tokens_in_kv_cache + num_new_tokens) - num_new_tokens
         num_available_steps = max_seq_len - (
@@ -632,7 +666,7 @@ class TextGenerationPipeline(TokenGenerator[T]):
         generated_tokens = Tensor.zeros(
             (len(context_batch), 0),
             dtype=DType.int64,
-            device=self._pipeline_config.devices[0],
+            device=self._devices[0],
         )
 
         curr_step_inputs = model_inputs
@@ -658,9 +692,7 @@ class TextGenerationPipeline(TokenGenerator[T]):
                 ).to(torch.bool)
                 bitmask = bitmask[:, 0 : self.vocab_size]
 
-                bitmask = Tensor.from_dlpack(bitmask).to(
-                    self._pipeline_config.devices[0]
-                )
+                bitmask = Tensor.from_dlpack(bitmask).to(self._devices[0])
 
             # Sample next token.
             tracer.next("sample_next_token")
@@ -765,7 +797,7 @@ class TextGenerationPipeline(TokenGenerator[T]):
                 max_length = upper_bounded_default(
                     upper_bound=self._pipeline_model.calculate_max_seq_len(
                         self._pipeline_config,
-                        huggingface_config=self._pipeline_config.huggingface_config,
+                        huggingface_config=self.huggingface_config,
                     ),
                     default=context.max_length,
                 )

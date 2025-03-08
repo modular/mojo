@@ -32,6 +32,7 @@ from max.graph.quantization import QuantizationConfig, QuantizationEncoding
 from max.graph.weights import Weights
 
 from .clamp import clamp
+from .comm import Allreduce
 from .kernels import swish_glu
 from .layer import Layer, LayerV2
 
@@ -561,6 +562,7 @@ class MLPV2(LayerV2):
             device=devices[0] if devices else None,
             quantization_encoding=quantization_encoding,
         )
+        self.quantization_encoding = quantization_encoding
 
     def __call__(self, x: TensorValueLike) -> TensorValue:
         if (
@@ -578,10 +580,25 @@ class MLPV2(LayerV2):
                     self.up_proj.weight,
                 )
             )
-
-        return self.down_proj(
-            ops.silu(self.gate_proj(x)) * self.up_proj(x)  # type: ignore
-        )
+        if self.quantization_encoding:
+            return self.down_proj(
+                ops.silu(self.gate_proj(x)) * self.up_proj(x)  # type: ignore
+            )
+        else:
+            # Optimization to compute a single matmul by merging the
+            # gate and up projection weights.
+            feed_forward_length = self.gate_proj.weight.shape[0]
+            gate_proj_weight: TensorValue = self.gate_proj.weight
+            if self.gate_proj.device:
+                gate_proj_weight = gate_proj_weight.to(self.gate_proj.device)
+            up_proj_weight: TensorValue = self.up_proj.weight
+            if self.up_proj.device:
+                up_proj_weight = up_proj_weight.to(self.up_proj.device)
+            output = x @ ops.concat((gate_proj_weight, up_proj_weight)).T
+            gate_out, up_out = ops.split(
+                output, [feed_forward_length, feed_forward_length], axis=1
+            )
+            return self.down_proj(ops.silu(gate_out) * up_out)
 
 
 class DistributedMLP(MLPV2):
@@ -627,6 +644,8 @@ class DistributedMLP(MLPV2):
 
             self.list_of_mlps.append(layer)
 
+        self.allreduce = Allreduce(num_accelerators=len(self.devices))
+
     def __call__(  # type: ignore[override]
         self, x: list[TensorValue], signal_buffers: list[BufferValue]
     ) -> list[TensorValue]:
@@ -636,6 +655,7 @@ class DistributedMLP(MLPV2):
             x: Input tensor of shape ``(..., in_dim)``.
                 The last dimension must match the layer's ``in_dim``.
                 The input tensor must reside on :obj:`device`.
+            signal_buffers: Buffers for peer-to-peer communication in allreduce.
 
         Returns:
             Output tensor of shape ``(..., out_dim)``.
@@ -645,4 +665,4 @@ class DistributedMLP(MLPV2):
             ValueError: If the last dimension of ``x`` doesn't match ``in_dim``.
         """
         mlp_outs = [self.list_of_mlps[i](x[i]) for i in range(self.num_devices)]
-        return ops.allreduce.sum(mlp_outs, signal_buffers)
+        return self.allreduce(mlp_outs, signal_buffers)
