@@ -170,7 +170,7 @@ struct StringLiteral(
                 concat = concat + self
             return concat
         else:
-            return self.as_string_slice()*n
+            return self.as_string_slice() * n
 
     @always_inline("nodebug")
     fn __eq__(self, rhs: StringLiteral) -> Bool:

@@ -944,7 +944,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         res.write(self, rhs)
         return res
 
-
     fn __mul__(self, n: Int) -> String:
         """Concatenates the string `n` times.
 
