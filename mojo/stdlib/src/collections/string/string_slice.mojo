@@ -2289,11 +2289,12 @@ fn _utf8_first_byte_sequence_length(b: Byte) -> Int:
     )
 
     if is_compile_time():
-        return 4 - (
-            __type_of(b)(b < 0b1000_0000)
-            + __type_of(b)(b < 0b1110_0000)
-            + __type_of(b)(b < 0b1111_0000)
+        var amnt_bytes = (
+            __type_of(b)(b > 0b1000_0000)
+            + __type_of(b)(b > 0b1110_0000)
+            + __type_of(b)(b > 0b1111_0000)
         )
+        return Int(1 + amnt_bytes)
     else:
         return Int(
             count_leading_zeros(~b) | (b < 0b1000_0000).cast[DType.uint8]()
