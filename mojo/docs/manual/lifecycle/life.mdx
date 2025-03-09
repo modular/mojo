@@ -451,7 +451,7 @@ struct HeapArray:
     fn __init__(out self, size: Int, val: Int):
         self.size = size
         self.cap = size * 2
-        self.data = UnsafePointer[Int].alloc(self.size)
+        self.data = UnsafePointer[Int].alloc(self.cap)
         for i in range(self.size):
             (self.data + i).init_pointee_copy(val)
 
