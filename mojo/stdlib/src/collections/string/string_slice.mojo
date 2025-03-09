@@ -34,7 +34,7 @@ from hashlib._hasher import _HashableWithHasher, _Hasher
 from os import PathLike, abort
 from sys import bitwidthof, simdwidthof, is_compile_time
 from sys.ffi import c_char
-from sys.intrinsics import likely, unlikely, is_compile_time
+from sys.intrinsics import likely, unlikely
 
 from math import align_down
 from bit import count_leading_zeros, count_trailing_zeros
@@ -2288,7 +2288,6 @@ fn _utf8_first_byte_sequence_length(b: Byte) -> Int:
         "Function does not work correctly if given a continuation byte.",
     )
 
-    @parameter
     if is_compile_time():
         return 4 - (
             __type_of(b)(b < 0b1000_0000)
@@ -2316,7 +2315,6 @@ fn _utf8_byte_type(b: SIMD[DType.uint8, _], /) -> __type_of(b):
         - 4 -> start of 4 byte long sequence.
     """
 
-    @parameter
     if is_compile_time():
         return 4 - (
             __type_of(b)(b < 0b1000_0000)
