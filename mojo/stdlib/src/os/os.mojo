@@ -268,7 +268,7 @@ fn abort[
 
     @parameter
     if not is_gpu():
-        print(String(messages), flush=True)
+        print(messages, flush=True)
 
     return abort[result]()
 
