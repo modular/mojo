@@ -457,13 +457,19 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         # slice to live for.
         # SAFETY:
         #   StringLiteral is guaranteed to use UTF-8 encoding.
-        # FIXME(MSTDL-160):
-        #   Ensure StringLiteral _actually_ always uses UTF-8 encoding.
-        self = StaticString(unsafe_from_utf8=lit.as_bytes())
+        # NOTE: validating StringLiterals would increase compile times
+        self = StaticString.__init__[debug_assert_validate=False](
+            unsafe_from_utf8=lit.as_bytes()
+        )
 
     @always_inline
-    fn __init__(out self, *, owned unsafe_from_utf8: Span[Byte, origin]):
+    fn __init__[
+        debug_assert_validate: Bool = True
+    ](out self, *, owned unsafe_from_utf8: Span[Byte, origin]):
         """Construct a new `StringSlice` from a sequence of UTF-8 encoded bytes.
+
+        Parameters:
+            debug_assert_validate: Whether to validate the utf8 buffer.
 
         Args:
             unsafe_from_utf8: A `Span[Byte]` encoded in UTF-8.
@@ -471,14 +477,16 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Safety:
             `unsafe_from_utf8` MUST be valid UTF-8 encoded data.
         """
-        # FIXME(#3706): can't run at compile time
-        # TODO(MOCO-1525):
-        #   Support skipping UTF-8 during comptime evaluations, or support
-        #   the necessary SIMD intrinsics to allow this to evaluate at compile
-        #   time.
-        # debug_assert(
-        #     _is_valid_utf8(value.as_bytes()), "value is not valid utf8"
-        # )
+
+        @parameter
+        if debug_assert_validate:
+            if is_compile_time():
+                if not _is_valid_utf8(unsafe_from_utf8):
+                    abort("value is not valid utf8")
+            else:
+                debug_assert(
+                    _is_valid_utf8(unsafe_from_utf8), "value is not valid utf8"
+                )
         self._slice = unsafe_from_utf8
 
     fn __init__(out self, *, unsafe_from_utf8_ptr: UnsafePointer[Byte]):
@@ -495,13 +503,10 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
             - `unsafe_from_utf8_ptr` MUST be null terminated.
         """
 
-        var count = _unsafe_strlen(unsafe_from_utf8_ptr)
-
         var byte_slice = Span[Byte, origin](
             ptr=unsafe_from_utf8_ptr,
-            length=count,
+            length=_unsafe_strlen(unsafe_from_utf8_ptr),
         )
-
         self = Self(unsafe_from_utf8=byte_slice)
 
     fn __init__(out self, *, unsafe_from_utf8_cstr_ptr: UnsafePointer[c_char]):
@@ -544,7 +549,9 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         Returns:
             A copy of the value.
         """
-        return Self(unsafe_from_utf8=self._slice)
+        return Self.__init__[debug_assert_validate=False](
+            unsafe_from_utf8=self._slice
+        )
 
     @implicit
     fn __init__[
@@ -2305,7 +2312,15 @@ fn _utf8_byte_type(b: SIMD[DType.uint8, _], /) -> __type_of(b):
         - 3 -> start of 3 byte long sequence.
         - 4 -> start of 4 byte long sequence.
     """
-    return count_leading_zeros(~b)
+    if is_compile_time():
+        return 4 - (
+            __type_of(b)(b < 0b1000_0000)
+            + __type_of(b)(b < 0b1100_0000)
+            + __type_of(b)(b < 0b1110_0000)
+            + __type_of(b)(b < 0b1111_0000)
+        )
+    else:
+        return count_leading_zeros(~b)
 
 
 @always_inline
