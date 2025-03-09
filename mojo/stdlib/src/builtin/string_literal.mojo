@@ -25,7 +25,7 @@ from collections.string.string_slice import (
 )
 from hashlib._hasher import _HashableWithHasher, _Hasher
 from sys.ffi import c_char
-from sys.intringics import is_compile_time
+from sys import is_compile_time
 
 from memory import Span, UnsafePointer, memcpy
 
@@ -140,12 +140,22 @@ struct StringLiteral(
         Returns:
             The concatenated string.
         """
-        if is_compile_time():
-            return __mlir_op.`pop.string.concat`(self.value, rhs.value)
-        else:
-            return StringLiteral.get(String(self) + rhs)
+        return __mlir_op.`pop.string.concat`(self.value, rhs.value)
 
-    fn __mul__(self, n: Int) -> StringLiteral:
+    @always_inline("nodebug")
+    fn __add__(self, rhs: StringSlice) -> String:
+        """Concatenate two strings.
+
+        Args:
+            rhs: The string to concat.
+
+        Returns:
+            The concatenated string.
+        """
+        return self.as_string_slice() + rhs
+
+    @always_inline("nodebug")
+    fn __mul__(self, n: Int) -> String:
         """Concatenates the string `n` times.
 
         Args:
@@ -160,7 +170,7 @@ struct StringLiteral(
                 concat = concat + self
             return concat
         else:
-            return StringLiteral.get(self.as_string_slice() * n)
+            return self.as_string_slice()*n
 
     @always_inline("nodebug")
     fn __eq__(self, rhs: StringLiteral) -> Bool:
