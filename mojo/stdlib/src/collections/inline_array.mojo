@@ -38,6 +38,7 @@ Note:
 from collections._index_normalization import normalize_index
 from sys.intrinsics import _type_is_eq
 
+import math
 from memory import UnsafePointer
 from memory.maybe_uninitialized import UnsafeMaybeUninitialized
 
@@ -164,8 +165,11 @@ struct InlineArray[
 
     @always_inline
     @implicit
-    fn __init__(out self, fill: Self.ElementType):
+    fn __init__[batch_size: Int = 64](out self, fill: Self.ElementType):
         """Constructs an array where each element is initialized to the supplied value.
+
+        Parameters:
+            batch_size: The number of elements to unroll for filling the array.
 
         Args:
             fill: The element value to fill each index with.
@@ -178,8 +182,20 @@ struct InlineArray[
         _inline_array_construction_checks[size]()
         __mlir_op.`lit.ownership.mark_initialized`(__get_mvalue_as_litref(self))
 
+        alias unroll_end = math.align_down(size, batch_size)
+
+        for i in range(0, unroll_end, batch_size):
+
+            @parameter
+            for j in range(batch_size):
+                var ptr = UnsafePointer.address_of(
+                    self.unsafe_get(i * batch_size + j)
+                )
+                ptr.init_pointee_copy(fill)
+
+        # Fill the remainder
         @parameter
-        for i in range(size):
+        for i in range(unroll_end, size):
             var ptr = UnsafePointer.address_of(self.unsafe_get(i))
             ptr.init_pointee_copy(fill)
 
