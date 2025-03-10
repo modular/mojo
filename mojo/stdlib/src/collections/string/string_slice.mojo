@@ -1054,10 +1054,6 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
         return self._split_whitespace()
 
     fn _split_whitespace(self, maxsplit: Int = -1) -> List[StringSlice[origin]]:
-        fn num_bytes(b: UInt8) -> Int:
-            var flipped = ~b
-            return Int(count_leading_zeros(flipped) + (flipped >> 7))
-
         var output = List[StringSlice[origin]]()
         var str_byte_len = self.byte_length() - 1
         var lhs = 0
@@ -1080,9 +1076,12 @@ struct StringSlice[mut: Bool, //, origin: Origin[mut]](
                     # if the last char is not whitespace
                     output.append(self[str_byte_len:])
                     break
-                rhs = lhs + num_bytes(self.unsafe_ptr()[lhs])
+                rhs = lhs + _utf8_first_byte_sequence_length(
+                    self.unsafe_ptr()[lhs]
+                )
                 for s in self[
-                    lhs + num_bytes(self.unsafe_ptr()[lhs]) :
+                    lhs
+                    + _utf8_first_byte_sequence_length(self.unsafe_ptr()[lhs]) :
                 ].codepoint_slices():
                     if s.isspace():
                         break
@@ -2288,7 +2287,18 @@ fn _utf8_first_byte_sequence_length(b: Byte) -> Int:
         not _is_utf8_continuation_byte(b),
         "Function does not work correctly if given a continuation byte.",
     )
-    return Int(count_leading_zeros(~b) | (b < 0b1000_0000).cast[DType.uint8]())
+
+    if is_compile_time():
+        var amnt_bytes = (
+            __type_of(b)(b > 0b1000_0000)
+            + __type_of(b)(b > 0b1110_0000)
+            + __type_of(b)(b > 0b1111_0000)
+        )
+        return Int(1 + amnt_bytes)
+    else:
+        return Int(
+            count_leading_zeros(~b) | (b < 0b1000_0000).cast[DType.uint8]()
+        )
 
 
 fn _utf8_byte_type(b: SIMD[DType.uint8, _], /) -> __type_of(b):
@@ -2305,7 +2315,16 @@ fn _utf8_byte_type(b: SIMD[DType.uint8, _], /) -> __type_of(b):
         - 3 -> start of 3 byte long sequence.
         - 4 -> start of 4 byte long sequence.
     """
-    return count_leading_zeros(~b)
+
+    if is_compile_time():
+        return 4 - (
+            __type_of(b)(b < 0b1000_0000)
+            + __type_of(b)(b < 0b1100_0000)
+            + __type_of(b)(b < 0b1110_0000)
+            + __type_of(b)(b < 0b1111_0000)
+        )
+    else:
+        return count_leading_zeros(~b)
 
 
 @always_inline
