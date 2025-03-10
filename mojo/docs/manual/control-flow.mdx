@@ -336,7 +336,7 @@ collection types shown above in that it's implemented as a
 [generator](https://en.wikipedia.org/wiki/Generator_\(computer_programming\)),
 producing each value as needed rather than materializing the entire sequence
 in memory. Additionally, each value assigned to the loop index variable is
-simply the `Int` value rather than a `Reference` to the value, so you should
+simply the `Int` value rather than a `Pointer` to the value, so you should
 not use the dereference operator on it within the loop. For example:
 
 ```mojo
@@ -459,7 +459,7 @@ cat
 :::note TODO
 
 Iterating over a Mojo collection currently assigns the loop index variable a
-`Reference` to each element, which then requires you to use the dereference
+`Pointer` to each element, which then requires you to use the dereference
 operator within the loop body. In contrast, iterating over a Python collection
 assigns a `PythonObject` wrapper for the element, which does *not* require you
 to use the dereference operator.
