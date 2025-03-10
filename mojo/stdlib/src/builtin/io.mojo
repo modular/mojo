@@ -319,7 +319,7 @@ fn _snprintf[
 # ===----------------------------------------------------------------------=== #
 
 
-@no_inline
+@always_inline("nodebug")
 fn print[
     *Ts: Writable
 ](
@@ -334,6 +334,27 @@ fn print[
 
     Parameters:
         Ts: The elements types.
+
+    Args:
+        values: The elements to print.
+        sep: The separator used between elements.
+        end: The String to write after printing the elements.
+        flush: If set to true, then the stream is forcibly flushed.
+        file: The output stream.
+    """
+    print(values, sep, end, flush, file)
+
+
+@no_inline
+fn print(
+    values: VariadicPack[element_trait=Writable, *_],
+    sep: StaticString = " ",
+    end: StaticString = "\n",
+    flush: Bool = False,
+    owned file: FileDescriptor = stdout,
+):
+    """Prints elements to the text stream. Each element is separated by `sep`
+    and followed by `end`.
 
     Args:
         values: The elements to print.
